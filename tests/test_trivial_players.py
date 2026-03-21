@@ -1,7 +1,7 @@
 """Tests for the trivial player implementations."""
 
 from mad_world.core import GameRules, init_game
-from mad_world.trivial_players import CrazyIvan
+from mad_world.trivial_players import CrazyIvan, Pacifist
 
 
 def test_crazy_ivan_initial_message() -> None:
@@ -37,3 +37,47 @@ def test_crazy_ivan_operations() -> None:
     assert action.operations == ["first-strike"]
     assert action.message_to_opponent is None
     assert action.internal_monologue == "I'm crazy!"
+
+
+def test_pacifist_initial_message() -> None:
+    """Test Pacifist's initial message."""
+    player = Pacifist("TestPacifist")
+    game_state = init_game([player])
+    assert (
+        player.initial_message(game_state)
+        == "I seek only peace and prosperity for all."
+    )
+
+
+def test_pacifist_bid() -> None:
+    """Test Pacifist's bidding logic."""
+    player = Pacifist("TestPacifist")
+    game_state = init_game([player])
+
+    action = player.bid(game_state, message_from_opponent=None)
+
+    # Pacifist always bids 0
+    assert action.bid == 0
+    assert (
+        action.message_to_opponent
+        == "Let us de-escalate tensions and work together."
+    )
+    assert (
+        action.internal_monologue
+        == "I must reduce the doomsday clock at all costs."
+    )
+
+
+def test_pacifist_operations() -> None:
+    """Test Pacifist's operation logic."""
+    player = Pacifist("TestPacifist")
+    game_state = init_game([player])
+
+    action = player.operations(game_state, message_to_opponent=None)
+
+    assert action.operations == []
+    assert action.message_to_opponent == "I offer you the hand of friendship."
+    assert (
+        action.internal_monologue
+        == "I will not participate in these violent games."
+    )

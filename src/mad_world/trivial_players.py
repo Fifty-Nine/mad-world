@@ -37,3 +37,34 @@ class CrazyIvan(GamePlayer):
             operations=["first-strike"],
             internal_monologue="I'm crazy!",
         )
+
+
+class Pacifist(GamePlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+    @override
+    def initial_message(self, game: GameState) -> str | None:
+        return "I seek only peace and prosperity for all."
+
+    @override
+    def bid(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> BiddingAction:
+        return BiddingAction(
+            message_to_opponent=(
+                "Let us de-escalate tensions and work together."
+            ),
+            bid=0,
+            internal_monologue="I must reduce the doomsday clock at all costs.",
+        )
+
+    @override
+    def operations(
+        self, game: GameState, message_to_opponent: str | None
+    ) -> OperationsAction:
+        return OperationsAction(
+            message_to_opponent="I offer you the hand of friendship.",
+            operations=[],
+            internal_monologue="I will not participate in these violent games.",
+        )
