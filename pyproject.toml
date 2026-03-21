@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "A small computer strategy game"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.12.5",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -22,7 +24,7 @@ dev = [
 packages = ["src/mad_world"]
 
 [tool.ruff]
-line-length = 88
+line-length = 80
 target-version = "py312"
 output-format = "concise"
 
