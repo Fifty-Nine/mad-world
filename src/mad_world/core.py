@@ -6,7 +6,7 @@ import pprint
 import random
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Annotated, Literal, override
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -226,35 +226,6 @@ class GamePlayer(ABC):
         pass
 
 
-class CrazyIvan(GamePlayer):
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
-
-    @override
-    def initial_message(self, game: GameState) -> str | None:
-        return "I'm crazy Ivan. Prepare to die!"
-
-    @override
-    def bid(
-        self, game: GameState, message_from_opponent: str | None
-    ) -> BiddingAction:
-        return BiddingAction(
-            message_to_opponent=None,
-            bid=max(game.rules.allowed_bids),
-            internal_monologue="No thoughts, head empty.",
-        )
-
-    @override
-    def operations(
-        self, game: GameState, message_to_opponent: str | None
-    ) -> OperationsAction:
-        return OperationsAction(
-            message_to_opponent=None,
-            operations=["first-strike"],
-            internal_monologue="I'm crazy!",
-        )
-
-
 def init_game(
     players: list[GamePlayer], rules: GameRules = DEFAULT_RULES
 ) -> GameState:
@@ -431,6 +402,8 @@ def game_loop(
 
 
 if __name__ == "__main__":
+    from mad_world.trivial_players import CrazyIvan
+
     logging.basicConfig(level=logging.DEBUG)
     pprint.pprint(
         game_loop(GameRules(), [CrazyIvan("Alpha"), CrazyIvan("Omega")])

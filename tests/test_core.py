@@ -1,6 +1,7 @@
 """Tests for the core module."""
 
-from mad_world.core import CrazyIvan, GameOverReason, GameRules, game_loop
+from mad_world.core import GameOverReason, GameRules, game_loop
+from mad_world.trivial_players import CrazyIvan
 
 
 def test_oops_all_ivans() -> None:
