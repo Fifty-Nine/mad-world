@@ -2,9 +2,11 @@
 
 import copy
 import logging
+import pprint
+import random
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import override
+from typing import Annotated, Literal, override
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +26,7 @@ class OperationDefinition(BaseModel):
     """Tracks the definition of a single operation type."""
 
     name: str
-    desc: str
+    description: str
     influence_cost: int
     clock_effect: int = 0
     friendly_gdp_effect: int = 0
@@ -34,7 +36,7 @@ class OperationDefinition(BaseModel):
 DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     "domestic-investment": OperationDefinition(
         name="domestic-investment",
-        desc=(
+        description=(
             "Building internal infrastructure or safely investing in firmly "
             "aligned client states. Low risk, steady reward."
         ),
@@ -43,7 +45,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     ),
     "aggressive-extraction": OperationDefinition(
         name="aggressive-extraction",
-        desc=(
+        description=(
             "Forcing unaligned or contested regions to yield resources. Highly "
             "efficient conversion of Influence to GDP, but steadily drives the "
             "world toward MAD."
@@ -54,7 +56,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     ),
     "proxy-subversion": OperationDefinition(
         name="proxy-subversion",
-        desc=(
+        description=(
             "Direct economic warfare. Highly damaging to the opponent's score, "
             "but expensive and escalatory."
         ),
@@ -64,7 +66,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     ),
     "diplomatic-summit": OperationDefinition(
         name="diplomatic-summit",
-        desc=(
+        description=(
             "Expending massive political capital to walk back from the brink "
             "of nuclear war. Generates zero economic value."
         ),
@@ -73,7 +75,9 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     ),
     "first-strike": OperationDefinition(
         name="first-strike",
-        desc=("Attempt to conduct a first strike against your opponent."),
+        description=(
+            "Attempt to conduct a first strike against your opponent."
+        ),
         influence_cost=0,
         clock_effect=50,
         friendly_gdp_effect=-100,
@@ -98,6 +102,7 @@ class GameRules(BaseModel):
 
 
 DEFAULT_RULES: GameRules = GameRules()
+RANDOM = random.Random()
 
 
 class PlayerState(BaseModel):
@@ -107,8 +112,32 @@ class PlayerState(BaseModel):
     gdp: int = 50
     influence: int = 5
     last_message: str | None = None
-    last_bid: int | None = None
-    last_operations: list[str] = Field(default=[])
+
+
+class ActorKind(Enum):
+    SYSTEM = 1
+    PLAYER = 2
+
+
+class SystemActor(BaseModel):
+    actor_kind: Literal[ActorKind.SYSTEM] = Field(default=ActorKind.SYSTEM)
+
+
+class PlayerActor(BaseModel):
+    actor_kind: Literal[ActorKind.PLAYER] = Field(default=ActorKind.PLAYER)
+    name: str
+
+
+class GameEvent(BaseModel):
+    """Represents a discrete state change in the game."""
+
+    actor: Annotated[
+        SystemActor | PlayerActor, Field(discriminator="actor_kind")
+    ]
+    description: str
+    clock_delta: int = 0
+    gdp_delta: dict[str, int] = Field(default_factory=dict)
+    influence_delta: dict[str, int] = Field(default_factory=dict)
 
 
 class GameState(BaseModel):
@@ -119,6 +148,16 @@ class GameState(BaseModel):
     current_round: int = 1
     current_phase: GamePhase = GamePhase.BIDDING
     rules: GameRules
+    event_log: list[GameEvent] = Field(default_factory=list)
+
+    def apply_event(self, event: GameEvent) -> None:
+        self.doomsday_clock += event.clock_delta
+
+        for player in self.players:
+            player.gdp += event.gdp_delta.get(player.name, 0)
+            player.influence += event.influence_delta.get(player.name, 0)
+
+        self.event_log.append(event)
 
 
 class BaseAction(BaseModel):
@@ -172,7 +211,6 @@ class GamePlayer(ABC):
         self,
         game: GameState,
         message_from_opponent: str | None,
-        opponent_operations: list[str],
     ) -> BiddingAction:
         """Get the player's input for the bidding phase, given the current
         game state, their opponent's message from the last phase and their
@@ -184,7 +222,6 @@ class GamePlayer(ABC):
         self,
         game: GameState,
         message_from_opponent: str | None,
-        opponent_bid: int,
     ) -> OperationsAction:
         pass
 
@@ -199,10 +236,7 @@ class CrazyIvan(GamePlayer):
 
     @override
     def bid(
-        self,
-        game: GameState,
-        message_from_opponent: str | None,
-        opponent_operations: list[str],
+        self, game: GameState, message_from_opponent: str | None
     ) -> BiddingAction:
         return BiddingAction(
             message_to_opponent=None,
@@ -212,10 +246,7 @@ class CrazyIvan(GamePlayer):
 
     @override
     def operations(
-        self,
-        game: GameState,
-        message_to_opponent: str | None,
-        opponent_bid: int,
+        self, game: GameState, message_to_opponent: str | None
     ) -> OperationsAction:
         return OperationsAction(
             message_to_opponent=None,
@@ -241,45 +272,43 @@ def init_game(
     )
 
 
-def check_bid(rules: GameRules, bid: int) -> int:
-    if bid not in rules.allowed_bids:
-        return max(rules.allowed_bids)
-
-    return bid
-
-
-def update_clock(bid: int, game: GameState) -> None:
+def process_bid(game: GameState, player_name: str, bid: int) -> None:
+    if bid not in game.rules.allowed_bids:
+        bid = max(game.rules.allowed_bids)
+        clock_impact = bid
+        desc = (
+            f"{player_name} submitted an invalid bid and thus their bid "
+            "has been corrected to the maximum possible value."
+        )
     if bid == 0:
-        game.doomsday_clock += game.rules.de_escalate_impact
+        clock_impact = game.rules.de_escalate_impact
+        desc = f"{player_name} chose to de-escalate, lowering the clock."
+    else:
+        desc = f"{player_name} bid {bid} for influence."
+        clock_impact = bid
 
-    game.doomsday_clock += bid
+    game.apply_event(
+        GameEvent(
+            actor=PlayerActor(name=player_name),
+            description=desc,
+            clock_delta=clock_impact,
+            influence_delta={player_name: bid},
+        )
+    )
 
 
 def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
     """Resolve the bidding phase of the game."""
 
-    alpha_action = players[0].bid(
-        game, game.players[1].last_message, game.players[1].last_operations
-    )
-    omega_action = players[1].bid(
-        game, game.players[0].last_message, game.players[0].last_operations
-    )
-
-    alpha_action.bid = check_bid(game.rules, alpha_action.bid)
-    omega_action.bid = check_bid(game.rules, omega_action.bid)
+    alpha_action = players[0].bid(game, game.players[1].last_message)
+    omega_action = players[1].bid(game, game.players[0].last_message)
 
     new_game = copy.deepcopy(game)
-    update_clock(alpha_action.bid, new_game)
-    update_clock(omega_action.bid, new_game)
+    process_bid(new_game, players[0].name, alpha_action.bid)
+    process_bid(new_game, players[1].name, omega_action.bid)
 
-    new_game.players[0].influence = alpha_action.bid
-    new_game.players[1].influence = omega_action.bid
     new_game.players[0].last_message = alpha_action.message_to_opponent
     new_game.players[1].last_message = omega_action.message_to_opponent
-    new_game.players[0].last_bid = alpha_action.bid
-    new_game.players[1].last_bid = omega_action.bid
-    new_game.players[0].last_operations = []
-    new_game.players[1].last_operations = []
     new_game.current_phase = GamePhase.OPERATIONS
 
     return new_game
@@ -287,47 +316,64 @@ def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
 
 def resolve_operation(
     game: GameState, player_index: int, opponent_index: int, operation_name: str
-) -> bool:
+) -> GameEvent:
     op_def = game.rules.allowed_operations.get(operation_name, None)
+    player_name = game.players[player_index].name
+    opponent_name = game.players[opponent_index].name
     if op_def is None:
-        return False
+        return GameEvent(
+            actor=PlayerActor(name=player_name),
+            description=(
+                f"{player_name} attempted an operation not allowed by the "
+                f'current rules ("{operation_name}") and as a result the '
+                "action is null and void."
+            ),
+        )
 
     if op_def.influence_cost > game.players[player_index].influence:
-        return False
+        return GameEvent(
+            actor=PlayerActor(name=player_name),
+            description=(
+                f"{player_name} attempted to perform an operation "
+                '("{operation_name}") but lacked sufficient influence to do '
+                "so. As a result the action is null and void."
+            ),
+        )
 
-    game.players[player_index].influence -= op_def.influence_cost
-    game.players[player_index].gdp += op_def.friendly_gdp_effect
-    game.players[opponent_index].gdp += op_def.enemy_gdp_effect
-    game.doomsday_clock += op_def.clock_effect
-
-    return True
+    return GameEvent(
+        actor=PlayerActor(name=player_name),
+        description=(
+            f"{player_name} has successfully conducted a {operation_name} "
+            "operation."
+        ),
+        clock_delta=op_def.clock_effect,
+        gdp_delta={
+            player_name: op_def.friendly_gdp_effect,
+            opponent_name: op_def.enemy_gdp_effect,
+        },
+        influence_delta={player_name: -op_def.influence_cost},
+    )
 
 
 def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
-    assert game.players[0].last_bid is not None
-    assert game.players[1].last_bid is not None
-    alpha_action = players[0].operations(
-        game, game.players[1].last_message, game.players[1].last_bid
-    )
-    omega_action = players[1].operations(
-        game, game.players[0].last_message, game.players[0].last_bid
-    )
+    alpha_action = players[0].operations(game, game.players[1].last_message)
+    omega_action = players[1].operations(game, game.players[0].last_message)
 
     new_game = copy.deepcopy(game)
-    new_game.players[0].last_operations = [
-        op
-        for op in alpha_action.operations
-        if resolve_operation(new_game, 0, 1, op)
-    ]
-    new_game.players[1].last_operations = [
-        op
-        for op in omega_action.operations
-        if resolve_operation(new_game, 1, 0, op)
-    ]
+    i = RANDOM.choice([0, 1])
+
+    while len(alpha_action.operations) > 0 and len(omega_action.operations) > 0:
+        if i == 0 and len(alpha_action.operations) > 0:
+            new_game.apply_event(
+                resolve_operation(game, 0, 1, alpha_action.operations.pop(0))
+            )
+        elif i == 1 and len(omega_action.operations) > 0:
+            new_game.apply_event(
+                resolve_operation(game, 1, 0, omega_action.operations.pop(0))
+            )
+
     new_game.players[0].last_message = alpha_action.message_to_opponent
     new_game.players[1].last_message = omega_action.message_to_opponent
-    new_game.players[0].last_bid = None
-    new_game.players[1].last_bid = None
     new_game.current_round += 1
     new_game.current_phase = GamePhase.BIDDING
 
@@ -363,8 +409,9 @@ def determine_victor(game: GameState) -> tuple[str | None, GameOverReason]:
     return (None, GameOverReason.STALEMATE)
 
 
-def game_loop(rules: GameRules) -> tuple[str | None, GameOverReason]:
-    players: list[GamePlayer] = [CrazyIvan("Alpha"), CrazyIvan("Omega")]
+def game_loop(
+    rules: GameRules, players: list[GamePlayer]
+) -> tuple[str | None, GameOverReason, list[GameEvent]]:
     game = init_game(players, rules)
 
     game.players[0].last_message = players[0].initial_message(game)
@@ -380,13 +427,11 @@ def game_loop(rules: GameRules) -> tuple[str | None, GameOverReason]:
     logging.debug(f"Victor: {winner or 'no one'}")
     logging.debug(f"Reason: {reason.name}")
 
-    return (winner, reason)
-
-
-def get_greeting() -> str:
-    """Return a greeting."""
-    return "Welcome to Mad World!"
+    return (winner, reason, game.event_log)
 
 
 if __name__ == "__main__":
-    game_loop(GameRules())
+    logging.basicConfig(level=logging.DEBUG)
+    pprint.pprint(
+        game_loop(GameRules(), [CrazyIvan("Alpha"), CrazyIvan("Omega")])
+    )
