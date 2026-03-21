@@ -250,7 +250,7 @@ def check_bid(rules: GameRules, bid: int) -> int:
 
 def update_clock(bid: int, game: GameState) -> None:
     if bid == 0:
-        game.doomsday_clock -= game.rules.de_escalate_impact
+        game.doomsday_clock += game.rules.de_escalate_impact
 
     game.doomsday_clock += bid
 
@@ -272,6 +272,8 @@ def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
     update_clock(alpha_action.bid, new_game)
     update_clock(omega_action.bid, new_game)
 
+    new_game.players[0].influence = alpha_action.bid
+    new_game.players[1].influence = omega_action.bid
     new_game.players[0].last_message = alpha_action.message_to_opponent
     new_game.players[1].last_message = omega_action.message_to_opponent
     new_game.players[0].last_bid = alpha_action.bid
@@ -344,7 +346,7 @@ def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
 def check_game_over(game: GameState) -> bool:
     return (
         game.doomsday_clock >= game.rules.max_clock_state
-        or game.current_round >= 10
+        or game.current_round > game.rules.round_count
     )
 
 
