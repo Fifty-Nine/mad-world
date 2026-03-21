@@ -20,6 +20,9 @@ TEST_CASES = [
     Scenario(CrazyIvan, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Pacifist, Pacifist, None, GameOverReason.STALEMATE),
     Scenario(Capitalist, Capitalist, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(CrazyIvan, Pacifist, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(CrazyIvan, Capitalist, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(Pacifist, Capitalist, "Omega", GameOverReason.ECONOMIC_VICTORY),
 ]
 
 
