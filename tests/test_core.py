@@ -1,19 +1,37 @@
 """Tests for the core module."""
 
-from mad_world.core import GameOverReason, GameRules, game_loop
-from mad_world.trivial_players import CrazyIvan, Pacifist
+from collections.abc import Callable
+from dataclasses import dataclass
+
+import pytest
+from mad_world.core import GameOverReason, GamePlayer, GameRules, game_loop
+from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist
 
 
-def test_oops_all_ivans() -> None:
-    assert game_loop(GameRules(), [CrazyIvan("Alpha"), CrazyIvan("Omega")])[
-        :-1
-    ] == (
-        None,
-        GameOverReason.WORLD_DESTROYED,
+@dataclass
+class Scenario:
+    alpha: Callable[[str], GamePlayer]
+    omega: Callable[[str], GamePlayer]
+    winner: str | None
+    reason: GameOverReason
+
+
+TEST_CASES = [
+    Scenario(CrazyIvan, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(Pacifist, Pacifist, None, GameOverReason.STALEMATE),
+    Scenario(Capitalist, Capitalist, None, GameOverReason.WORLD_DESTROYED),
+]
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    TEST_CASES,
+    ids=[f"{tc.alpha.__name__}_vs_{tc.omega.__name__}" for tc in TEST_CASES],
+)
+def test_game_outcomes(scenario: Scenario) -> None:
+    winner, reason, _event_log = game_loop(
+        GameRules(), [scenario.alpha("Alpha"), scenario.omega("Omega")]
     )
 
-
-def test_boring_players() -> None:
-    assert game_loop(GameRules(), [Pacifist("Alpha"), Pacifist("Omega")])[
-        :-1
-    ] == (None, GameOverReason.STALEMATE)
+    assert winner == scenario.winner
+    assert reason == scenario.reason
