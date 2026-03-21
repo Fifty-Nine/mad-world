@@ -68,3 +68,32 @@ class Pacifist(GamePlayer):
             operations=[],
             internal_monologue="I will not participate in these violent games.",
         )
+
+
+class Capitalist(GamePlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+    @override
+    def initial_message(self, game: GameState) -> str | None:
+        return "Greed is good. I am here to maximize shareholder value."
+
+    @override
+    def bid(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> BiddingAction:
+        return BiddingAction(
+            message_to_opponent="A rising tide lifts all boats.",
+            bid=3,
+            internal_monologue="Securing capital for expansion.",
+        )
+
+    @override
+    def operations(
+        self, game: GameState, message_to_opponent: str | None
+    ) -> OperationsAction:
+        return OperationsAction(
+            message_to_opponent="Building a better tomorrow.",
+            operations=["domestic-investment"],
+            internal_monologue="Reinvesting dividends for compound growth.",
+        )
