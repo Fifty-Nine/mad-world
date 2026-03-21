@@ -24,6 +24,7 @@ packages = ["src/mad_world"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+output-format = "concise"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
