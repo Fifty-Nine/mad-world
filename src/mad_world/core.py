@@ -333,7 +333,7 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     new_game = copy.deepcopy(game)
     i = RANDOM.choice([0, 1])
 
-    while len(alpha_action.operations) > 0 and len(omega_action.operations) > 0:
+    while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
         if i == 0 and len(alpha_action.operations) > 0:
             new_game.apply_event(
                 resolve_operation(game, 0, 1, alpha_action.operations.pop(0))
@@ -342,6 +342,8 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
             new_game.apply_event(
                 resolve_operation(game, 1, 0, omega_action.operations.pop(0))
             )
+
+        i = (i + 1) % 2
 
     new_game.players[0].last_message = alpha_action.message_to_opponent
     new_game.players[1].last_message = omega_action.message_to_opponent
