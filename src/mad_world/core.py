@@ -25,12 +25,22 @@ class GameOverReason(Enum):
 class OperationDefinition(BaseModel):
     """Tracks the definition of a single operation type."""
 
-    name: str
-    description: str
-    influence_cost: int
-    clock_effect: int = 0
-    friendly_gdp_effect: int = 0
-    enemy_gdp_effect: int = 0
+    name: str = Field(description="The name of the operation.")
+    description: str = Field(
+        description="A brief description of the operation."
+    )
+    influence_cost: int = Field(
+        description="The influence cost of the operation."
+    )
+    clock_effect: int = Field(
+        description="The clock impact of the operation.", default=0
+    )
+    friendly_gdp_effect: int = Field(
+        description="The GDP impact on the acting player.", default=0
+    )
+    enemy_gdp_effect: int = Field(
+        description="The GDP impact on the opposing player.", default=0
+    )
 
 
 DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
@@ -89,16 +99,30 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
 class GameRules(BaseModel):
     """Tracks the rules of a game."""
 
-    initial_gdp: int = 50
-    initial_influence: int = 5
-    initial_clock_state: int = 0
-    max_clock_state: int = 25
-    round_count: int = 10
-    de_escalate_impact: int = -3
-    allowed_operations: dict[str, OperationDefinition] = Field(
-        default=DEFAULT_OPERATIONS
+    initial_gdp: int = Field(default=50, description="Initial GDP value.")
+    initial_influence: int = Field(
+        default=5, description="Initial influence value."
     )
-    allowed_bids: list[int] = Field(default=[0, 1, 3, 5, 8])
+    initial_clock_state: int = Field(
+        default=0, description="Initial doomsday clock value."
+    )
+    max_clock_state: int = Field(
+        default=25, description="Maximum doomsday clock value."
+    )
+    round_count: int = Field(
+        default=10, description="Maximum number of rounds."
+    )
+    de_escalate_impact: int = Field(
+        default=-1, description="The clock impact of a de-escalatory bid."
+    )
+    allowed_operations: dict[str, OperationDefinition] = Field(
+        default=DEFAULT_OPERATIONS,
+        description="The set of operations allowed in the game.",
+    )
+    allowed_bids: list[int] = Field(
+        default=[0, 1, 3, 5, 8],
+        description="The set of bids allowed in the game.",
+    )
 
 
 DEFAULT_RULES: GameRules = GameRules()
@@ -108,10 +132,15 @@ RANDOM = random.Random()
 class PlayerState(BaseModel):
     """Tracks the state of a single player in the game."""
 
-    name: str
-    gdp: int = 50
-    influence: int = 5
-    last_message: str | None = None
+    name: str = Field(description="The name of the player.")
+    gdp: int = Field(default=50, description="The player's current GDP.", ge=0)
+    influence: int = Field(
+        default=5, description="The player's current influence.", ge=0
+    )
+    last_message: str | None = Field(
+        default=None,
+        description=("The last message sent by this player to their opponent."),
+    )
 
 
 class ActorKind(Enum):
@@ -134,21 +163,41 @@ class GameEvent(BaseModel):
     actor: Annotated[
         SystemActor | PlayerActor, Field(discriminator="actor_kind")
     ]
-    description: str
-    clock_delta: int = 0
-    gdp_delta: dict[str, int] = Field(default_factory=dict)
-    influence_delta: dict[str, int] = Field(default_factory=dict)
+    description: str = Field(description="A brief description of the event.")
+    clock_delta: int = Field(
+        default=0, description="The change in the doomsday clock."
+    )
+    gdp_delta: dict[str, int] = Field(
+        default_factory=dict, description="The change in GDP for each player."
+    )
+    influence_delta: dict[str, int] = Field(
+        default_factory=dict,
+        description="The change in influence for each player.",
+    )
 
 
 class GameState(BaseModel):
     """Tracks the overall state of the game."""
 
-    players: dict[str, PlayerState] = Field(description="")
-    doomsday_clock: int = 0
-    current_round: int = 1
-    current_phase: GamePhase = GamePhase.BIDDING
-    rules: GameRules
-    event_log: list[GameEvent] = Field(default_factory=list)
+    players: dict[str, PlayerState] = Field(
+        description="The state of each player, keyed by their name."
+    )
+    doomsday_clock: int = Field(
+        default=0, description="The current value of the doomsday clock.", ge=0
+    )
+    current_round: int = Field(
+        default=1, description="The current round number."
+    )
+    current_phase: GamePhase = Field(
+        default=GamePhase.BIDDING,
+        description="The current phase of the game.",
+    )
+    rules: GameRules = Field(description="The rules governing this game.")
+    event_log: list[GameEvent] = Field(
+        default_factory=list,
+        description="A chronological log of all events that "
+        "have occurred in the game.",
+    )
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
