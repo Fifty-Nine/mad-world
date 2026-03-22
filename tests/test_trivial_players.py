@@ -38,7 +38,7 @@ def test_crazy_ivan_operations() -> None:
     player = CrazyIvan("TestIvan")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_to_opponent=None)
+    action = player.operations(game_state, message_from_opponent=None)
 
     assert action.operations == ["first-strike"]
     assert action.message_to_opponent is None
@@ -79,7 +79,7 @@ def test_pacifist_operations() -> None:
     player = Pacifist("TestPacifist")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_to_opponent=None)
+    action = player.operations(game_state, message_from_opponent=None)
 
     assert action.operations == []
     assert action.message_to_opponent == "I offer you the hand of friendship."
@@ -116,7 +116,7 @@ def test_capitalist_operations() -> None:
     player = Capitalist("TestCap")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_to_opponent=None)
+    action = player.operations(game_state, message_from_opponent=None)
 
     assert action.operations == ["domestic-investment"]
     assert action.message_to_opponent == "Building a better tomorrow."

@@ -30,7 +30,7 @@ class CrazyIvan(GamePlayer):
 
     @override
     def operations(
-        self, game: GameState, message_to_opponent: str | None
+        self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         return OperationsAction(
             message_to_opponent=None,
@@ -61,7 +61,7 @@ class Pacifist(GamePlayer):
 
     @override
     def operations(
-        self, game: GameState, message_to_opponent: str | None
+        self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         return OperationsAction(
             message_to_opponent="I offer you the hand of friendship.",
@@ -90,7 +90,7 @@ class Capitalist(GamePlayer):
 
     @override
     def operations(
-        self, game: GameState, message_to_opponent: str | None
+        self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         return OperationsAction(
             message_to_opponent="Building a better tomorrow.",
