@@ -6,6 +6,7 @@ from mad_world.core import (
     BiddingAction,
     GamePlayer,
     GameState,
+    InitialMessageAction,
     OperationsAction,
 )
 
@@ -15,8 +16,10 @@ class CrazyIvan(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
-        return "I'm crazy Ivan. Prepare to die!"
+    def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent="I'm crazy Ivan. Prepare to die!"
+        )
 
     @override
     def bid(
@@ -44,8 +47,10 @@ class Pacifist(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
-        return "I seek only peace and prosperity for all."
+    def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent="I seek only peace and prosperity for all."
+        )
 
     @override
     def bid(
@@ -75,8 +80,12 @@ class Capitalist(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
-        return "Greed is good. I am here to maximize shareholder value."
+    def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent=(
+                "Greed is good. I am here to maximize shareholder value."
+            )
+        )
 
     @override
     def bid(
@@ -104,9 +113,12 @@ class Saboteur(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
-        return (
-            "We look forward to a long and mutually beneficial relationship..."
+    def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent=(
+                "We look forward to a long and mutually "
+                "beneficial relationship..."
+            )
         )
 
     @override
@@ -152,8 +164,12 @@ class Diplomat(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
-        return "I believe we can resolve our differences through dialogue."
+    def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent=(
+                "I believe we can resolve our differences through dialogue."
+            )
+        )
 
     @override
     def bid(

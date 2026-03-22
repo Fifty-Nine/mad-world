@@ -15,7 +15,8 @@ def test_crazy_ivan_initial_message() -> None:
     player = CrazyIvan("TestIvan")
     game_state = init_game([player])
     assert (
-        player.initial_message(game_state) == "I'm crazy Ivan. Prepare to die!"
+        player.initial_message(game_state).message_to_opponent
+        == "I'm crazy Ivan. Prepare to die!"
     )
 
 
@@ -50,7 +51,7 @@ def test_pacifist_initial_message() -> None:
     player = Pacifist("TestPacifist")
     game_state = init_game([player])
     assert (
-        player.initial_message(game_state)
+        player.initial_message(game_state).message_to_opponent
         == "I seek only peace and prosperity for all."
     )
 
@@ -94,7 +95,7 @@ def test_capitalist_initial_message() -> None:
     player = Capitalist("TestCap")
     game_state = init_game([player])
     assert (
-        player.initial_message(game_state)
+        player.initial_message(game_state).message_to_opponent
         == "Greed is good. I am here to maximize shareholder value."
     )
 
@@ -131,7 +132,7 @@ def test_saboteur_initial_message() -> None:
     player = Saboteur("TestSaboteur")
     game_state = init_game([player])
     assert (
-        player.initial_message(game_state)
+        player.initial_message(game_state).message_to_opponent
         == "We look forward to a long and mutually beneficial relationship..."
     )
 
@@ -195,7 +196,7 @@ def test_diplomat_initial_message() -> None:
     player = Diplomat("TestDiplomat")
     game_state = init_game([player])
     assert (
-        player.initial_message(game_state)
+        player.initial_message(game_state).message_to_opponent
         == "I believe we can resolve our differences through dialogue."
     )
 

@@ -1,16 +1,20 @@
 """Ollama player implementation for Mad World."""
 
-from typing import override
+from typing import TypeVar, override
 
 import ollama
 from pydantic import ValidationError
 
 from mad_world.core import (
+    BaseAction,
     BiddingAction,
     GamePlayer,
     GameState,
+    InitialMessageAction,
     OperationsAction,
 )
+
+T = TypeVar("T", bound=BaseAction)
 
 
 class OllamaPlayer(GamePlayer):
@@ -64,22 +68,32 @@ class OllamaPlayer(GamePlayer):
         self.messages.append({"role": "system", "content": prompt})
 
     @override
-    def initial_message(self, game: GameState) -> str | None:
+    def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
             "opponent. You should use this channel to conduct diplomacy, "
             "respond to inquiries, issue threats, etc. Your initial response "
             "should be plain text, but future responses will need to match a "
-            "provided JSON schema."
+            "provided JSON schema.\n"
+            "You must adhere to the following JSON Schema for this phase:\n"
+            f"{InitialMessageAction.model_json_schema()}"
         )
         self.messages.append({"role": "user", "content": prompt})
         response = self.client.chat(
             model=self.model,
             messages=self.messages,
+            format=InitialMessageAction.model_json_schema(),
         )
 
-        return str(response["message"]["content"])
+        try:
+            return InitialMessageAction.model_validate_json(
+                response["message"]["content"]
+            )
+        except ValidationError as e:
+            return InitialMessageAction(
+                internal_monologue=f"Validation failed: {e!r}"
+            )
 
     @override
     def bid(
