@@ -2,11 +2,11 @@
 
 import copy
 import logging
-import pprint
 import random
+import sys
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Annotated, Literal
+from typing import IO, Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -489,7 +489,7 @@ def determine_victor(game: GameState) -> tuple[str | None, GameOverReason]:
 
 def game_loop(
     rules: GameRules, players: list[GamePlayer]
-) -> tuple[str | None, GameOverReason, list[GameEvent]]:
+) -> tuple[str | None, GameOverReason, GameState]:
     game = init_game(players, rules)
 
     alpha_name = players[0].name
@@ -520,13 +520,43 @@ def game_loop(
     for player in players:
         player.game_over(game, winner, reason)
 
-    return (winner, reason, game.event_log)
+    return (winner, reason, game)
+
+
+def present_results(
+    winner: str | None,
+    reason: GameOverReason,
+    game: GameState,
+    out: IO[str] = sys.stdout,
+) -> None:
+    print(f"Winner: {winner or 'no one'}", file=out)
+    print(f"Reason: {reason.name}", file=out)
+    print("Players:", file=out)
+    for _, player in game.players.items():
+        print(
+            f"  {player.name}: {player.gdp} GDP, {player.influence} Inf",
+            file=out,
+        )
+    print("Event log:")
+
+    for event in game.event_log:
+        print(event.description)
 
 
 if __name__ == "__main__":
-    from mad_world.trivial_players import CrazyIvan
+    from mad_world.ollama_player import OllamaPlayer
 
     logging.basicConfig(level=logging.DEBUG)
-    pprint.pprint(
-        game_loop(GameRules(), [CrazyIvan("Alpha"), CrazyIvan("Omega")])
+    present_results(
+        *game_loop(
+            GameRules(),
+            [
+                OllamaPlayer(
+                    "Alpha", model="gemma3:12b", persona="Careful Diplomat"
+                ),
+                OllamaPlayer(
+                    "Omega", model="gemma3:12b", persona="madman theory"
+                ),
+            ],
+        )
     )
