@@ -1,7 +1,13 @@
 """Tests for the trivial player implementations."""
 
 from mad_world.core import GameRules, init_game
-from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist, Saboteur
+from mad_world.trivial_players import (
+    Capitalist,
+    CrazyIvan,
+    Diplomat,
+    Pacifist,
+    Saboteur,
+)
 
 
 def test_crazy_ivan_initial_message() -> None:
@@ -182,3 +188,68 @@ def test_saboteur_operations_sufficient_influence() -> None:
         action.internal_monologue
         == "Excellent. Everything is going according to plan."
     )
+
+
+def test_diplomat_initial_message() -> None:
+    """Test Diplomat's initial message."""
+    player = Diplomat("TestDiplomat")
+    game_state = init_game([player])
+    assert (
+        player.initial_message(game_state)
+        == "I believe we can resolve our differences through dialogue."
+    )
+
+
+def test_diplomat_bid() -> None:
+    """Test Diplomat's bidding logic."""
+    player = Diplomat("TestDiplomat")
+    game_state = init_game([player])
+
+    action = player.bid(game_state, message_from_opponent=None)
+
+    assert action.bid == 1
+    assert (
+        action.message_to_opponent
+        == "Let us keep the channels of communication open."
+    )
+    assert (
+        action.internal_monologue == "Building political capital for a summit."
+    )
+
+
+def test_diplomat_operations_insufficient_influence() -> None:
+    """Test Diplomat's operation logic without enough influence."""
+    player = Diplomat("TestDiplomat")
+    game_state = init_game([player])
+
+    # Set influence to 4 (needs 5 for diplomatic-summit)
+    game_state.players[0].influence = 4
+
+    action = player.operations(game_state, message_from_opponent=None)
+
+    assert action.operations == []
+    assert (
+        action.message_to_opponent == "We must continue our diplomatic efforts."
+    )
+    assert (
+        action.internal_monologue
+        == "Waiting for the right moment to propose a summit."
+    )
+
+
+def test_diplomat_operations_sufficient_influence() -> None:
+    """Test Diplomat's operation logic with enough influence."""
+    player = Diplomat("TestDiplomat")
+    game_state = init_game([player])
+
+    # Set influence to 5 (needs 5 for diplomatic-summit)
+    game_state.players[0].influence = 5
+
+    action = player.operations(game_state, message_from_opponent=None)
+
+    assert action.operations == ["diplomatic-summit"]
+    assert action.message_to_opponent == (
+        "I invite you to the negotiating table. "
+        "Let us step back from the brink."
+    )
+    assert action.internal_monologue == "A triumph for international diplomacy."

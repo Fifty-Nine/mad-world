@@ -145,3 +145,49 @@ class Saboteur(GamePlayer):
                 operations=[],
                 internal_monologue="Biding my time...",
             )
+
+
+class Diplomat(GamePlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+    @override
+    def initial_message(self, game: GameState) -> str | None:
+        return "I believe we can resolve our differences through dialogue."
+
+    @override
+    def bid(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> BiddingAction:
+        return BiddingAction(
+            message_to_opponent=(
+                "Let us keep the channels of communication open."
+            ),
+            bid=1,
+            internal_monologue="Building political capital for a summit.",
+        )
+
+    @override
+    def operations(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> OperationsAction:
+        my_state = next(p for p in game.players if p.name == self.name)
+        cost = game.rules.allowed_operations["diplomatic-summit"].influence_cost
+
+        if my_state.influence >= cost:
+            return OperationsAction(
+                message_to_opponent=(
+                    "I invite you to the negotiating table. "
+                    "Let us step back from the brink."
+                ),
+                operations=["diplomatic-summit"],
+                internal_monologue="A triumph for international diplomacy.",
+            )
+        else:
+            return OperationsAction(
+                message_to_opponent="We must continue our diplomatic efforts.",
+                operations=[],
+                internal_monologue=(
+                    "Waiting for the right moment to propose a summit."
+                ),
+            )
