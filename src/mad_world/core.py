@@ -272,6 +272,16 @@ class GamePlayer(ABC):
         game: GameState,
         message_from_opponent: str | None,
     ) -> OperationsAction:
+        """Get the player's input for the operations phase."""
+        pass
+
+    def game_over(  # noqa: B027
+        self,
+        game: GameState,
+        winner: str | None,
+        reason: GameOverReason,
+    ) -> None:
+        """Called when the game is over."""
         pass
 
 
@@ -471,6 +481,18 @@ def game_loop(
     winner, reason = determine_victor(game)
     logging.debug(f"Victor: {winner or 'no one'}")
     logging.debug(f"Reason: {reason.name}")
+
+    game.apply_event(
+        GameEvent(
+            actor=SystemActor(),
+            description=(
+                f"Game over! {winner or 'No one'} won due to {reason.name}."
+            ),
+        )
+    )
+
+    for player in players:
+        player.game_over(game, winner, reason)
 
     return (winner, reason, game.event_log)
 
