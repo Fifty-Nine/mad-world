@@ -1,0 +1,7 @@
+- Expand testing
+- Add coverage check.
+- Add stochastic clock effects.
+- Add clock decay?
+- Implement mandates
+- Add ollama-based players
+- Improve first strike mechanic.
