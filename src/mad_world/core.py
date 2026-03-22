@@ -208,6 +208,22 @@ class GameState(BaseModel):
 
         self.event_log.append(event)
 
+    def send_message(
+        self, from_player: str, to_player: str, message: str | None
+    ) -> None:
+        self.players[from_player].last_message = message
+        if message is None:
+            return
+
+        self.apply_event(
+            GameEvent(
+                actor=PlayerActor(name=from_player),
+                description=(
+                    f"{from_player} sent a message to {to_player}: {message}"
+                ),
+            )
+        )
+
 
 class BaseAction(BaseModel):
     internal_monologue: str | None = Field(
@@ -340,8 +356,13 @@ def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
     process_bid(new_game, alpha_name, alpha_action.bid)
     process_bid(new_game, omega_name, omega_action.bid)
 
-    new_game.players[alpha_name].last_message = alpha_action.message_to_opponent
-    new_game.players[omega_name].last_message = omega_action.message_to_opponent
+    new_game.send_message(
+        alpha_name, omega_name, alpha_action.message_to_opponent
+    )
+    new_game.send_message(
+        omega_name, alpha_name, omega_action.message_to_opponent
+    )
+
     new_game.current_phase = GamePhase.OPERATIONS
 
     return new_game
@@ -422,8 +443,13 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
 
         i = (i + 1) % 2
 
-    new_game.players[alpha_name].last_message = alpha_action.message_to_opponent
-    new_game.players[omega_name].last_message = omega_action.message_to_opponent
+    new_game.send_message(
+        alpha_name, omega_name, alpha_action.message_to_opponent
+    )
+    new_game.send_message(
+        omega_name, alpha_name, omega_action.message_to_opponent
+    )
+
     new_game.current_round += 1
     new_game.current_phase = GamePhase.BIDDING
 
@@ -469,8 +495,8 @@ def game_loop(
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    game.players[alpha_name].last_message = players[0].initial_message(game)
-    game.players[omega_name].last_message = players[1].initial_message(game)
+    game.send_message(alpha_name, omega_name, players[0].initial_message(game))
+    game.send_message(omega_name, alpha_name, players[1].initial_message(game))
 
     while not check_game_over(game):
         logging.debug(f"Current state: {game.model_dump_json()}")
