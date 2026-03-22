@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import pytest
+
 from mad_world.core import GameOverReason, GamePlayer, GameRules, game_loop
 from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist
 
