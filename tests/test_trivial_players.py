@@ -1,7 +1,7 @@
 """Tests for the trivial player implementations."""
 
 from mad_world.core import GameRules, init_game
-from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist
+from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist, Saboteur
 
 
 def test_crazy_ivan_initial_message() -> None:
@@ -117,4 +117,68 @@ def test_capitalist_operations() -> None:
     assert (
         action.internal_monologue
         == "Reinvesting dividends for compound growth."
+    )
+
+
+def test_saboteur_initial_message() -> None:
+    """Test Saboteur's initial message."""
+    player = Saboteur("TestSaboteur")
+    game_state = init_game([player])
+    assert (
+        player.initial_message(game_state)
+        == "We look forward to a long and mutually beneficial relationship..."
+    )
+
+
+def test_saboteur_bid() -> None:
+    """Test Saboteur's bidding logic."""
+    player = Saboteur("TestSaboteur")
+    game_state = init_game([player])
+
+    action = player.bid(game_state, message_from_opponent=None)
+
+    assert action.bid == 1
+    assert (
+        action.message_to_opponent
+        == "Just moving some paperwork around. Administrative things."
+    )
+    assert action.internal_monologue == "Laying the groundwork for disruption."
+
+
+def test_saboteur_operations_insufficient_influence() -> None:
+    """Test Saboteur's operation logic without enough influence."""
+    player = Saboteur("TestSaboteur")
+    game_state = init_game([player])
+
+    # Set influence to 3 (needs 4 for proxy-subversion)
+    game_state.players[0].influence = 3
+
+    action = player.operations(game_state, message_from_opponent=None)
+
+    assert action.operations == []
+    assert (
+        action.message_to_opponent
+        == "Everything is quiet on the western front."
+    )
+    assert action.internal_monologue == "Biding my time..."
+
+
+def test_saboteur_operations_sufficient_influence() -> None:
+    """Test Saboteur's operation logic with enough influence."""
+    player = Saboteur("TestSaboteur")
+    game_state = init_game([player])
+
+    # Set influence to 4 (needs 4 for proxy-subversion)
+    game_state.players[0].influence = 4
+
+    action = player.operations(game_state, message_from_opponent=None)
+
+    assert action.operations == ["proxy-subversion"]
+    assert action.message_to_opponent == (
+        "Oh, did your infrastructure spontaneously combust? "
+        "Must be the weather."
+    )
+    assert (
+        action.internal_monologue
+        == "Excellent. Everything is going according to plan."
     )

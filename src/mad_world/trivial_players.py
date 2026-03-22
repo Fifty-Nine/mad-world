@@ -97,3 +97,51 @@ class Capitalist(GamePlayer):
             operations=["domestic-investment"],
             internal_monologue="Reinvesting dividends for compound growth.",
         )
+
+
+class Saboteur(GamePlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+
+    @override
+    def initial_message(self, game: GameState) -> str | None:
+        return (
+            "We look forward to a long and mutually beneficial relationship..."
+        )
+
+    @override
+    def bid(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> BiddingAction:
+        return BiddingAction(
+            message_to_opponent=(
+                "Just moving some paperwork around. Administrative things."
+            ),
+            bid=1,
+            internal_monologue="Laying the groundwork for disruption.",
+        )
+
+    @override
+    def operations(
+        self, game: GameState, message_from_opponent: str | None
+    ) -> OperationsAction:
+        my_state = next(p for p in game.players if p.name == self.name)
+        cost = game.rules.allowed_operations["proxy-subversion"].influence_cost
+
+        if my_state.influence >= cost:
+            return OperationsAction(
+                message_to_opponent=(
+                    "Oh, did your infrastructure spontaneously combust? "
+                    "Must be the weather."
+                ),
+                operations=["proxy-subversion"],
+                internal_monologue=(
+                    "Excellent. Everything is going according to plan."
+                ),
+            )
+        else:
+            return OperationsAction(
+                message_to_opponent="Everything is quiet on the western front.",
+                operations=[],
+                internal_monologue="Biding my time...",
+            )

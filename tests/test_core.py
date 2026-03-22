@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import pytest
 
 from mad_world.core import GameOverReason, GamePlayer, GameRules, game_loop
-from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist
+from mad_world.trivial_players import Capitalist, CrazyIvan, Pacifist, Saboteur
 
 
 @dataclass
@@ -24,6 +24,10 @@ TEST_CASES = [
     Scenario(CrazyIvan, Pacifist, None, GameOverReason.WORLD_DESTROYED),
     Scenario(CrazyIvan, Capitalist, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Pacifist, Capitalist, "Omega", GameOverReason.ECONOMIC_VICTORY),
+    Scenario(Saboteur, Pacifist, "Alpha", GameOverReason.ECONOMIC_VICTORY),
+    Scenario(Saboteur, Capitalist, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(Saboteur, Saboteur, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(Saboteur, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
 ]
 
 
