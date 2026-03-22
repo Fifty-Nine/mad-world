@@ -1,7 +1,8 @@
 """Core mechanics for the game."""
 
 import copy
-import logging
+import logging as logging
+import pprint
 import random
 import sys
 from abc import ABC, abstractmethod
@@ -499,10 +500,12 @@ def game_loop(
     game.send_message(omega_name, alpha_name, players[1].initial_message(game))
 
     while not check_game_over(game):
-        logging.debug(f"Current state: {game.model_dump_json()}")
+        logging.debug(
+            f"Current state: {pprint.pformat(game.model_dump_json())}"
+        )
         game = iterate_game(game, players)
 
-    logging.debug(f"Final State: {game.model_dump_json()}")
+    logging.debug(f"Final State: {pprint.pformat(game.model_dump_json())}")
 
     winner, reason = determine_victor(game)
     logging.debug(f"Victor: {winner or 'no one'}")
@@ -555,7 +558,7 @@ if __name__ == "__main__":
                     "Alpha", model="gemma3:12b", persona="Careful Diplomat"
                 ),
                 OllamaPlayer(
-                    "Omega", model="gemma3:12b", persona="madman theory"
+                    "Omega", model="gemma3:12b", persona="Richard Nixon"
                 ),
             ],
         )
