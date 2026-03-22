@@ -157,7 +157,7 @@ def test_saboteur_operations_insufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 3 (needs 4 for proxy-subversion)
-    game_state.players[0].influence = 3
+    game_state.players["TestSaboteur"].influence = 3
 
     action = player.operations(game_state, message_from_opponent=None)
 
@@ -175,7 +175,7 @@ def test_saboteur_operations_sufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 4 (needs 4 for proxy-subversion)
-    game_state.players[0].influence = 4
+    game_state.players["TestSaboteur"].influence = 4
 
     action = player.operations(game_state, message_from_opponent=None)
 
@@ -223,7 +223,7 @@ def test_diplomat_operations_insufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 4 (needs 5 for diplomatic-summit)
-    game_state.players[0].influence = 4
+    game_state.players["TestDiplomat"].influence = 4
 
     action = player.operations(game_state, message_from_opponent=None)
 
@@ -243,7 +243,7 @@ def test_diplomat_operations_sufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 5 (needs 5 for diplomatic-summit)
-    game_state.players[0].influence = 5
+    game_state.players["TestDiplomat"].influence = 5
 
     action = player.operations(game_state, message_from_opponent=None)
 

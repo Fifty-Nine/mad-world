@@ -143,7 +143,7 @@ class GameEvent(BaseModel):
 class GameState(BaseModel):
     """Tracks the overall state of the game."""
 
-    players: list[PlayerState] = Field(description="")
+    players: dict[str, PlayerState] = Field(description="")
     doomsday_clock: int = 0
     current_round: int = 1
     current_phase: GamePhase = GamePhase.BIDDING
@@ -153,9 +153,9 @@ class GameState(BaseModel):
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
 
-        for player in self.players:
-            player.gdp += event.gdp_delta.get(player.name, 0)
-            player.influence += event.influence_delta.get(player.name, 0)
+        for player_name, player in self.players.items():
+            player.gdp += event.gdp_delta.get(player_name, 0)
+            player.influence += event.influence_delta.get(player_name, 0)
 
         self.event_log.append(event)
 
@@ -230,14 +230,14 @@ def init_game(
     players: list[GamePlayer], rules: GameRules = DEFAULT_RULES
 ) -> GameState:
     return GameState(
-        players=[
-            PlayerState(
+        players={
+            player.name: PlayerState(
                 name=player.name,
                 gdp=rules.initial_gdp,
                 influence=rules.initial_influence,
             )
             for player in players
-        ],
+        },
         rules=rules,
         doomsday_clock=rules.initial_clock_state,
     )
@@ -271,26 +271,27 @@ def process_bid(game: GameState, player_name: str, bid: int) -> None:
 def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
     """Resolve the bidding phase of the game."""
 
-    alpha_action = players[0].bid(game, game.players[1].last_message)
-    omega_action = players[1].bid(game, game.players[0].last_message)
+    alpha_name = players[0].name
+    omega_name = players[1].name
+
+    alpha_action = players[0].bid(game, game.players[omega_name].last_message)
+    omega_action = players[1].bid(game, game.players[alpha_name].last_message)
 
     new_game = copy.deepcopy(game)
-    process_bid(new_game, players[0].name, alpha_action.bid)
-    process_bid(new_game, players[1].name, omega_action.bid)
+    process_bid(new_game, alpha_name, alpha_action.bid)
+    process_bid(new_game, omega_name, omega_action.bid)
 
-    new_game.players[0].last_message = alpha_action.message_to_opponent
-    new_game.players[1].last_message = omega_action.message_to_opponent
+    new_game.players[alpha_name].last_message = alpha_action.message_to_opponent
+    new_game.players[omega_name].last_message = omega_action.message_to_opponent
     new_game.current_phase = GamePhase.OPERATIONS
 
     return new_game
 
 
 def resolve_operation(
-    game: GameState, player_index: int, opponent_index: int, operation_name: str
+    game: GameState, player_name: str, opponent_name: str, operation_name: str
 ) -> GameEvent:
     op_def = game.rules.allowed_operations.get(operation_name, None)
-    player_name = game.players[player_index].name
-    opponent_name = game.players[opponent_index].name
     if op_def is None:
         return GameEvent(
             actor=PlayerActor(name=player_name),
@@ -301,12 +302,12 @@ def resolve_operation(
             ),
         )
 
-    if op_def.influence_cost > game.players[player_index].influence:
+    if op_def.influence_cost > game.players[player_name].influence:
         return GameEvent(
             actor=PlayerActor(name=player_name),
             description=(
                 f"{player_name} attempted to perform an operation "
-                '("{operation_name}") but lacked sufficient influence to do '
+                f'("{operation_name}") but lacked sufficient influence to do '
                 "so. As a result the action is null and void."
             ),
         )
@@ -327,8 +328,15 @@ def resolve_operation(
 
 
 def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
-    alpha_action = players[0].operations(game, game.players[1].last_message)
-    omega_action = players[1].operations(game, game.players[0].last_message)
+    alpha_name = players[0].name
+    omega_name = players[1].name
+
+    alpha_action = players[0].operations(
+        game, game.players[omega_name].last_message
+    )
+    omega_action = players[1].operations(
+        game, game.players[alpha_name].last_message
+    )
 
     new_game = copy.deepcopy(game)
     i = RANDOM.choice([0, 1])
@@ -336,17 +344,27 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
         if i == 0 and len(alpha_action.operations) > 0:
             new_game.apply_event(
-                resolve_operation(game, 0, 1, alpha_action.operations.pop(0))
+                resolve_operation(
+                    new_game,
+                    alpha_name,
+                    omega_name,
+                    alpha_action.operations.pop(0),
+                )
             )
         elif i == 1 and len(omega_action.operations) > 0:
             new_game.apply_event(
-                resolve_operation(game, 1, 0, omega_action.operations.pop(0))
+                resolve_operation(
+                    new_game,
+                    omega_name,
+                    alpha_name,
+                    omega_action.operations.pop(0),
+                )
             )
 
         i = (i + 1) % 2
 
-    new_game.players[0].last_message = alpha_action.message_to_opponent
-    new_game.players[1].last_message = omega_action.message_to_opponent
+    new_game.players[alpha_name].last_message = alpha_action.message_to_opponent
+    new_game.players[omega_name].last_message = omega_action.message_to_opponent
     new_game.current_round += 1
     new_game.current_phase = GamePhase.BIDDING
 
@@ -373,11 +391,13 @@ def determine_victor(game: GameState) -> tuple[str | None, GameOverReason]:
     if game.doomsday_clock >= game.rules.max_clock_state:
         return (None, GameOverReason.WORLD_DESTROYED)
 
-    if game.players[0].gdp > game.players[1].gdp:
-        return (game.players[0].name, GameOverReason.ECONOMIC_VICTORY)
+    alpha, omega = game.players.values()
 
-    if game.players[0].gdp < game.players[1].gdp:
-        return (game.players[1].name, GameOverReason.ECONOMIC_VICTORY)
+    if alpha.gdp > omega.gdp:
+        return (alpha.name, GameOverReason.ECONOMIC_VICTORY)
+
+    if alpha.gdp < omega.gdp:
+        return (omega.name, GameOverReason.ECONOMIC_VICTORY)
 
     return (None, GameOverReason.STALEMATE)
 
@@ -387,8 +407,11 @@ def game_loop(
 ) -> tuple[str | None, GameOverReason, list[GameEvent]]:
     game = init_game(players, rules)
 
-    game.players[0].last_message = players[0].initial_message(game)
-    game.players[1].last_message = players[1].initial_message(game)
+    alpha_name = players[0].name
+    omega_name = players[1].name
+
+    game.players[alpha_name].last_message = players[0].initial_message(game)
+    game.players[omega_name].last_message = players[1].initial_message(game)
 
     while not check_game_over(game):
         logging.debug(f"Current state: {game.model_dump_json()}")

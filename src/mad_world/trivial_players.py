@@ -125,7 +125,7 @@ class Saboteur(GamePlayer):
     def operations(
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
-        my_state = next(p for p in game.players if p.name == self.name)
+        my_state = game.players[self.name]
         cost = game.rules.allowed_operations["proxy-subversion"].influence_cost
 
         if my_state.influence >= cost:
@@ -171,7 +171,7 @@ class Diplomat(GamePlayer):
     def operations(
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
-        my_state = next(p for p in game.players if p.name == self.name)
+        my_state = game.players[self.name]
         cost = game.rules.allowed_operations["diplomatic-summit"].influence_cost
 
         if my_state.influence >= cost:
