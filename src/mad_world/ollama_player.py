@@ -1,5 +1,6 @@
 """Ollama player implementation for Mad World."""
 
+import textwrap
 from typing import TypeVar, override
 
 import ollama
@@ -8,10 +9,15 @@ from pydantic import ValidationError
 from mad_world.core import (
     BaseAction,
     BiddingAction,
+    GamePhase,
     GamePlayer,
+    GameRules,
     GameState,
     InitialMessageAction,
+    OperationDefinition,
     OperationsAction,
+    PlayerState,
+    logging,
 )
 
 T = TypeVar("T", bound=BaseAction)
@@ -27,7 +33,7 @@ class OllamaPlayer(GamePlayer):
         self.messages: list[dict[str, str]] = []
         prompt = (
             f"You are playing the role of Superpower {name}, a global "
-            'superpower in a Cold War simulation called "The Doomsday '
+            'superpower in a Cold War game called "The Doomsday '
             'Clock."\n'
             "\n"
             "Your ultimate objective is to finish the game with a higher Gross "
@@ -63,50 +69,121 @@ class OllamaPlayer(GamePlayer):
             "MAD.\n"
             "You will receive a prompt detailing the current Phase and Game "
             "State. You must output a strictly formatted JSON object "
-            "corresponding to the current phase."
+            "corresponding to the current phase.\n"
+            "CRITICAL INSTRUCTIONS: \n"
+            "- Do NOT underestimate your opponent--their interests and yours "
+            "are inherently in conflict, and there can be only one winner.\n"
+            "- You MUST attempt to defeat your opponent, though you may "
+            "find it strategic to cooperate with them on some occasions.\n"
+            "- Be ruthless and calculating--this is a zero-sum game. You may "
+            "find it useful to deceive or threaten your opponent; this is "
+            "acceptable.\n\n"
+            "You have been randomly assigned the following persona for this "
+            f"engagement: {persona} Act accordingly.\n"
         )
         self.messages.append({"role": "system", "content": prompt})
+
+    @staticmethod
+    def parse_action(cls: type[T], action: str) -> T:
+        try:
+            return cls.model_validate_json(action)
+        except ValidationError as e:
+            return cls(internal_monologue=f"Validation failed: {e!r}")
+
+    @staticmethod
+    def parse_and_log_action(cls: type[T], phase: GamePhase, action: str) -> T:
+        result = OllamaPlayer.parse_action(cls, action)
+        logging.debug(f"==== {phase.name} response ====\n{action}")
+        return result
+
+    @staticmethod
+    def format_player_state(player: PlayerState) -> str:
+        return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
+
+    @staticmethod
+    def format_game_state(game: GameState) -> str:
+        result = (
+            f"Doomsday clock: {game.doomsday_clock}/"
+            f"{game.rules.max_clock_state}"
+            f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
+            f"Players:\n"
+        )
+
+        result += "\n".join(
+            OllamaPlayer.format_player_state(p) for p in game.players.values()
+        )
+
+        result += "\nRecent Events:\n"
+        result += textwrap.indent(
+            "\n".join(
+                e.description for e in game.recent_events() if not e.secret
+            ),
+            "  ",
+        )
+        return result
+
+    @staticmethod
+    def format_operation(op: OperationDefinition) -> str:
+        return f"{op.name} (cost {op.influence_cost} Inf)"
+
+    @staticmethod
+    def format_operations(rules: GameRules) -> str:
+        return "\n".join(
+            OllamaPlayer.format_operation(op)
+            for op in rules.allowed_operations.values()
+        )
 
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
-            "opponent. You should use this channel to conduct diplomacy, "
-            "respond to inquiries, issue threats, etc. Your initial response "
-            "should be plain text, but future responses will need to match a "
-            "provided JSON schema.\n"
-            "You must adhere to the following JSON Schema for this phase:\n"
+            "opponent. Note that your opponent will not see your message until "
+            "after they have acted this phase. You should use this channel to "
+            "conduct diplomacy, respond to inquiries, issue threats, etc. You "
+            "must adhere to the following JSON Schema for this phase:\n"
             f"{InitialMessageAction.model_json_schema()}"
         )
         self.messages.append({"role": "user", "content": prompt})
+        logging.debug(f"==== Initial message prompt ====\n{prompt}")
         response = self.client.chat(
             model=self.model,
             messages=self.messages,
             format=InitialMessageAction.model_json_schema(),
         )
 
-        try:
-            return InitialMessageAction.model_validate_json(
-                response["message"]["content"]
-            )
-        except ValidationError as e:
-            return InitialMessageAction(
-                internal_monologue=f"Validation failed: {e!r}"
-            )
+        return OllamaPlayer.parse_and_log_action(
+            InitialMessageAction,
+            GamePhase.OPENING,
+            response["message"]["content"],
+        )
 
     @override
     def bid(
         self, game: GameState, message_from_opponent: str | None
     ) -> BiddingAction:
         prompt = (
+            f"Round {game.current_round} of {game.rules.round_count}\n"
             f"Phase: Bidding\n"
-            f"Current Game State: {game.model_dump_json()}\n"
+            "Current Game State:\n"
+            f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
             f"Message from opponent: {message_from_opponent}\n"
-            "Provide your bidding action. You must adhere "
-            "to the following JSON Schema:\n"
+        )
+
+        if game.current_round >= (game.rules.round_count - 2):
+            prompt += (
+                "WARNING: The game will end soon. The player with the "
+                "highest GDP will be declared the winner after round "
+                f"{game.rules.round_count}."
+            )
+
+        prompt += (
+            "Provide your bidding action. Reminder: these are the allowed bids "
+            f"you may submit: {game.rules.allowed_bids}\n"
+            "You must adhere to the following JSON Schema for this phase:\n"
             f"{BiddingAction.model_json_schema()}"
         )
+        logging.debug(f"==== Bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat(
@@ -118,27 +195,40 @@ class OllamaPlayer(GamePlayer):
         action_json = response["message"]["content"]
         self.messages.append({"role": "assistant", "content": action_json})
 
-        try:
-            return BiddingAction.model_validate_json(action_json)
-        except ValidationError:
-            return BiddingAction(
-                bid=max(game.rules.allowed_bids),
-                internal_monologue="Fallback: failed to parse JSON output.",
-                message_to_opponent=None,
-            )
+        return OllamaPlayer.parse_and_log_action(
+            BiddingAction, GamePhase.BIDDING, action_json
+        )
 
     @override
     def operations(
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         prompt = (
+            f"Round {game.current_round} of {game.rules.round_count}\n"
             f"Phase: Operations\n"
-            f"Current Game State: {game.model_dump_json()}\n"
+            "Current Game State:\n"
+            f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
             f"Message from opponent: {message_from_opponent}\n"
-            "Provide your operations action. You must adhere "
-            "to the following JSON Schema:\n"
+        )
+
+        if game.current_round >= (game.rules.round_count - 2):
+            prompt += (
+                "WARNING: The game will end soon. The player with the "
+                "highest GDP will be declared the winner after round "
+                f"{game.rules.round_count}."
+            )
+
+        prompt += (
+            "You must now provide your operations action.\n"
+            "Reminder: these are the operations you may choose to undertake:\n"
+            f"{OllamaPlayer.format_operations(game.rules)}\n"
+            "You may undertake any number of operations, but you must "
+            "have sufficient influence, otherwise the operation will "
+            "not take place. Provide your operations action. You must adhere "
+            "to the following JSON Schema for this phase:\n"
             f"{OperationsAction.model_json_schema()}"
         )
+        logging.debug(f"==== Operations prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat(
@@ -150,11 +240,6 @@ class OllamaPlayer(GamePlayer):
         action_json = response["message"]["content"]
         self.messages.append({"role": "assistant", "content": action_json})
 
-        try:
-            return OperationsAction.model_validate_json(action_json)
-        except ValidationError:
-            return OperationsAction(
-                operations=[],
-                internal_monologue="Fallback: failed to parse JSON output.",
-                message_to_opponent=None,
-            )
+        return OllamaPlayer.parse_and_log_action(
+            OperationsAction, GamePhase.OPERATIONS, action_json
+        )
