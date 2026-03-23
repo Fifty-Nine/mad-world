@@ -1,5 +1,6 @@
 """Ollama player implementation for Mad World."""
 
+import pprint
 import textwrap
 from typing import TypeVar, override
 
@@ -150,15 +151,16 @@ class OllamaPlayer(GamePlayer):
         result = (
             "!!!! CRITICAL WARNING !!!!\n"
             "You are at risk of triggering MAD. The following bids entail "
-            "potential annihilation:\n"
+            "potential annihilation:"
         )
 
-        result += "\n".join(
-            f"- A bid of {bid} RISKS MAD if your opponent bids {obid} or more."
+        result += "".join(
+            f"\n- A bid of {bid} RISKS MAD if your opponent "
+            f"bids {obid} or more."
             for bid, obid in risky
         )
-        result += "\n".join(
-            f"- A bid of {bid} GUARANTEES MAD regardless of your opponent's "
+        result += "".join(
+            f"\n- A bid of {bid} GUARANTEES MAD regardless of your opponent's "
             "action."
             for bid in deadly
         )
@@ -192,17 +194,20 @@ class OllamaPlayer(GamePlayer):
             ).message.content
 
             try:
-                logging.debug(
-                    f"==== {phase.name} {self.name} response ====\n{result}"
-                )
                 self.messages.append(
                     {"role": "assistant", "message": result or ""}
                 )
-                return model.model_validate_json(result or "")
+                action = model.model_validate_json(result or "")
+                logging.debug(
+                    f"==== {phase.name} {self.name} response ====\n"
+                    f"{pprint.pformat(action.model_dump())}"
+                )
+                return action
             except ValidationError as e:
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
                     f"Failed: {e!r}"
+                    f"Model Response: {result}"
                 )
                 self.messages.append(
                     {
