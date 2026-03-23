@@ -571,17 +571,24 @@ if __name__ == "__main__":
 
     log_dir = Path("./logs")
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / (
+    log_file_base = log_dir / (
         f"{player_1}-{persona_1}-{model_1}-vs-"
         f"{player_2}-{persona_2}-{model_2}."
-        f"{datetime.now().isoformat().replace(':', '-')}.txt"
+        f"{datetime.now().isoformat().replace(':', '-')}"
     )
+    debug_log_file = log_file_base.with_suffix(".debug.txt")
+    log_file = log_file_base.with_suffix(".txt")
+
+    debug_file_handler = logging.FileHandler(debug_log_file)
+    debug_file_handler.setLevel(logging.DEBUG)
+
     file_handler = logging.FileHandler(log_file)
     file_handler.setLevel(logging.INFO)
 
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.DEBUG)
 
+    logger.addHandler(debug_file_handler)
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
 
@@ -616,4 +623,5 @@ if __name__ == "__main__":
             )
         )
     except KeyboardInterrupt:
+        debug_log_file.unlink(missing_ok=True)
         log_file.unlink(missing_ok=True)
