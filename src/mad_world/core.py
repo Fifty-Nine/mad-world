@@ -85,6 +85,17 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         influence_cost=5,
         clock_effect=-3,
     ),
+    "stand-down": OperationDefinition(
+        name="stand-down",
+        description=(
+            "Unilaterally concede geopolitical territory or scale back "
+            "military readiness. Sacrifices economic standing to generate "
+            "immediate diplomatic capital and cool global tensions."
+        ),
+        influence_cost=-3,
+        friendly_gdp_effect=-5,
+        clock_effect=-1,
+    ),
     "first-strike": OperationDefinition(
         name="first-strike",
         description=(
