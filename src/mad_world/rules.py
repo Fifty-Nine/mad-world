@@ -40,7 +40,7 @@ class OperationDefinition(BaseModel):
         if val == 0:
             return ""
 
-        return f"  {field} {desc_fn(val)}: {val}\n"
+        return f"  {field} {desc_fn(val)}: {abs(val)}\n"
 
     def format(self, verbose: bool) -> str:
         result = f"{self.name}:\n"
