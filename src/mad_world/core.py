@@ -574,8 +574,8 @@ if __name__ == "__main__":
     log_file_base = log_dir / (
         f"{player_1}-{persona_1}-{model_1}-vs-"
         f"{player_2}-{persona_2}-{model_2}."
-        f"{datetime.now().isoformat().replace(':', '-')}"
-    )
+        f"{datetime.now().isoformat()}"
+    ).replace(":", "-").replace(" ", "_")
     debug_log_file = log_file_base.with_suffix(".debug.txt")
     log_file = log_file_base.with_suffix(".txt")
 
