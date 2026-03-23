@@ -312,6 +312,7 @@ class OllamaPlayer(GamePlayer):
             f"{OperationsAction.model_json_schema()}\n"
         )
         logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
+        self.messages.append({"role": "user", "content": prompt})
         return self.retry_prompt(
             OperationsAction, GamePhase.OPERATIONS
         ) or OperationsAction(operations=[], internal_monologue="Prompt failed")
