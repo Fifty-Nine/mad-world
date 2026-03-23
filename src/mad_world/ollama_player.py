@@ -218,6 +218,29 @@ class OllamaPlayer(GamePlayer):
         )
         return None
 
+    def game_ending_warning(self, game: GameState) -> str:
+        if game.current_round < (game.rules.round_count - 2):
+            return ""
+
+        winner = game.determine_victor()[0]
+
+        result = (
+            "WARNING: The game will end soon. The player with the "
+            "highest GDP will be declared the winner after round "
+            f"{game.rules.round_count}.\n"
+            f"Right now, {winner} is winning.\n"
+        )
+
+        if winner != self.name:
+            result += (
+                f"If nothing changes, you will lose and {winner} will "
+                "achieve global haegemony, leaving your nation nothing "
+                "but a footnote in the history books. Consider your "
+                "next moves carefully.\n"
+            )
+
+        return result
+
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = (
@@ -246,14 +269,7 @@ class OllamaPlayer(GamePlayer):
             "Current Game State:\n"
             f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
         )
-
-        if game.current_round >= (game.rules.round_count - 2):
-            prompt += (
-                "WARNING: The game will end soon. The player with the "
-                "highest GDP will be declared the winner after round "
-                f"{game.rules.round_count}."
-            )
-
+        prompt += self.game_ending_warning(game)
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
             f"{game.rules.allowed_bids}\n"
@@ -261,7 +277,6 @@ class OllamaPlayer(GamePlayer):
         )
 
         prompt += self.doomsday_warning(game)
-
         prompt += (
             "Your response must adhere to the following JSON Schema for this "
             f"phase:\n{BiddingAction.model_json_schema()}"
@@ -283,14 +298,7 @@ class OllamaPlayer(GamePlayer):
             "Current Game State:\n"
             f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
         )
-
-        if game.current_round >= (game.rules.round_count - 2):
-            prompt += (
-                "WARNING: The game will end soon. The player with the "
-                "highest GDP will be declared the winner after round "
-                f"{game.rules.round_count}."
-            )
-
+        prompt += self.game_ending_warning(game)
         prompt += (
             "Reminder: these are the operations you may choose to undertake:\n"
             f"{OllamaPlayer.format_operations(game.rules)}\n"

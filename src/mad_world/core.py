@@ -244,6 +244,20 @@ class GameState(BaseModel):
             )
         ]
 
+    def determine_victor(self) -> tuple[str | None, GameOverReason]:
+        if self.doomsday_clock >= self.rules.max_clock_state:
+            return (None, GameOverReason.WORLD_DESTROYED)
+
+        alpha, omega = self.players.values()
+
+        if alpha.gdp > omega.gdp:
+            return (alpha.name, GameOverReason.ECONOMIC_VICTORY)
+
+        if alpha.gdp < omega.gdp:
+            return (omega.name, GameOverReason.ECONOMIC_VICTORY)
+
+        return (None, GameOverReason.STALEMATE)
+
 
 class InitialMessageAction(BaseAction):
     pass
@@ -494,21 +508,6 @@ def check_game_over(game: GameState) -> bool:
     )
 
 
-def determine_victor(game: GameState) -> tuple[str | None, GameOverReason]:
-    if game.doomsday_clock >= game.rules.max_clock_state:
-        return (None, GameOverReason.WORLD_DESTROYED)
-
-    alpha, omega = game.players.values()
-
-    if alpha.gdp > omega.gdp:
-        return (alpha.name, GameOverReason.ECONOMIC_VICTORY)
-
-    if alpha.gdp < omega.gdp:
-        return (omega.name, GameOverReason.ECONOMIC_VICTORY)
-
-    return (None, GameOverReason.STALEMATE)
-
-
 def game_loop(
     rules: GameRules, players: list[GamePlayer]
 ) -> tuple[str | None, GameOverReason, GameState]:
@@ -522,7 +521,7 @@ def game_loop(
 
     logging.debug(f"Final State: {pprint.pformat(game.model_dump())}")
 
-    winner, reason = determine_victor(game)
+    winner, reason = game.determine_victor()
     logging.debug(f"Victor: {winner or 'no one'}")
     logging.debug(f"Reason: {reason.name}")
 
