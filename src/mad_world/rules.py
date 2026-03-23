@@ -57,7 +57,7 @@ class OperationDefinition(BaseModel):
             )
 
         if self.name != "first-strike":
-            result += self.format_one(self.influence_cost, "Inf", cost_or_gain)
+            result += self.format_one(-self.influence_cost, "Inf", cost_or_gain)
             result += self.format_one(
                 self.clock_effect, "Clock", increase_or_decrease
             )
