@@ -607,12 +607,12 @@ def game_loop(
     game = init_game(players, rules)
 
     while not check_game_over(game):
-        logging.debug(
-            f"Current state: {pprint.pformat(game.model_dump_json())}"
-        )
+        # logging.debug(
+        #    f"Current state:\n{pprint.pformat(game.model_dump())}"
+        # )
         game = iterate_game(game, players)
 
-    logging.debug(f"Final State: {pprint.pformat(game.model_dump_json())}")
+    logging.debug(f"Final State: {pprint.pformat(game.model_dump())}")
 
     winner, reason = determine_victor(game)
     logging.debug(f"Victor: {winner or 'no one'}")
