@@ -617,7 +617,10 @@ def present_results(
 if __name__ == "__main__":
     from mad_world.ollama_player import OllamaPlayer
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+    logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
     present_results(
         *game_loop(
             GameRules(),
