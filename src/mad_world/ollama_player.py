@@ -1,6 +1,7 @@
 """Ollama player implementation for Mad World."""
 
 import textwrap
+from collections.abc import Callable
 from typing import TypeVar, override
 
 import ollama
@@ -25,12 +26,18 @@ T = TypeVar("T", bound=BaseAction)
 
 class OllamaPlayer(GamePlayer):
     def __init__(
-        self, name: str, model: str = "qwen3.5:9b", persona: str | None = None
+        self,
+        name: str,
+        model: str = "qwen3.5:9b",
+        token_limit: int = 8192,
+        persona: str | None = None,
     ) -> None:
         super().__init__(name)
         self.model = model
         self.client = ollama.Client()
         self.messages: list[dict[str, str]] = []
+        self.token_limit = token_limit
+        self.hit_limit = False
         prompt = (
             f"You are playing the role of Superpower {name}, a global "
             'superpower in a Cold War game called "The Doomsday '
@@ -75,6 +82,11 @@ class OllamaPlayer(GamePlayer):
             "are inherently in conflict, and there can be only one winner.\n"
             "- You MUST attempt to defeat your opponent, though you may "
             "find it strategic to cooperate with them on some occasions.\n"
+            "- DO NOT overthink. You have a hard limit on maximum output "
+            "tokens and it will not be possible for you to consider every "
+            "possible eventuality. If you hit this limit, you will "
+            "automatically submit the maximum possible bid, likely triggering "
+            "MAD. Try to limit your thinking to 3-4 paragraphs at most."
             "- Be ruthless and calculating--this is a zero-sum game. You may "
             "find it useful to deceive or threaten your opponent; this is "
             "acceptable.\n\n"
@@ -83,16 +95,25 @@ class OllamaPlayer(GamePlayer):
         )
         self.messages.append({"role": "system", "content": prompt})
 
-    @staticmethod
-    def parse_action(cls: type[T], action: str) -> T:
+    def parse_action(
+        self, cls: type[T], action: str, fallback: Callable[[], T]
+    ) -> T:
         try:
             return cls.model_validate_json(action)
         except ValidationError as e:
-            return cls(internal_monologue=f"Validation failed: {e!r}")
+            self.hit_limit = True
+            result = fallback()
+            result.internal_monologue = f"Validation failed: {e!r}"
+            return result
 
-    @staticmethod
-    def parse_and_log_action(cls: type[T], phase: GamePhase, action: str) -> T:
-        result = OllamaPlayer.parse_action(cls, action)
+    def parse_and_log_action(
+        self,
+        cls: type[T],
+        phase: GamePhase,
+        action: str,
+        fallback: Callable[[], T],
+    ) -> T:
+        result = self.parse_action(cls, action, fallback)
         logging.debug(f"==== {phase.name} response ====\n{action}")
         return result
 
@@ -122,6 +143,18 @@ class OllamaPlayer(GamePlayer):
         )
         return result
 
+    def limit_warning(self) -> str:
+        if not self.hit_limit:
+            return ""
+
+        self.hit_limit = False
+
+        return (
+            "CRITICAL WARNING: Your previous response exceeded the maximum "
+            "number of output tokens. As a result, you have taken the "
+            "default action. YOU MUST NOT OVERTHINK.\n"
+        )
+
     @staticmethod
     def format_operation(op: OperationDefinition) -> str:
         return f"{op.name} (cost {op.influence_cost} Inf)"
@@ -150,12 +183,14 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=InitialMessageAction.model_json_schema(),
+            options={"num_predict": self.token_limit},
         )
 
-        return OllamaPlayer.parse_and_log_action(
+        return self.parse_and_log_action(
             InitialMessageAction,
             GamePhase.OPENING,
             response["message"]["content"],
+            lambda: InitialMessageAction(),
         )
 
     @override
@@ -177,6 +212,7 @@ class OllamaPlayer(GamePlayer):
                 f"{game.rules.round_count}."
             )
 
+        prompt += self.limit_warning()
         prompt += (
             "Provide your bidding action. Reminder: these are the allowed bids "
             f"you may submit: {game.rules.allowed_bids}\n"
@@ -190,13 +226,17 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=BiddingAction.model_json_schema(),
+            options={"num_predict": self.token_limit},
         )
 
         action_json = response["message"]["content"]
         self.messages.append({"role": "assistant", "content": action_json})
 
-        return OllamaPlayer.parse_and_log_action(
-            BiddingAction, GamePhase.BIDDING, action_json
+        return self.parse_and_log_action(
+            BiddingAction,
+            GamePhase.BIDDING,
+            action_json,
+            fallback=lambda: BiddingAction(bid=max(game.rules.allowed_bids)),
         )
 
     @override
@@ -218,6 +258,7 @@ class OllamaPlayer(GamePlayer):
                 f"{game.rules.round_count}."
             )
 
+        prompt += self.limit_warning()
         prompt += (
             "You must now provide your operations action.\n"
             "Reminder: these are the operations you may choose to undertake:\n"
@@ -235,11 +276,15 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=OperationsAction.model_json_schema(),
+            options={"num_predict": self.token_limit},
         )
 
         action_json = response["message"]["content"]
         self.messages.append({"role": "assistant", "content": action_json})
 
-        return OllamaPlayer.parse_and_log_action(
-            OperationsAction, GamePhase.OPERATIONS, action_json
+        return self.parse_and_log_action(
+            OperationsAction,
+            GamePhase.OPERATIONS,
+            action_json,
+            fallback=lambda: OperationsAction(operations=[]),
         )
