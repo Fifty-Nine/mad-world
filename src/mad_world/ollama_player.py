@@ -10,10 +10,10 @@ from pydantic import ValidationError
 from mad_world.core import (
     BaseAction,
     BiddingAction,
-    GamePhase,
     GamePlayer,
     GameState,
     InitialMessageAction,
+    InvalidActionError,
     OperationsAction,
     PlayerState,
     logging,
@@ -174,9 +174,13 @@ class OllamaPlayer(GamePlayer):
         )
 
     def retry_prompt(
-        self, model: type[T], phase: GamePhase, retries: int = 3
+        self,
+        model: type[T],
+        game: GameState,
+        retries: int = 3,
     ) -> T | None:
         count = 0
+        phase = game.current_phase
         while count < retries:
             result = self.client.chat(
                 model=self.model,
@@ -186,15 +190,32 @@ class OllamaPlayer(GamePlayer):
             ).message.content
 
             try:
-                self.messages.append(
-                    {"role": "assistant", "message": result or ""}
-                )
                 action = model.model_validate_json(result or "")
+                action.validate_semantics(game, self.name)
+
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
                     f"{pprint.pformat(action.model_dump())}"
                 )
                 return action
+            except InvalidActionError as e:
+                logging.debug(
+                    f"==== {phase.name} {self.name} response ====\n"
+                    f"Semantic Error: {e}"
+                    f"Model Response: {result}"
+                )
+                self.messages.append(
+                    {"role": "assistant", "content": result or ""}
+                )
+                self.messages.append(
+                    {
+                        "role": "system",
+                        "content": "SYSTEM ERROR: Your response was "
+                        "semantically invalid:\n"
+                        f"{e}\n"
+                        "Please correct your mistake and try again.",
+                    }
+                )
             except ValidationError as e:
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
@@ -264,7 +285,7 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"==== {self.name} initial message prompt ====\n{prompt}")
 
         return self.retry_prompt(
-            InitialMessageAction, GamePhase.OPENING
+            InitialMessageAction, game
         ) or InitialMessageAction(internal_monologue="Prompt failed")
 
     @override
@@ -293,9 +314,9 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"==== {self.name} bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
-        return self.retry_prompt(
-            BiddingAction, GamePhase.BIDDING
-        ) or BiddingAction(internal_monologue="Prompt failed", bid=1)
+        return self.retry_prompt(BiddingAction, game) or BiddingAction(
+            internal_monologue="Prompt failed", bid=1
+        )
 
     @override
     def operations(
@@ -320,6 +341,6 @@ class OllamaPlayer(GamePlayer):
         )
         logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
-        return self.retry_prompt(
-            OperationsAction, GamePhase.OPERATIONS
-        ) or OperationsAction(operations=[], internal_monologue="Prompt failed")
+        return self.retry_prompt(OperationsAction, game) or OperationsAction(
+            operations=[], internal_monologue="Prompt failed"
+        )

@@ -19,6 +19,15 @@ from mad_world.rules import (
 from mad_world.util import wrap_text
 
 
+class InvalidActionError(Exception):
+    """Raised during Action validation when an action
+    is not allowed under the current game state or
+    rules.
+    """
+
+    pass
+
+
 class GamePhase(Enum):
     OPENING = 1
     BIDDING = 2
@@ -106,6 +115,9 @@ class BaseAction(BaseModel):
         "issue threats, etc.",
     )
 
+    def validate_semantics(self, game: "GameState", player_name: str) -> None:
+        pass
+
 
 class GameState(BaseModel):
     """Tracks the overall state of the game."""
@@ -135,6 +147,32 @@ class GameState(BaseModel):
         description="A chronological log of all events that "
         "have occurred in the game.",
     )
+
+    def validate_operation(self, operation_name: str, player_name: str) -> None:
+        """Checks the validity of a single operation without enacting it.
+
+        Args:
+            operation_name: The name of the operation to check.
+            player_name: The name of the player taking the action.
+
+        Raises:
+            InvalidActionError: if the operation is invalid.
+        """
+        player_state = self.players[player_name]
+        op_def = self.rules.allowed_operations.get(operation_name)
+        if op_def is None:
+            raise InvalidActionError(
+                f"INVALID OPERATION: '{operation_name}' is not a valid "
+                "operation. Allowed operations are: "
+                f"{list(self.rules.allowed_operations.keys())}"
+            )
+
+        if player_state.influence < op_def.influence_cost:
+            raise InvalidActionError(
+                f"INSUFFICIENT INFLUENCE: '{operation_name}' costs "
+                f"{op_def.influence_cost} influence, but you only "
+                f"have {player_state.influence}."
+            )
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
@@ -269,6 +307,13 @@ class BiddingAction(BaseAction):
         "A bid of 0 is de-escalatory and reduces the doomsday clock by 1."
     )
 
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        if self.bid not in game.rules.allowed_bids:
+            raise InvalidActionError(
+                f"INVALID BID: Your bid of {self.bid} is not allowed. "
+                f"Allowed bids are {game.rules.allowed_bids}."
+            )
+
 
 class OperationsAction(BaseAction):
     operations: list[str] = Field(
@@ -276,6 +321,22 @@ class OperationsAction(BaseAction):
         "must be a valid operation allowed by the rules. You must "
         "have sufficient influence to conduct the operation."
     )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        for op_name in self.operations:
+            game.validate_operation(op_name, player_name)
+
+        total_cost = sum(
+            game.rules.allowed_operations[op].influence_cost
+            for op in self.operations
+        )
+        player_state = game.players[player_name]
+        if total_cost > player_state.influence:
+            raise InvalidActionError(
+                "INSUFFICIENT INFLUENCE: The submitted operations require "
+                f"a total of {total_cost} influence, but you only have "
+                f"{player_state.influence} available."
+            )
 
 
 class GamePlayer(ABC):
@@ -343,14 +404,24 @@ def init_game(
 
 
 def process_bid(game: GameState, player_name: str, bid: int) -> None:
-    if bid not in game.rules.allowed_bids:
+    action = BiddingAction(
+        bid=bid, internal_monologue="", message_to_opponent=None
+    )
+
+    try:
+        action.validate_semantics(game, player_name)
+        error = False
+    except InvalidActionError:
+        error = True
+
+    if error:
         bid = max(game.rules.allowed_bids)
         clock_impact = bid
         desc = (
             f"{player_name} submitted an invalid bid and thus their bid "
             "has been corrected to the maximum possible value."
         )
-    if bid == 0:
+    elif bid == 0:
         clock_impact = game.rules.de_escalate_impact
         desc = f"{player_name} chose to de-escalate, lowering the clock."
     else:
@@ -391,27 +462,18 @@ def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
 def resolve_operation(
     game: GameState, player_name: str, opponent_name: str, operation_name: str
 ) -> GameEvent:
-    op_def = game.rules.allowed_operations.get(operation_name, None)
-    if op_def is None:
+    try:
+        game.validate_operation(operation_name, player_name)
+    except InvalidActionError as e:
         return GameEvent(
             actor=PlayerActor(name=player_name),
             description=(
-                f"{player_name} attempted an operation not allowed by the "
-                f'current rules ("{operation_name}") and as a result the '
-                "action is null and void."
+                f"{player_name} attempted a {operation_name} "
+                f"operation which was rejected: {e}."
             ),
         )
 
-    if op_def.influence_cost > game.players[player_name].influence:
-        return GameEvent(
-            actor=PlayerActor(name=player_name),
-            description=(
-                f"{player_name} attempted to perform an operation "
-                f'("{operation_name}") but lacked sufficient influence to do '
-                "so. As a result the action is null and void."
-            ),
-        )
-
+    op_def = game.rules.allowed_operations[operation_name]
     return GameEvent(
         actor=PlayerActor(name=player_name),
         description=(
