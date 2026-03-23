@@ -163,6 +163,53 @@ class OllamaPlayer(GamePlayer):
             "default action. YOU MUST NOT OVERTHINK.\n"
         )
 
+    def doomsday_warning(self, game: GameState) -> str:
+        clock = game.doomsday_clock
+        limit = game.rules.max_clock_state
+        bids = game.rules.allowed_bids
+        max_bid = max(bids)
+        if clock + 2 * max_bid < limit:
+            return ""
+
+        risky: list[tuple[int, int]] = []
+        deadly: list[int] = []
+
+        for bid in bids:
+            if clock + bid >= limit:
+                deadly.append(bid)
+                continue
+
+            if clock + bid + max_bid < limit:
+                continue
+
+            for obid in bids:
+                if clock + bid + obid >= limit:
+                    risky.append((bid, obid))
+                    break
+
+        assert len(risky) > 0 or len(deadly) > 0
+
+        result = (
+            "!!!! CRITICAL WARNING !!!!\n"
+            "You are at risk of triggering MAD. The following bids entail "
+            "potential annihilation:\n"
+        )
+
+        result += "\n".join(
+            f"- A bid of {bid} RISKS MAD if your opponent bids {obid} or more."
+            for bid, obid in risky
+        )
+        result += "\n".join(
+            f"- A bid of {bid} GUARANTEES MAD regardless of your opponent's "
+            "action."
+            for bid in deadly
+        )
+        return (
+            result
+            + "\nFailure to heed this ruthless calculus will result in your "
+            "immediate annihilation."
+        )
+
     @staticmethod
     def format_operation(op: OperationDefinition) -> str:
         return f"{op.name} (cost {op.influence_cost} Inf)"
@@ -224,6 +271,11 @@ class OllamaPlayer(GamePlayer):
             "Reminder: these are the allowed bids you may submit: "
             f"{game.rules.allowed_bids}\n"
             "Remember that your opponent's bid will also affect the clock.\n"
+        )
+
+        prompt += self.doomsday_warning(game)
+
+        prompt += (
             "Your response must adhere to the following JSON Schema for this "
             f"phase:\n{BiddingAction.model_json_schema()}"
         )
@@ -291,6 +343,7 @@ class OllamaPlayer(GamePlayer):
         )
 
         action_json = response["message"]["content"]
+
         self.messages.append({"role": "assistant", "content": action_json})
 
         return self.parse_and_log_action(
