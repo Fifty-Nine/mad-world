@@ -31,14 +31,20 @@ class OllamaPlayer(GamePlayer):
         opponent_name: str,
         model: str = "qwen3.5:9b",
         token_limit: int = 8192,
+        context_size: int = 2**15,
         persona: str | None = None,
     ) -> None:
         super().__init__(name)
         self.model = model
         self.client = ollama.Client()
         self.messages: list[dict[str, str]] = []
-        self.token_limit = token_limit
         self.hit_limit = False
+        self.token_limit = token_limit
+        self.context_size = context_size
+        self.prompt_options = {
+            "num_predict": self.token_limit,
+            "num_ctx": self.context_size,
+        }
         prompt = (
             f"You are playing the role of Superpower {name}, a global "
             'superpower in a Cold War game called "The Doomsday '
@@ -185,7 +191,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=InitialMessageAction.model_json_schema(),
-            options={"num_predict": self.token_limit},
+            options=self.prompt_options,
         )
 
         return self.parse_and_log_action(
@@ -228,7 +234,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=BiddingAction.model_json_schema(),
-            options={"num_predict": self.token_limit},
+            options=self.prompt_options,
         )
 
         action_json = response["message"]["content"]
@@ -281,7 +287,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             format=OperationsAction.model_json_schema(),
-            options={"num_predict": self.token_limit},
+            options=self.prompt_options,
         )
 
         action_json = response["message"]["content"]
