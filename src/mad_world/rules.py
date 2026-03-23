@@ -1,9 +1,10 @@
 """Rules and static definitions for the game."""
 
-import textwrap
 from collections.abc import Callable
 
 from pydantic import BaseModel, Field
+
+from mad_world.util import wrap_text
 
 
 def increase_or_decrease(val: int) -> str:
@@ -45,13 +46,14 @@ class OperationDefinition(BaseModel):
         result = f"{self.name}:\n"
 
         if verbose:
-            result += "  Description:\n" + "\n".join(
-                textwrap.wrap(
+            result += (
+                "  Description:\n"
+                + wrap_text(
                     self.description,
+                    indent="    ",
                     width=80,
-                    initial_indent="    ",
-                    subsequent_indent="    ",
                 )
+                + "\n"
             )
 
         if self.name != "first-strike":

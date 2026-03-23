@@ -19,6 +19,7 @@ from mad_world.core import (
     logging,
 )
 from mad_world.rules import GameRules
+from mad_world.util import wrap_text
 
 T = TypeVar("T", bound=BaseAction)
 
@@ -103,7 +104,7 @@ class OllamaPlayer(GamePlayer):
         self.messages.append({"role": "system", "content": prompt})
         logging.debug(
             f"==== {self.name} system prompt ====\n"
-            + "\n".join(textwrap.wrap(prompt, width=80))
+            + wrap_text(prompt, width=80)
             + "\n"
         )
 

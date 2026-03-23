@@ -4,7 +4,6 @@ import copy
 import logging as logging
 import pprint
 import random
-import textwrap
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
@@ -17,6 +16,7 @@ from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
 )
+from mad_world.util import wrap_text
 
 
 class GamePhase(Enum):
@@ -160,13 +160,10 @@ class GameState(BaseModel):
                     actor=PlayerActor(name=self_player),
                     description=(
                         f"{self_player} had some thoughts:\n"
-                        + "\n".join(
-                            textwrap.wrap(
-                                action.internal_monologue,
-                                width=80,
-                                initial_indent="  ",
-                                subsequent_indent="  ",
-                            )
+                        + wrap_text(
+                            action.internal_monologue,
+                            width=80,
+                            indent="  ",
                         )
                     ),
                     secret=True,
@@ -180,13 +177,10 @@ class GameState(BaseModel):
                     description=(
                         f"{self_player} sent a message to "
                         + f"{opponent_player}:\n"
-                        + "\n".join(
-                            textwrap.wrap(
-                                action.message_to_opponent,
-                                width=80,
-                                initial_indent="  ",
-                                subsequent_indent="  ",
-                            )
+                        + wrap_text(
+                            action.message_to_opponent,
+                            width=80,
+                            indent="  ",
                         )
                     ),
                 )
