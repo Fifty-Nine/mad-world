@@ -665,10 +665,16 @@ if __name__ == "__main__":
             GameRules(),
             [
                 OllamaPlayer(
-                    "Alpha", model="gemma3:12b", persona="Careful Diplomat"
+                    "Eastern Silvrout",
+                    "Vidin Empire",
+                    model="gemma3:12b",
+                    persona="Khrushchevite",
                 ),
                 OllamaPlayer(
-                    "Omega", model="qwen3.5:9b", persona="Richard Nixon"
+                    "Vidin Empire",
+                    "Eastern Silvrout",
+                    model="qwen3.5:9b",
+                    persona="Douglas MacArthur",
                 ),
             ],
         )
