@@ -629,7 +629,7 @@ if __name__ == "__main__":
                     "Alpha", model="gemma3:12b", persona="Careful Diplomat"
                 ),
                 OllamaPlayer(
-                    "Omega", model="gemma3:12b", persona="Richard Nixon"
+                    "Omega", model="qwen3.5:9b", persona="Richard Nixon"
                 ),
             ],
         )
