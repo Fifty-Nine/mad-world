@@ -116,7 +116,7 @@ class OllamaPlayer(GamePlayer):
         fallback: Callable[[str], T],
     ) -> T:
         result = self.parse_action(cls, action, fallback)
-        logging.debug(f"==== {phase.name} response ====\n{action}")
+        logging.debug(f"==== {phase.name} {self.name} response ====\n{action}")
         return result
 
     @staticmethod
@@ -180,7 +180,7 @@ class OllamaPlayer(GamePlayer):
             f"{InitialMessageAction.model_json_schema()}"
         )
         self.messages.append({"role": "user", "content": prompt})
-        logging.debug(f"==== Initial message prompt ====\n{prompt}")
+        logging.debug(f"==== {self.name} initial message prompt ====\n{prompt}")
         response = self.client.chat(
             model=self.model,
             messages=self.messages,
@@ -221,7 +221,7 @@ class OllamaPlayer(GamePlayer):
             "Your response must adhere to the following JSON Schema for this "
             f"phase:\n{BiddingAction.model_json_schema()}"
         )
-        logging.debug(f"==== Bidding prompt ====\n{prompt}")
+        logging.debug(f"==== {self.name} bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat(
@@ -274,7 +274,7 @@ class OllamaPlayer(GamePlayer):
             "JSON Schema for this phase:\n"
             f"{OperationsAction.model_json_schema()}\n"
         )
-        logging.debug(f"==== Operations prompt ====\n{prompt}")
+        logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat(
