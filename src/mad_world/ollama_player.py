@@ -18,7 +18,7 @@ from mad_world.core import (
     PlayerState,
     logging,
 )
-from mad_world.rules import GameRules, OperationDefinition
+from mad_world.rules import GameRules
 
 T = TypeVar("T", bound=BaseAction)
 
@@ -34,6 +34,8 @@ class OllamaPlayer(GamePlayer):
         persona: str | None = None,
     ) -> None:
         super().__init__(name)
+        self.opponent_name = opponent_name
+        self.persona = persona
         self.model = model
         self.client = ollama.Client()
         self.messages: list[dict[str, str]] = []
@@ -43,11 +45,13 @@ class OllamaPlayer(GamePlayer):
             "num_predict": self.token_limit,
             "num_ctx": self.context_size,
         }
+
+    def start_game(self, rules: GameRules) -> None:
         prompt = (
-            f"You are playing the role of Superpower {name}, a global "
+            f"You are playing the role of Superpower {self.name}, a global "
             'superpower in a Cold War game called "The Doomsday '
             'Clock."\n'
-            f'Your opponent is "{opponent_name}".\n'
+            f'Your opponent is "{self.opponent_name}".\n'
             "\n"
             "Your ultimate objective is to finish the game with a higher Gross "
             "Domestic Product (GDP) than your opponent. However, you must "
@@ -72,18 +76,10 @@ class OllamaPlayer(GamePlayer):
             "You will be given your updated Influence total and the new Clock "
             "value. You may spend your Influence to purchase any number of "
             "actions from the following menu, provided you can afford them:\n"
-            # FIXME These values should come from the rules and include a
-            # flavor text description
-            "Domestic Investment (Cost: 3 Influence): +4 GDP (Self).\n"
-            "Aggressive Extraction (Cost: 2 Influence): +3 GDP (Self), +1 "
-            "Doomsday Clock.\n"
-            "Proxy Subversion (Cost: 4 Influence): -5 GDP (Opponent), +1 "
-            "Doomsday Clock.\n"
-            "Diplomatic Summit (Cost: 5 Influence): -3 Doomsday Clock.\n"
-            "Stand Down (Cost: 5 GDP): +3 Influence, -1 Doomsday Clock.\n"
-            "First Strike (Cost: everything): Immediately ends the game in "
-            "MAD.\n"
-            "You will receive a prompt detailing the current Phase and Game "
+        )
+        prompt += self.format_allowed_ops(avail_inf=None, rules=rules)
+        prompt += (
+            "\nYou will receive a prompt detailing the current Phase and Game "
             "State and respond with your action matching the provided schema.\n"
             "CRITICAL INSTRUCTIONS: \n"
             "- Do NOT underestimate your opponent--their interests and yours "
@@ -98,14 +94,33 @@ class OllamaPlayer(GamePlayer):
             "- Be ruthless and calculating--this is a zero-sum game. You may "
             "find it useful to deceive or threaten your opponent; this is "
             "acceptable.\n\n"
-            "You have been randomly assigned the following persona for this "
-            f"engagement: {persona} Act accordingly.\n"
         )
+        if self.persona is not None:
+            prompt += (
+                "You have been randomly assigned the following persona "
+                f"for this engagement: {self.persona} Act accordingly.\n"
+            )
         self.messages.append({"role": "system", "content": prompt})
+        logging.debug(
+            f"==== {self.name} system prompt ====\n"
+            + "\n".join(textwrap.wrap(prompt, width=80))
+            + "\n"
+        )
 
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
         return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
+
+    @staticmethod
+    def format_allowed_ops(avail_inf: int | None, rules: GameRules) -> str:
+        ops = (
+            op
+            for op in rules.allowed_operations.values()
+            if avail_inf is None or avail_inf - op.influence_cost >= 0
+        )
+        return (
+            "\n".join(op.format(verbose=avail_inf is None) for op in ops) + "\n"
+        )
 
     @staticmethod
     def format_game_state(game: GameState) -> str:
@@ -155,17 +170,6 @@ class OllamaPlayer(GamePlayer):
             result
             + "\nFailure to heed this ruthless calculus will result in your "
             "immediate annihilation."
-        )
-
-    @staticmethod
-    def format_operation(op: OperationDefinition) -> str:
-        return f"{op.name} (cost {op.influence_cost} Inf)"
-
-    @staticmethod
-    def format_operations(rules: GameRules) -> str:
-        return "\n".join(
-            OllamaPlayer.format_operation(op)
-            for op in rules.allowed_operations.values()
         )
 
     def retry_prompt(
@@ -241,6 +245,9 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
+    def my_influence(self, game: GameState) -> int:
+        return game.players[self.name].influence
+
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = (
@@ -299,10 +306,10 @@ class OllamaPlayer(GamePlayer):
             f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
         )
         prompt += self.game_ending_warning(game)
+        prompt += "These are the operations you can currently afford:\n"
+        prompt += self.format_allowed_ops(self.my_influence(game), game.rules)
         prompt += (
-            "Reminder: these are the operations you may choose to undertake:\n"
-            f"{OllamaPlayer.format_operations(game.rules)}\n"
-            "You may undertake any number of operations, but you must "
+            "\nYou may undertake any number of operations, but you must "
             "have sufficient influence, otherwise the operation will "
             "not take place. Remember that your opponents actions may also "
             "impact the clock.\nYour response must adhere to the following "

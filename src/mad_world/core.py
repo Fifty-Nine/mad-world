@@ -288,6 +288,12 @@ class GamePlayer(ABC):
     def __init__(self, name: str):
         self.name = name
 
+    def start_game(self, game: GameRules) -> None:  # noqa: B027
+        """Called with the rules for the current game
+        at the start of the game.
+        """
+        pass
+
     @abstractmethod
     def initial_message(self, game: GameState) -> InitialMessageAction:
         """Get the initial message for your opponent. This will be provided
@@ -512,6 +518,9 @@ def game_loop(
     rules: GameRules, players: list[GamePlayer]
 ) -> tuple[str | None, GameOverReason, GameState]:
     game = init_game(players, rules)
+
+    for p in players:
+        p.start_game(rules)
 
     while not check_game_over(game):
         # logging.debug(

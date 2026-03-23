@@ -1,6 +1,17 @@
 """Rules and static definitions for the game."""
 
+import textwrap
+from collections.abc import Callable
+
 from pydantic import BaseModel, Field
+
+
+def increase_or_decrease(val: int) -> str:
+    return "increase" if val >= 0 else "decrease"
+
+
+def cost_or_gain(val: int) -> str:
+    return "gain" if val >= 0 else "cost"
 
 
 class OperationDefinition(BaseModel):
@@ -22,6 +33,46 @@ class OperationDefinition(BaseModel):
     enemy_gdp_effect: int = Field(
         description="The GDP impact on the opposing player.", default=0
     )
+
+    @staticmethod
+    def format_one(val: int, field: str, desc_fn: Callable[[int], str]) -> str:
+        if val == 0:
+            return ""
+
+        return f"  {field} {desc_fn(val)}: {val}\n"
+
+    def format(self, verbose: bool) -> str:
+        result = f"{self.name}:\n"
+
+        if verbose:
+            result += "  Description:\n" + "\n".join(
+                textwrap.wrap(
+                    self.description,
+                    width=80,
+                    initial_indent="    ",
+                    subsequent_indent="    ",
+                )
+            )
+
+        if self.name != "first-strike":
+            result += self.format_one(self.influence_cost, "Inf", cost_or_gain)
+            result += self.format_one(
+                self.clock_effect, "Clock", increase_or_decrease
+            )
+            result += self.format_one(
+                self.friendly_gdp_effect, "GDP", increase_or_decrease
+            )
+            result += self.format_one(
+                self.enemy_gdp_effect, "Opponent GDP", increase_or_decrease
+            )
+        else:
+            result += "  Cost: everything\n"
+            result += (
+                "  Gain: a legacy of ashes, but at "
+                "least your opponent doesn't win\n"
+            )
+
+        return result
 
 
 DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
