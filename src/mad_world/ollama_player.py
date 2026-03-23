@@ -68,6 +68,8 @@ class OllamaPlayer(GamePlayer):
             "You will be given your updated Influence total and the new Clock "
             "value. You may spend your Influence to purchase any number of "
             "actions from the following menu, provided you can afford them:\n"
+            # FIXME These values should come from the rules and include a
+            # flavor text description
             "Domestic Investment (Cost: 3 Influence): +4 GDP (Self).\n"
             "Aggressive Extraction (Cost: 2 Influence): +3 GDP (Self), +1 "
             "Doomsday Clock.\n"
