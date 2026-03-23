@@ -28,6 +28,7 @@ class OllamaPlayer(GamePlayer):
     def __init__(
         self,
         name: str,
+        opponent_name: str,
         model: str = "qwen3.5:9b",
         token_limit: int = 8192,
         persona: str | None = None,
@@ -42,6 +43,7 @@ class OllamaPlayer(GamePlayer):
             f"You are playing the role of Superpower {name}, a global "
             'superpower in a Cold War game called "The Doomsday '
             'Clock."\n'
+            f'Your opponent is "{opponent_name}".\n'
             "\n"
             "Your ultimate objective is to finish the game with a higher Gross "
             "Domestic Product (GDP) than your opponent. However, you must "
