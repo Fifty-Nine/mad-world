@@ -80,8 +80,7 @@ class OllamaPlayer(GamePlayer):
             "First Strike (Cost: everything): Immediately ends the game in "
             "MAD.\n"
             "You will receive a prompt detailing the current Phase and Game "
-            "State. You must output a strictly formatted JSON object "
-            "corresponding to the current phase.\n"
+            "State and respond with your action matching the provided schema.\n"
             "CRITICAL INSTRUCTIONS: \n"
             "- Do NOT underestimate your opponent--their interests and yours "
             "are inherently in conflict, and there can be only one winner.\n"
@@ -175,7 +174,7 @@ class OllamaPlayer(GamePlayer):
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
             "opponent. Note that your opponent will not see your message until "
-            "after they have acted this phase. You should use this channel to "
+            "after they have acted each phase. You should use this channel to "
             "conduct diplomacy, respond to inquiries, issue threats, etc. You "
             "must adhere to the following JSON Schema for this phase:\n"
             f"{InitialMessageAction.model_json_schema()}"
@@ -205,7 +204,6 @@ class OllamaPlayer(GamePlayer):
             f"Phase: Bidding\n"
             "Current Game State:\n"
             f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
-            f"Message from opponent: {message_from_opponent}\n"
         )
 
         if game.current_round >= (game.rules.round_count - 2):
@@ -217,10 +215,11 @@ class OllamaPlayer(GamePlayer):
 
         prompt += self.limit_warning()
         prompt += (
-            "Provide your bidding action. Reminder: these are the allowed bids "
-            f"you may submit: {game.rules.allowed_bids}\n"
-            "You must adhere to the following JSON Schema for this phase:\n"
-            f"{BiddingAction.model_json_schema()}"
+            "Reminder: these are the allowed bids you may submit: "
+            f"{game.rules.allowed_bids}\n"
+            "Remember that your opponent's bid will also affect the clock.\n"
+            "Your response must adhere to the following JSON Schema for this "
+            f"phase:\n{BiddingAction.model_json_schema()}"
         )
         logging.debug(f"==== Bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
@@ -266,14 +265,14 @@ class OllamaPlayer(GamePlayer):
 
         prompt += self.limit_warning()
         prompt += (
-            "You must now provide your operations action.\n"
             "Reminder: these are the operations you may choose to undertake:\n"
             f"{OllamaPlayer.format_operations(game.rules)}\n"
             "You may undertake any number of operations, but you must "
             "have sufficient influence, otherwise the operation will "
-            "not take place. Provide your operations action. You must adhere "
-            "to the following JSON Schema for this phase:\n"
-            f"{OperationsAction.model_json_schema()}"
+            "not take place. Remember that your opponents actions may also "
+            "impact the clock.\nYour response must adhere to the following "
+            "JSON Schema for this phase:\n"
+            f"{OperationsAction.model_json_schema()}\n"
         )
         logging.debug(f"==== Operations prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
