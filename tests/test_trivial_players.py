@@ -1,6 +1,7 @@
 """Tests for the trivial player implementations."""
 
-from mad_world.core import GameRules, init_game
+from mad_world.core import init_game
+from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,

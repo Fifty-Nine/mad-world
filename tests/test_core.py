@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from mad_world.core import GameOverReason, GamePlayer, GameRules, game_loop
+from mad_world.core import GameOverReason, GamePlayer, game_loop
+from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,

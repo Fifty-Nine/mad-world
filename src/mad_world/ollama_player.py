@@ -12,14 +12,13 @@ from mad_world.core import (
     BiddingAction,
     GamePhase,
     GamePlayer,
-    GameRules,
     GameState,
     InitialMessageAction,
-    OperationDefinition,
     OperationsAction,
     PlayerState,
     logging,
 )
+from mad_world.rules import GameRules, OperationDefinition
 
 T = TypeVar("T", bound=BaseAction)
 
@@ -164,30 +163,10 @@ class OllamaPlayer(GamePlayer):
         )
 
     def doomsday_warning(self, game: GameState) -> str:
-        clock = game.doomsday_clock
-        limit = game.rules.max_clock_state
-        bids = game.rules.allowed_bids
-        max_bid = max(bids)
-        if clock + 2 * max_bid < limit:
+        risky, deadly = game.rules.get_doomsday_bids(game.doomsday_clock)
+
+        if len(risky) == 0 and len(deadly) == 0:
             return ""
-
-        risky: list[tuple[int, int]] = []
-        deadly: list[int] = []
-
-        for bid in bids:
-            if clock + bid >= limit:
-                deadly.append(bid)
-                continue
-
-            if clock + bid + max_bid < limit:
-                continue
-
-            for obid in bids:
-                if clock + bid + obid >= limit:
-                    risky.append((bid, obid))
-                    break
-
-        assert len(risky) > 0 or len(deadly) > 0
 
         result = (
             "!!!! CRITICAL WARNING !!!!\n"

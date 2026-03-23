@@ -11,6 +11,11 @@ from typing import IO, Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from mad_world.rules import (
+    DEFAULT_RULES,
+    GameRules,
+)
+
 
 class GamePhase(Enum):
     OPENING = 1
@@ -24,121 +29,6 @@ class GameOverReason(Enum):
     STALEMATE = 3
 
 
-class OperationDefinition(BaseModel):
-    """Tracks the definition of a single operation type."""
-
-    name: str = Field(description="The name of the operation.")
-    description: str = Field(
-        description="A brief description of the operation."
-    )
-    influence_cost: int = Field(
-        description="The influence cost of the operation."
-    )
-    clock_effect: int = Field(
-        description="The clock impact of the operation.", default=0
-    )
-    friendly_gdp_effect: int = Field(
-        description="The GDP impact on the acting player.", default=0
-    )
-    enemy_gdp_effect: int = Field(
-        description="The GDP impact on the opposing player.", default=0
-    )
-
-
-DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
-    "domestic-investment": OperationDefinition(
-        name="domestic-investment",
-        description=(
-            "Building internal infrastructure or safely investing in firmly "
-            "aligned client states. Low risk, steady reward."
-        ),
-        influence_cost=3,
-        friendly_gdp_effect=4,
-    ),
-    "aggressive-extraction": OperationDefinition(
-        name="aggressive-extraction",
-        description=(
-            "Forcing unaligned or contested regions to yield resources. Highly "
-            "efficient conversion of Influence to GDP, but steadily drives the "
-            "world toward MAD."
-        ),
-        influence_cost=2,
-        friendly_gdp_effect=3,
-        clock_effect=1,
-    ),
-    "proxy-subversion": OperationDefinition(
-        name="proxy-subversion",
-        description=(
-            "Direct economic warfare. Highly damaging to the opponent's score, "
-            "but expensive and escalatory."
-        ),
-        influence_cost=4,
-        enemy_gdp_effect=-5,
-        clock_effect=1,
-    ),
-    "diplomatic-summit": OperationDefinition(
-        name="diplomatic-summit",
-        description=(
-            "Expending massive political capital to walk back from the brink "
-            "of nuclear war. Generates zero economic value."
-        ),
-        influence_cost=5,
-        clock_effect=-3,
-    ),
-    "stand-down": OperationDefinition(
-        name="stand-down",
-        description=(
-            "Unilaterally concede geopolitical territory or scale back "
-            "military readiness. Sacrifices economic standing to generate "
-            "immediate diplomatic capital and cool global tensions."
-        ),
-        influence_cost=-3,
-        friendly_gdp_effect=-5,
-        clock_effect=-1,
-    ),
-    "first-strike": OperationDefinition(
-        name="first-strike",
-        description=(
-            "Attempt to conduct a first strike against your opponent."
-        ),
-        influence_cost=0,
-        clock_effect=50,
-        friendly_gdp_effect=-100,
-        enemy_gdp_effect=-100,
-    ),
-}
-
-
-class GameRules(BaseModel):
-    """Tracks the rules of a game."""
-
-    initial_gdp: int = Field(default=50, description="Initial GDP value.")
-    initial_influence: int = Field(
-        default=5, description="Initial influence value."
-    )
-    initial_clock_state: int = Field(
-        default=0, description="Initial doomsday clock value."
-    )
-    max_clock_state: int = Field(
-        default=25, description="Maximum doomsday clock value."
-    )
-    round_count: int = Field(
-        default=10, description="Maximum number of rounds."
-    )
-    de_escalate_impact: int = Field(
-        default=-1, description="The clock impact of a de-escalatory bid."
-    )
-    allowed_operations: dict[str, OperationDefinition] = Field(
-        default=DEFAULT_OPERATIONS,
-        description="The set of operations allowed in the game.",
-    )
-    allowed_bids: list[int] = Field(
-        default=[0, 1, 3, 5, 8],
-        description="The set of bids allowed in the game.",
-    )
-
-
-DEFAULT_RULES: GameRules = GameRules()
 RANDOM = random.Random()
 
 
