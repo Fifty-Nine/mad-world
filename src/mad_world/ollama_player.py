@@ -291,7 +291,6 @@ class OllamaPlayer(GamePlayer):
             f"Phase: Operations\n"
             "Current Game State:\n"
             f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
-            f"Message from opponent: {message_from_opponent}\n"
         )
 
         if game.current_round >= (game.rules.round_count - 2):
