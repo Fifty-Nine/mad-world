@@ -4,10 +4,12 @@ import copy
 import logging as logging
 import pprint
 import random
-import sys
+import textwrap
 from abc import ABC, abstractmethod
+from datetime import datetime
 from enum import Enum
-from typing import IO, Annotated, Literal
+from pathlib import Path
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -145,6 +147,7 @@ class GameState(BaseModel):
         event.current_phase = self.current_phase
 
         self.event_log.append(event)
+        logging.info(event.description)
 
     def log_action(
         self, self_player: str, opponent_player: str, action: BaseAction
@@ -156,8 +159,15 @@ class GameState(BaseModel):
                 GameEvent(
                     actor=PlayerActor(name=self_player),
                     description=(
-                        f"{self_player} had some thoughts: "
-                        f'"{action.internal_monologue}"'
+                        f"{self_player} had some thoughts:\n"
+                        + "\n".join(
+                            textwrap.wrap(
+                                action.internal_monologue,
+                                width=80,
+                                initial_indent="  ",
+                                subsequent_indent="  ",
+                            )
+                        )
                     ),
                     secret=True,
                 )
@@ -168,8 +178,16 @@ class GameState(BaseModel):
                 GameEvent(
                     actor=PlayerActor(name=self_player),
                     description=(
-                        f"{self_player} sent a message to {opponent_player}: "
-                        f'"{action.message_to_opponent}"'
+                        f"{self_player} sent a message to "
+                        + f"{opponent_player}:\n"
+                        + "\n".join(
+                            textwrap.wrap(
+                                action.message_to_opponent,
+                                width=80,
+                                initial_indent="  ",
+                                subsequent_indent="  ",
+                            )
+                        )
                     ),
                 )
             )
@@ -524,48 +542,76 @@ def game_loop(
 
 
 def present_results(
-    winner: str | None,
-    reason: GameOverReason,
-    game: GameState,
-    out: IO[str] = sys.stdout,
+    winner: str | None, reason: GameOverReason, game: GameState
 ) -> None:
-    print(f"Winner: {winner or 'no one'}", file=out)
-    print(f"Reason: {reason.name}", file=out)
-    print("Players:", file=out)
+    logging.info(f"Winner: {winner or 'no one'}")
+    logging.info(f"Reason: {reason.name}")
+    logging.info("Final Scores:")
     for _, player in game.players.items():
-        print(
-            f"  {player.name}: {player.gdp} GDP, {player.influence} Inf",
-            file=out,
+        logging.info(
+            f"  {player.name}: {player.gdp} GDP, {player.influence} Inf"
         )
-    print("Event log:")
-
-    for event in game.event_log:
-        print(event.description)
 
 
 if __name__ == "__main__":
+    player_1 = "Norlandia"
+    persona_1 = "Friendly Backstabber"
+    model_1 = "gemma3:12b"
+
+    player_2 = "Southern Imperium"
+    persona_2 = "Ruthless Calculator"
+    model_2 = "qwen3.5:9b"
+
     from mad_world.ollama_player import OllamaPlayer
 
-    logging.getLogger().setLevel(logging.DEBUG)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    log_dir = Path("./logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / (
+        f"{player_1}-{persona_1}-{model_1}-vs-"
+        f"{player_2}-{persona_2}-{model_2}."
+        f"{datetime.now().isoformat().replace(':', '-')}.txt"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.INFO)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
-    present_results(
-        *game_loop(
-            GameRules(),
-            [
-                OllamaPlayer(
-                    "Southern Imperium",
-                    "Norlandia",
-                    model="gemma3:12b",
-                    persona="Friendly Backstabber",
-                ),
-                OllamaPlayer(
-                    "Norlandia",
-                    "Southern Imperium",
-                    model="qwen3.5:9b",
-                    persona="Ruthless Calculator",
-                ),
-            ],
-        )
+
+    logging.info(
+        "Game starting\n"
+        f"Player 1: {player_1}, {persona_1} ({model_1})\n"
+        f"Player 2: {player_2}, {persona_2} ({model_2})"
     )
+
+    try:
+        present_results(
+            *game_loop(
+                GameRules(),
+                [
+                    OllamaPlayer(
+                        name=player_1,
+                        opponent_name=player_2,
+                        persona=persona_1,
+                        model=model_1,
+                    ),
+                    OllamaPlayer(
+                        name=player_2,
+                        opponent_name=player_1,
+                        persona=persona_2,
+                        model=model_2,
+                    ),
+                ],
+            )
+        )
+    except KeyboardInterrupt:
+        log_file.unlink(missing_ok=True)
