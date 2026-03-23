@@ -284,6 +284,23 @@ class GameState(BaseModel):
                 )
             )
 
+    def describe_state(self) -> str:
+        result = (
+            f"The current round is now {self.current_round}, "
+            f"{self.current_phase.name} phase.\n"
+            f"  Clock: {self.doomsday_clock}/"
+            f"{self.rules.max_clock_state}"
+            f"{' (CRITICAL)' if self.doomsday_clock >= 20 else ''}\n"
+            "  Players:\n"
+        )
+        for player in self.players.values():
+            result += (
+                f"    - {player.name}: {player.gdp} GDP, "
+                f"{player.influence} Inf\n"
+            )
+
+        return result
+
     def advance_phase(self) -> None:
         self.last_round = self.current_round
         self.last_phase = self.current_phase
@@ -297,6 +314,17 @@ class GameState(BaseModel):
             case GamePhase.OPERATIONS:
                 self.current_phase = GamePhase.BIDDING
                 self.current_round += 1
+
+        self.apply_event(
+            GameEvent(
+                actor=SystemActor(),
+                description=self.describe_state(),
+                # It's not really a secret but the players already
+                # get the game state so this is redundant. However,
+                # it's important to have this in the after-game log.
+                secret=True,
+            )
+        )
 
     def recent_events(self) -> list[GameEvent]:
         return [
