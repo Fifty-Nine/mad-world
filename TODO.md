@@ -3,5 +3,6 @@
 - Add stochastic clock effects.
 - Add clock decay?
 - Implement mandates
-- Add ollama-based players
+- Add crisis deck.
 - Improve first strike mechanic.
+- Add communication loop?
