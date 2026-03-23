@@ -133,6 +133,12 @@ class GameRules(BaseModel):
         bids = self.allowed_bids
         max_bid = max(bids)
 
+        def bid_impact(bid: int) -> int:
+            if bid == 0:
+                return self.de_escalate_impact
+
+            return bid
+
         if clock + 2 * max_bid < limit:
             return [], []
 
@@ -140,15 +146,15 @@ class GameRules(BaseModel):
         deadly: list[int] = []
 
         for bid in bids:
-            if clock + bid >= limit:
+            if clock + bid_impact(bid) >= limit:
                 deadly.append(bid)
                 continue
 
-            if clock + bid + max_bid < limit:
+            if clock + bid_impact(bid) + bid_impact(max_bid) < limit:
                 continue
 
             for obid in bids:
-                if clock + bid + obid >= limit:
+                if clock + bid_impact(bid) + bid_impact(obid) >= limit:
                     risky.append((bid, obid))
                     break
 

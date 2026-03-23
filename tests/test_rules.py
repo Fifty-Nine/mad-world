@@ -19,8 +19,8 @@ def test_get_doomsday_bids_clock_20() -> None:
 
     # 20 + 3 + 3 = 26 >= 25 -> obid 3
     # 20 + 1 + 5 = 26 >= 25 -> obid 5
-    # 20 + 0 + 5 = 25 >= 25 -> obid 5
-    assert risky == [(0, 5), (1, 5), (3, 3)]
+    # 20 + 0 + 5 = 25 >= 25 -> obid 5, but 0 => -1
+    assert risky == [(0, 8), (1, 5), (3, 3)]
 
 
 def test_get_doomsday_bids_clock_23() -> None:
@@ -35,9 +35,10 @@ def test_get_doomsday_bids_clock_23() -> None:
     assert risky == [(0, 3), (1, 1)]
 
 
-def test_get_doomsday_bids_clock_25() -> None:
+def test_get_doomsday_bids_clock_24() -> None:
     rules = GameRules()
-    risky, deadly = rules.get_doomsday_bids(25)
+    risky, deadly = rules.get_doomsday_bids(24)
 
-    assert deadly == [0, 1, 3, 5, 8]
-    assert risky == []
+    # At 24, anything but 0 is deadly.
+    assert deadly == [1, 3, 5, 8]
+    assert risky == [(0, 3)]
