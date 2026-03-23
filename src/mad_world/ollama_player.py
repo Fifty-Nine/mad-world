@@ -37,7 +37,6 @@ class OllamaPlayer(GamePlayer):
         self.model = model
         self.client = ollama.Client()
         self.messages: list[dict[str, str]] = []
-        self.hit_limit = False
         self.token_limit = token_limit
         self.context_size = context_size
         self.prompt_options = {
@@ -129,18 +128,6 @@ class OllamaPlayer(GamePlayer):
             "  ",
         )
         return result
-
-    def limit_warning(self) -> str:
-        if not self.hit_limit:
-            return ""
-
-        self.hit_limit = False
-
-        return (
-            "CRITICAL WARNING: Your previous response exceeded the maximum "
-            "number of output tokens. As a result, you have taken the "
-            "default action. YOU MUST NOT OVERTHINK.\n"
-        )
 
     def doomsday_warning(self, game: GameState) -> str:
         risky, deadly = game.rules.get_doomsday_bids(game.doomsday_clock)
@@ -267,7 +254,6 @@ class OllamaPlayer(GamePlayer):
                 f"{game.rules.round_count}."
             )
 
-        prompt += self.limit_warning()
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
             f"{game.rules.allowed_bids}\n"
@@ -305,7 +291,6 @@ class OllamaPlayer(GamePlayer):
                 f"{game.rules.round_count}."
             )
 
-        prompt += self.limit_warning()
         prompt += (
             "Reminder: these are the operations you may choose to undertake:\n"
             f"{OllamaPlayer.format_operations(game.rules)}\n"
