@@ -202,10 +202,10 @@ class GameEvent(BaseModel):
 
 
 class BaseAction(BaseModel):
-    internal_monologue: str | None = Field(
-        default=None,
-        description="An optional description of your reasoning. This will not "
-        "be revealed to your opponent.",
+    internal_monologue: str = Field(
+        description="A description of your reasoning. This will not "
+        "be revealed to your opponent. You MUST emit this field first, and "
+        "you MUST explain yourself. Limit to two or three paragraphs."
     )
     message_to_opponent: str | None = Field(
         default=None,

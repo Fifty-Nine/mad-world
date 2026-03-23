@@ -18,7 +18,8 @@ class CrazyIvan(GamePlayer):
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent="I'm crazy Ivan. Prepare to die!"
+            message_to_opponent="I'm crazy Ivan. Prepare to die!",
+            internal_monologue="Hahahaha!",
         )
 
     @override
@@ -49,7 +50,8 @@ class Pacifist(GamePlayer):
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent="I seek only peace and prosperity for all."
+            message_to_opponent="I seek only peace and prosperity for all.",
+            internal_monologue="I must maintain peace through non-violence.",
         )
 
     @override
@@ -84,7 +86,8 @@ class Capitalist(GamePlayer):
         return InitialMessageAction(
             message_to_opponent=(
                 "Greed is good. I am here to maximize shareholder value."
-            )
+            ),
+            internal_monologue="Gotta get that bread.",
         )
 
     @override
@@ -118,7 +121,8 @@ class Saboteur(GamePlayer):
             message_to_opponent=(
                 "We look forward to a long and mutually "
                 "beneficial relationship..."
-            )
+            ),
+            internal_monologue="Gonna cause some chaos soon.",
         )
 
     @override
@@ -168,7 +172,8 @@ class Diplomat(GamePlayer):
         return InitialMessageAction(
             message_to_opponent=(
                 "I believe we can resolve our differences through dialogue."
-            )
+            ),
+            internal_monologue="Gonna talk it out.",
         )
 
     @override

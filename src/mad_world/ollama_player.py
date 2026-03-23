@@ -96,22 +96,20 @@ class OllamaPlayer(GamePlayer):
         self.messages.append({"role": "system", "content": prompt})
 
     def parse_action(
-        self, cls: type[T], action: str, fallback: Callable[[], T]
+        self, cls: type[T], action: str, fallback: Callable[[str], T]
     ) -> T:
         try:
             return cls.model_validate_json(action)
         except ValidationError as e:
             self.hit_limit = True
-            result = fallback()
-            result.internal_monologue = f"Validation failed: {e!r}"
-            return result
+            return fallback(f"Validation failed: {e!r}")
 
     def parse_and_log_action(
         self,
         cls: type[T],
         phase: GamePhase,
         action: str,
-        fallback: Callable[[], T],
+        fallback: Callable[[str], T],
     ) -> T:
         result = self.parse_action(cls, action, fallback)
         logging.debug(f"==== {phase.name} response ====\n{action}")
@@ -190,7 +188,7 @@ class OllamaPlayer(GamePlayer):
             InitialMessageAction,
             GamePhase.OPENING,
             response["message"]["content"],
-            lambda: InitialMessageAction(),
+            lambda e: InitialMessageAction(internal_monologue=e),
         )
 
     @override
@@ -236,7 +234,10 @@ class OllamaPlayer(GamePlayer):
             BiddingAction,
             GamePhase.BIDDING,
             action_json,
-            fallback=lambda: BiddingAction(bid=max(game.rules.allowed_bids)),
+            fallback=lambda e: BiddingAction(
+                bid=max(game.rules.allowed_bids),
+                internal_monologue=e,
+            ),
         )
 
     @override
@@ -286,5 +287,7 @@ class OllamaPlayer(GamePlayer):
             OperationsAction,
             GamePhase.OPERATIONS,
             action_json,
-            fallback=lambda: OperationsAction(operations=[]),
+            fallback=lambda e: OperationsAction(
+                operations=[], internal_monologue=e
+            ),
         )
