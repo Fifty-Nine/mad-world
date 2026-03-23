@@ -1,7 +1,6 @@
 """Ollama player implementation for Mad World."""
 
 import textwrap
-from collections.abc import Callable
 from typing import TypeVar, override
 
 import ollama
@@ -104,26 +103,6 @@ class OllamaPlayer(GamePlayer):
         )
         self.messages.append({"role": "system", "content": prompt})
 
-    def parse_action(
-        self, cls: type[T], action: str, fallback: Callable[[str], T]
-    ) -> T:
-        try:
-            return cls.model_validate_json(action)
-        except ValidationError as e:
-            self.hit_limit = True
-            return fallback(f"Validation failed: {e!r}")
-
-    def parse_and_log_action(
-        self,
-        cls: type[T],
-        phase: GamePhase,
-        action: str,
-        fallback: Callable[[str], T],
-    ) -> T:
-        result = self.parse_action(cls, action, fallback)
-        logging.debug(f"==== {phase.name} {self.name} response ====\n{action}")
-        return result
-
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
         return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
@@ -200,6 +179,53 @@ class OllamaPlayer(GamePlayer):
             for op in rules.allowed_operations.values()
         )
 
+    def retry_prompt(
+        self, model: type[T], phase: GamePhase, retries: int = 3
+    ) -> T | None:
+        count = 0
+        while count < retries:
+            result = self.client.chat(
+                model=self.model,
+                messages=self.messages,
+                format=model.model_json_schema(),
+                options=self.prompt_options,
+            ).message.content
+
+            try:
+                logging.debug(
+                    f"==== {phase.name} {self.name} response ====\n{result}"
+                )
+                self.messages.append(
+                    {"role": "assistant", "message": result or ""}
+                )
+                return model.model_validate_json(result or "")
+            except ValidationError as e:
+                logging.debug(
+                    f"==== {phase.name} {self.name} response ====\n"
+                    f"Failed: {e!r}"
+                )
+                self.messages.append(
+                    {
+                        "role": "system",
+                        "content": "SYSTEM ERROR: You previously generated a "
+                        "response that triggered the following error during "
+                        f"validation: {e!r}\n"
+                        "This response has been discarded and you are being "
+                        "given another opportunity to generate a valid result. "
+                        "Please ensure you limit your internal "
+                        "monologue to a few paragraphs and follow "
+                        "the provided schema exactly.",
+                    }
+                )
+
+            count += 1
+
+        logging.debug(
+            f"==== {phase.name} {self.name} response ====\n"
+            f"Failed after {retries} retries."
+        )
+        return None
+
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = (
@@ -213,19 +239,10 @@ class OllamaPlayer(GamePlayer):
         )
         self.messages.append({"role": "user", "content": prompt})
         logging.debug(f"==== {self.name} initial message prompt ====\n{prompt}")
-        response = self.client.chat(
-            model=self.model,
-            messages=self.messages,
-            format=InitialMessageAction.model_json_schema(),
-            options=self.prompt_options,
-        )
 
-        return self.parse_and_log_action(
-            InitialMessageAction,
-            GamePhase.OPENING,
-            response["message"]["content"],
-            lambda e: InitialMessageAction(internal_monologue=e),
-        )
+        return self.retry_prompt(
+            InitialMessageAction, GamePhase.OPENING
+        ) or InitialMessageAction(internal_monologue="Prompt failed")
 
     @override
     def bid(
@@ -261,25 +278,9 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"==== {self.name} bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat(
-            model=self.model,
-            messages=self.messages,
-            format=BiddingAction.model_json_schema(),
-            options=self.prompt_options,
-        )
-
-        action_json = response["message"]["content"]
-        self.messages.append({"role": "assistant", "content": action_json})
-
-        return self.parse_and_log_action(
-            BiddingAction,
-            GamePhase.BIDDING,
-            action_json,
-            fallback=lambda e: BiddingAction(
-                bid=max(game.rules.allowed_bids),
-                internal_monologue=e,
-            ),
-        )
+        return self.retry_prompt(
+            BiddingAction, GamePhase.BIDDING
+        ) or BiddingAction(internal_monologue="Prompt failed", bid=1)
 
     @override
     def operations(
@@ -312,24 +313,6 @@ class OllamaPlayer(GamePlayer):
             f"{OperationsAction.model_json_schema()}\n"
         )
         logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
-        self.messages.append({"role": "user", "content": prompt})
-
-        response = self.client.chat(
-            model=self.model,
-            messages=self.messages,
-            format=OperationsAction.model_json_schema(),
-            options=self.prompt_options,
-        )
-
-        action_json = response["message"]["content"]
-
-        self.messages.append({"role": "assistant", "content": action_json})
-
-        return self.parse_and_log_action(
-            OperationsAction,
-            GamePhase.OPERATIONS,
-            action_json,
-            fallback=lambda e: OperationsAction(
-                operations=[], internal_monologue=e
-            ),
-        )
+        return self.retry_prompt(
+            OperationsAction, GamePhase.OPERATIONS
+        ) or OperationsAction(operations=[], internal_monologue="Prompt failed")
