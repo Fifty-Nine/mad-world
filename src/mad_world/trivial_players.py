@@ -19,7 +19,6 @@ class CrazyIvan(GamePlayer):
     def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent="I'm crazy Ivan. Prepare to die!",
-            internal_monologue="Hahahaha!",
         )
 
     @override
@@ -29,7 +28,6 @@ class CrazyIvan(GamePlayer):
         return BiddingAction(
             message_to_opponent=None,
             bid=max(game.rules.allowed_bids),
-            internal_monologue="No thoughts, head empty.",
         )
 
     @override
@@ -39,7 +37,6 @@ class CrazyIvan(GamePlayer):
         return OperationsAction(
             message_to_opponent=None,
             operations=["first-strike"],
-            internal_monologue="I'm crazy!",
         )
 
 
@@ -51,7 +48,6 @@ class Pacifist(GamePlayer):
     def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent="I seek only peace and prosperity for all.",
-            internal_monologue="I must maintain peace through non-violence.",
         )
 
     @override
@@ -63,7 +59,6 @@ class Pacifist(GamePlayer):
                 "Let us de-escalate tensions and work together."
             ),
             bid=0,
-            internal_monologue="I must reduce the doomsday clock at all costs.",
         )
 
     @override
@@ -73,7 +68,6 @@ class Pacifist(GamePlayer):
         return OperationsAction(
             message_to_opponent="I offer you the hand of friendship.",
             operations=[],
-            internal_monologue="I will not participate in these violent games.",
         )
 
 
@@ -87,7 +81,6 @@ class Capitalist(GamePlayer):
             message_to_opponent=(
                 "Greed is good. I am here to maximize shareholder value."
             ),
-            internal_monologue="Gotta get that bread.",
         )
 
     @override
@@ -97,7 +90,6 @@ class Capitalist(GamePlayer):
         return BiddingAction(
             message_to_opponent="A rising tide lifts all boats.",
             bid=3,
-            internal_monologue="Securing capital for expansion.",
         )
 
     @override
@@ -107,7 +99,6 @@ class Capitalist(GamePlayer):
         return OperationsAction(
             message_to_opponent="Building a better tomorrow.",
             operations=["domestic-investment"],
-            internal_monologue="Reinvesting dividends for compound growth.",
         )
 
 
@@ -122,7 +113,6 @@ class Saboteur(GamePlayer):
                 "We look forward to a long and mutually "
                 "beneficial relationship..."
             ),
-            internal_monologue="Gonna cause some chaos soon.",
         )
 
     @override
@@ -134,7 +124,6 @@ class Saboteur(GamePlayer):
                 "Just moving some paperwork around. Administrative things."
             ),
             bid=1,
-            internal_monologue="Laying the groundwork for disruption.",
         )
 
     @override
@@ -151,15 +140,11 @@ class Saboteur(GamePlayer):
                     "Must be the weather."
                 ),
                 operations=["proxy-subversion"],
-                internal_monologue=(
-                    "Excellent. Everything is going according to plan."
-                ),
             )
         else:
             return OperationsAction(
                 message_to_opponent="Everything is quiet on the western front.",
                 operations=[],
-                internal_monologue="Biding my time...",
             )
 
 
@@ -173,7 +158,6 @@ class Diplomat(GamePlayer):
             message_to_opponent=(
                 "I believe we can resolve our differences through dialogue."
             ),
-            internal_monologue="Gonna talk it out.",
         )
 
     @override
@@ -185,7 +169,6 @@ class Diplomat(GamePlayer):
                 "Let us keep the channels of communication open."
             ),
             bid=1,
-            internal_monologue="Building political capital for a summit.",
         )
 
     @override
@@ -202,13 +185,9 @@ class Diplomat(GamePlayer):
                     "Let us step back from the brink."
                 ),
                 operations=["diplomatic-summit"],
-                internal_monologue="A triumph for international diplomacy.",
             )
         else:
             return OperationsAction(
                 message_to_opponent="We must continue our diplomatic efforts.",
                 operations=[],
-                internal_monologue=(
-                    "Waiting for the right moment to propose a summit."
-                ),
             )

@@ -32,7 +32,6 @@ def test_crazy_ivan_bid() -> None:
     # Ivan always bids the maximum allowed
     assert action.bid == max(rules.allowed_bids)
     assert action.message_to_opponent is None
-    assert action.internal_monologue == "No thoughts, head empty."
 
 
 def test_crazy_ivan_operations() -> None:
@@ -44,7 +43,6 @@ def test_crazy_ivan_operations() -> None:
 
     assert action.operations == ["first-strike"]
     assert action.message_to_opponent is None
-    assert action.internal_monologue == "I'm crazy!"
 
 
 def test_pacifist_initial_message() -> None:
@@ -70,10 +68,6 @@ def test_pacifist_bid() -> None:
         action.message_to_opponent
         == "Let us de-escalate tensions and work together."
     )
-    assert (
-        action.internal_monologue
-        == "I must reduce the doomsday clock at all costs."
-    )
 
 
 def test_pacifist_operations() -> None:
@@ -85,10 +79,6 @@ def test_pacifist_operations() -> None:
 
     assert action.operations == []
     assert action.message_to_opponent == "I offer you the hand of friendship."
-    assert (
-        action.internal_monologue
-        == "I will not participate in these violent games."
-    )
 
 
 def test_capitalist_initial_message() -> None:
@@ -110,7 +100,6 @@ def test_capitalist_bid() -> None:
 
     assert action.bid == 3
     assert action.message_to_opponent == "A rising tide lifts all boats."
-    assert action.internal_monologue == "Securing capital for expansion."
 
 
 def test_capitalist_operations() -> None:
@@ -122,10 +111,6 @@ def test_capitalist_operations() -> None:
 
     assert action.operations == ["domestic-investment"]
     assert action.message_to_opponent == "Building a better tomorrow."
-    assert (
-        action.internal_monologue
-        == "Reinvesting dividends for compound growth."
-    )
 
 
 def test_saboteur_initial_message() -> None:
@@ -150,7 +135,6 @@ def test_saboteur_bid() -> None:
         action.message_to_opponent
         == "Just moving some paperwork around. Administrative things."
     )
-    assert action.internal_monologue == "Laying the groundwork for disruption."
 
 
 def test_saboteur_operations_insufficient_influence() -> None:
@@ -168,7 +152,6 @@ def test_saboteur_operations_insufficient_influence() -> None:
         action.message_to_opponent
         == "Everything is quiet on the western front."
     )
-    assert action.internal_monologue == "Biding my time..."
 
 
 def test_saboteur_operations_sufficient_influence() -> None:
@@ -185,10 +168,6 @@ def test_saboteur_operations_sufficient_influence() -> None:
     assert action.message_to_opponent == (
         "Oh, did your infrastructure spontaneously combust? "
         "Must be the weather."
-    )
-    assert (
-        action.internal_monologue
-        == "Excellent. Everything is going according to plan."
     )
 
 
@@ -214,9 +193,6 @@ def test_diplomat_bid() -> None:
         action.message_to_opponent
         == "Let us keep the channels of communication open."
     )
-    assert (
-        action.internal_monologue == "Building political capital for a summit."
-    )
 
 
 def test_diplomat_operations_insufficient_influence() -> None:
@@ -232,10 +208,6 @@ def test_diplomat_operations_insufficient_influence() -> None:
     assert action.operations == []
     assert (
         action.message_to_opponent == "We must continue our diplomatic efforts."
-    )
-    assert (
-        action.internal_monologue
-        == "Waiting for the right moment to propose a summit."
     )
 
 
@@ -254,4 +226,3 @@ def test_diplomat_operations_sufficient_influence() -> None:
         "I invite you to the negotiating table. "
         "Let us step back from the brink."
     )
-    assert action.internal_monologue == "A triumph for international diplomacy."

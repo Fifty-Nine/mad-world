@@ -284,9 +284,10 @@ class OllamaPlayer(GamePlayer):
         self.messages.append({"role": "user", "content": prompt})
         logging.debug(f"==== {self.name} initial message prompt ====\n{prompt}")
 
-        return self.retry_prompt(
-            InitialMessageAction, game
-        ) or InitialMessageAction(internal_monologue="Prompt failed")
+        return (
+            self.retry_prompt(InitialMessageAction, game)
+            or InitialMessageAction()
+        )
 
     @override
     def bid(
@@ -314,9 +315,7 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"==== {self.name} bidding prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
 
-        return self.retry_prompt(BiddingAction, game) or BiddingAction(
-            internal_monologue="Prompt failed", bid=1
-        )
+        return self.retry_prompt(BiddingAction, game) or BiddingAction(bid=1)
 
     @override
     def operations(
@@ -342,5 +341,5 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
         self.messages.append({"role": "user", "content": prompt})
         return self.retry_prompt(OperationsAction, game) or OperationsAction(
-            operations=[], internal_monologue="Prompt failed"
+            operations=[]
         )

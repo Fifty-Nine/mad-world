@@ -103,11 +103,6 @@ class GameEvent(BaseModel):
 
 
 class BaseAction(BaseModel):
-    internal_monologue: str = Field(
-        description="A description of your reasoning. This will not "
-        "be revealed to your opponent. You MUST emit this field first, and "
-        "you MUST explain yourself. Limit to two or three paragraphs."
-    )
     message_to_opponent: str | None = Field(
         default=None,
         description="A message that will be passed to your opponent. You can "
@@ -191,22 +186,6 @@ class GameState(BaseModel):
         self, self_player: str, opponent_player: str, action: BaseAction
     ) -> None:
         self.players[self_player].last_message = action.message_to_opponent
-
-        if action.internal_monologue is not None:
-            self.apply_event(
-                GameEvent(
-                    actor=PlayerActor(name=self_player),
-                    description=(
-                        f"{self_player} had some thoughts:\n"
-                        + wrap_text(
-                            action.internal_monologue,
-                            width=80,
-                            indent="  ",
-                        )
-                    ),
-                    secret=True,
-                )
-            )
 
         if action.message_to_opponent is not None:
             self.apply_event(
@@ -404,9 +383,7 @@ def init_game(
 
 
 def process_bid(game: GameState, player_name: str, bid: int) -> None:
-    action = BiddingAction(
-        bid=bid, internal_monologue="", message_to_opponent=None
-    )
+    action = BiddingAction(bid=bid, message_to_opponent=None)
 
     try:
         action.validate_semantics(game, player_name)
