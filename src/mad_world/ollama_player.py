@@ -65,8 +65,9 @@ class ActionResponse[T: BaseAction](BaseModel):
             "FIELD 4: Based on the victory check and your persona, "
             "detail your specific plan for this phase (Bidding or "
             "Operations). CRITICAL: If your intended bid is strictly "
-            "greater than your previously calculated `escalation_budget` "
-            "you MUST justify why it is worth the risk."
+            "greater than your previously calculated `escalation_budget` OR "
+            "is one of the listed bids that may trigger MAD, "
+            "you MUST justify why the risk is worth the reward."
         )
     )
     ultimate_action: T = Field(
@@ -210,10 +211,17 @@ class OllamaPlayer(GamePlayer):
         if len(risky) == 0 and len(deadly) == 0:
             return ""
 
-        result = (
-            "NOTE: You are at risk of triggering MAD. The following bids "
-            "could trigger MAD:"
-        )
+        def severity(game: GameState) -> str:
+            level = 1.0 * game.doomsday_clock / game.rules.max_clock_state
+            if level >= 0.9:
+                return "!!!!! CRITICAL WARNING !!!!!\n"
+
+            if level >= 0.8:
+                return "WARNING: "
+
+            return "NOTE: "
+
+        result = f"{severity(game)}You are at risk of triggering MAD.\n"
 
         result += "".join(
             f"\n- A bid of {bid} RISKS MAD if your opponent "
