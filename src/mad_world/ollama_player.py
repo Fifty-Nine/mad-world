@@ -32,7 +32,7 @@ class ActionResponse[T: BaseAction](BaseModel):
             "to close the gap."
         ),
         examples=[
-            "3 points behind my opponent; I must close act to close the gap",
+            "3 points behind my opponent; I must act to close the gap",
             "10 points ahead of my opponent; further advancement might back "
             "them into a corner...",
         ],
@@ -44,12 +44,13 @@ class ActionResponse[T: BaseAction](BaseModel):
             "by 2, rounding down. This is the pareto-optimal bid. "
             "Higher bids have higher risk but potentially higher "
             "rewards. Lower bids are safer and come with fewer "
-            "rewards, but may defuse a tense situation."
+            "rewards, but may defuse a tense situation. Show your "
+            "math."
         ),
         examples=[
             "(25 - 1 - 24)/2 = 0",
             "(25 - 1 - 13)/2 = 5",
-            "(25 - 0)/2 = 12.5",
+            "(25 - 1 - 0)/2 = 12",
         ],
     )
     persona_alignment: str = Field(
@@ -63,7 +64,9 @@ class ActionResponse[T: BaseAction](BaseModel):
         description=(
             "FIELD 4: Based on the victory check and your persona, "
             "detail your specific plan for this phase (Bidding or "
-            "Operations"
+            "Operations). CRITICAL: If your intended bid is strictly "
+            "greater than your previously calculated `escalation_budget` "
+            "you MUST justify why it is worth the risk."
         )
     )
     ultimate_action: T = Field(
