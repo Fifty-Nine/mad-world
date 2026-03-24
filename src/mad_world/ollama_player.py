@@ -23,7 +23,74 @@ from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
 
-class ActionResponse[T: BaseAction](BaseModel):
+class ActionResponse(BaseModel):
+    ultimate_action: BaseAction
+
+    @classmethod
+    def prompt_schema(cls) -> str:
+        return json.dumps(cls.model_json_schema(), indent=2)
+
+
+class GrandStrategy(BaseModel):
+    core_loop: str = Field(
+        description=(
+            "FIELD 1: In one sentence, tersely describe your core "
+            "gameplay loop for beating your opponent, assuming you "
+            "are not clock-constrained."
+        ),
+        examples=["Bid 3 -> domestic-investment"],
+    )
+
+    clock_management: str = Field(
+        description=(
+            "FIELD 2: In one sentence, tersely describe how you will "
+            "manage your escalation budget when MAD is approaching."
+        ),
+        examples=["If far enough ahead, stand-down; otherwise bid low."],
+    )
+
+    contingency_plan: str = Field(
+        description=(
+            "FIELD 3: In one sentence, tersely describe how you will "
+            "catch up to your opponent if they take the lead."
+        ),
+        examples=[
+            "I will prioritize domestic-investment and aggressive-extraction",
+            "I will prioritize proxy-subversion to pull them back",
+        ],
+    )
+
+    def to_prompt(self) -> str:
+        return (
+            "As a reminder, here is the grand strategy you originally "
+            "proposed:\n"
+            "  Core gameply loop:\n"
+            f"    {self.core_loop}\n"
+            "  Clock management strategy:\n"
+            f"    {self.clock_management}\n"
+            "  Contingency plan:\n"
+            f"    {self.contingency_plan}\n"
+            "\nYou are not strictly bound to these directives, but you "
+            "should have a reason for deviating from them.\n"
+        )
+
+
+class InitialMessageResponse(ActionResponse):
+    grand_strategy: GrandStrategy = Field(
+        description=(
+            "FIELD 0: Your grand strategy for this game. This "
+            "will be repeated back to you later to keep you in "
+            "alignment with your stated intentions. This should "
+            "be consistent with your persona!"
+        )
+    )
+
+    ultimate_action: InitialMessageAction = Field(
+        description="FINAL FIELD: Your finalized action for this phase."
+    )
+
+
+class BiddingResponse(ActionResponse):
     victory_check: str = Field(
         description=(
             "FIELD 0: Calculate the exact GDP difference between you "
@@ -70,13 +137,58 @@ class ActionResponse[T: BaseAction](BaseModel):
             "worth the reward."
         )
     )
-    ultimate_action: T = Field(
+    ultimate_action: BiddingAction = Field(
         description="FINAL FIELD: Your finalized action for this phase."
     )
 
-    @classmethod
-    def prompt_schema(cls) -> str:
-        return wrap_text(json.dumps(cls.model_json_schema(), indent=2))
+
+class OperationsResponse(ActionResponse):
+    victory_check: str = Field(
+        description=(
+            "FIELD 0: Calculate the exact GDP difference between you "
+            "and your opponent. State who is currently winning. If "
+            "you are behind, acknowledge that you must take action "
+            "to close the gap."
+        ),
+        examples=[
+            "3 points behind my opponent; I must act to close the gap",
+            "10 points ahead of my opponent; further advancement might back "
+            "them into a corner...",
+        ],
+    )
+    escalation_budget: str = Field(
+        description=(
+            "FIELD 1: Calculate the current Doomsday Clock buffer "
+            "(maximum value - 1 - current clock value) and divide it "
+            "by 2, rounding down. This tells you how much room you have "
+            "to safely escalate tensions through operations. Show your math."
+        ),
+        examples=[
+            "(25 - 1 - 24)/2 = 0",
+            "(25 - 1 - 13)/2 = 5",
+            "(25 - 1 - 0)/2 = 12",
+        ],
+    )
+    persona_alignment: str = Field(
+        description=(
+            "FIELD 3: State your assigned persona and briefly explain "
+            "how this persona would approach the current GDP "
+            "difference and escalation budget."
+        )
+    )
+    tactical_plan: str = Field(
+        description=(
+            "FIELD 4: Based on the victory check and your persona, "
+            "detail your specific plan for the Operations phase. CRITICAL: "
+            "If your intended operations will increase the clock greater "
+            "than your previously calculated `escalation_budget` OR if "
+            "they might trigger MAD, you MUST justify why the risk is "
+            "worth the reward."
+        )
+    )
+    ultimate_action: OperationsAction = Field(
+        description="FINAL FIELD: Your finalized action for this phase."
+    )
 
 
 class OllamaPlayer(GamePlayer):
@@ -101,6 +213,7 @@ class OllamaPlayer(GamePlayer):
             "num_predict": self.token_limit,
             "num_ctx": self.context_size,
         }
+        self.grand_strategy: GrandStrategy | None = None
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -245,9 +358,9 @@ class OllamaPlayer(GamePlayer):
         )
         return result
 
-    def retry_prompt[T: BaseAction](
+    def retry_prompt[T: ActionResponse](
         self,
-        response_model: type[ActionResponse[T]],
+        response_model: type[T],
         game: GameState,
         retries: int = 3,
     ) -> T | None:
@@ -271,7 +384,7 @@ class OllamaPlayer(GamePlayer):
                     f"==== {phase.name} {self.name} response ====\n"
                     f"{wrap_text(json.dumps(response.model_dump(), indent=2))}"
                 )
-                return action
+                return response
             except InvalidActionError as e:
                 logging.debug(
                     wrap_text(
@@ -375,6 +488,9 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
+    def my_strategy(self) -> str:
+        return self.grand_strategy.to_prompt() if self.grand_strategy else ""
+
     def my_influence(self, game: GameState) -> int:
         return game.players[self.name].influence
 
@@ -399,19 +515,21 @@ class OllamaPlayer(GamePlayer):
         self.add_prompt(
             prompt,
             GamePhase.OPENING,
-            ActionResponse[InitialMessageAction].prompt_schema(),
+            InitialMessageResponse.prompt_schema(),
         )
+        result = self.retry_prompt(InitialMessageResponse, game)
+        if result is None:
+            return InitialMessageAction()
 
-        return (
-            self.retry_prompt(ActionResponse[InitialMessageAction], game)
-            or InitialMessageAction()
-        )
+        self.grand_strategy = result.grand_strategy
+        return result.ultimate_action
 
     @override
     def bid(
         self, game: GameState, message_from_opponent: str | None
     ) -> BiddingAction:
         prompt = self.format_game_state(game)
+        prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
         prompt += (
@@ -429,17 +547,17 @@ class OllamaPlayer(GamePlayer):
         self.add_prompt(
             prompt,
             GamePhase.BIDDING,
-            ActionResponse[BiddingAction].prompt_schema(),
+            BiddingResponse.prompt_schema(),
         )
-        return self.retry_prompt(
-            ActionResponse[BiddingAction], game
-        ) or BiddingAction(bid=1)
+        result = self.retry_prompt(BiddingResponse, game)
+        return result.ultimate_action if result else BiddingAction(bid=1)
 
     @override
     def operations(
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         prompt = self.format_game_state(game)
+        prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
         prompt += "These are the operations you can currently afford:\n"
@@ -454,11 +572,14 @@ class OllamaPlayer(GamePlayer):
         self.add_prompt(
             prompt,
             GamePhase.OPERATIONS,
-            ActionResponse[OperationsAction].prompt_schema(),
+            OperationsResponse.prompt_schema(),
         )
-        return self.retry_prompt(
-            ActionResponse[OperationsAction], game
-        ) or OperationsAction(operations=[])
+        result = self.retry_prompt(OperationsResponse, game)
+        return (
+            result.ultimate_action
+            if result
+            else OperationsAction(operations=[])
+        )
 
 
 def debug_schemas() -> None:
@@ -467,10 +588,10 @@ def debug_schemas() -> None:
             "SCHEMAS USED BY MODELS\n"
             "These are elided from later model prompt logging to save space.\n"
             "=== OPENING ===\n"
-            f"{ActionResponse[InitialMessageAction].prompt_schema()}\n"
+            f"{InitialMessageResponse.prompt_schema()}\n"
             "=== BIDDING ===\n"
-            f"{ActionResponse[BiddingAction].prompt_schema()}\n"
+            f"{BiddingResponse.prompt_schema()}\n"
             "=== OPERATIONS ===\n"
-            f"{ActionResponse[OperationsAction].prompt_schema()}\n"
+            f"{OperationsResponse.prompt_schema()}\n"
         ),
     )
