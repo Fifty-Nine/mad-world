@@ -14,6 +14,7 @@ Welcome to the `mad-world` repository. Please adhere to the following guidelines
 * **Pydantic Models:** The codebase heavily utilizes Pydantic `BaseModel`s for state management.
   * Always use **keyword arguments** when instantiating Pydantic models (e.g., `OperationDefinition(name="domestic-investment", ...)`), as positional arguments will fail strict Mypy checks.
 * **Line Length (E501):** Ruff is configured with a line length of 80 characters. The formatter intentionally does *not* auto-wrap long string literals (like game text or descriptions). If you encounter an `E501 Line too long` error on a string, you must **manually break it up** using implicit string concatenation (wrapped in parentheses).
+* **Diagnostic Suppressions:** DO NOT use diagnostic suppressions (like `# noqa:...` or `# type: ...` without first using the `ask_user` tool to ask the user whether this is acceptable or if you should investigate a more appropriate fix.
 
 ## 3. Game Architecture
 * **State Mutations:** All changes to the core game state variables (such as `doomsday_clock`, `gdp`, and `influence`) **must** be routed through the event logging mechanic. Do not modify these variables directly in game logic functions like `process_bid` or `resolve_operation`. Instead, construct a `GameEvent` object and apply it using `game.apply_event(event)`.
