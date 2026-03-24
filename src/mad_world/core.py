@@ -2,7 +2,6 @@
 
 import copy
 import logging as logging
-import pprint
 import random
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -554,12 +553,7 @@ def game_loop(
         p.start_game(rules)
 
     while not check_game_over(game):
-        # logging.debug(
-        #    f"Current state:\n{pprint.pformat(game.model_dump())}"
-        # )
         game = iterate_game(game, players)
-
-    logging.debug(f"Final State: {pprint.pformat(game.model_dump())}")
 
     winner, reason = game.determine_victor()
     logging.debug(f"Victor: {winner or 'no one'}")

@@ -1,6 +1,6 @@
 """Ollama player implementation for Mad World."""
 
-import pprint
+import json
 import textwrap
 from typing import override
 
@@ -76,7 +76,7 @@ class ActionResponse[T: BaseAction](BaseModel):
 
     @classmethod
     def prompt_schema(cls) -> str:
-        return wrap_text(pprint.pformat(cls.model_json_schema()))
+        return wrap_text(json.dumps(cls.model_json_schema(), indent=2))
 
 
 class OllamaPlayer(GamePlayer):
@@ -259,7 +259,7 @@ class OllamaPlayer(GamePlayer):
 
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
-                    f"{pprint.pformat(response.model_dump())}"
+                    f"{wrap_text(json.dumps(response.model_dump(), indent=2))}"
                 )
                 return action
             except InvalidActionError as e:
