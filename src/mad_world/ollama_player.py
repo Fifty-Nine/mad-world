@@ -63,11 +63,11 @@ class ActionResponse[T: BaseAction](BaseModel):
     tactical_plan: str = Field(
         description=(
             "FIELD 4: Based on the victory check and your persona, "
-            "detail your specific plan for this phase (Bidding or "
-            "Operations). CRITICAL: If your intended bid is strictly "
-            "greater than your previously calculated `escalation_budget` OR "
-            "is one of the listed bids that may trigger MAD, "
-            "you MUST justify why the risk is worth the reward."
+            "detail your specific plan for the Bidding phase. CRITICAL: "
+            "If your intended bid is strictly greater than your previously "
+            "calculated `escalation_budget` OR is one of the listed bids "
+            "that may trigger MAD, you MUST justify why the risk is "
+            "worth the reward."
         )
     )
     ultimate_action: T = Field(
@@ -136,7 +136,9 @@ class OllamaPlayer(GamePlayer):
             "your available Influence. These are the operations you may "
             "choose to undertake:\n"
         )
-        prompt += self.format_allowed_ops(avail_inf=None, rules=rules)
+        prompt += self.format_allowed_ops(
+            avail_inf=None, rules=rules, indent="        "
+        )
         prompt += (
             "\nYou will receive a prompt detailing the current Phase and Game "
             "State and respond with your action matching the provided schema.\n"
@@ -170,14 +172,20 @@ class OllamaPlayer(GamePlayer):
         return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
 
     @staticmethod
-    def format_allowed_ops(avail_inf: int | None, rules: GameRules) -> str:
+    def format_allowed_ops(
+        avail_inf: int | None, rules: GameRules, indent: str = ""
+    ) -> str:
         ops = (
             op
             for op in rules.allowed_operations.values()
             if avail_inf is None or avail_inf - op.influence_cost >= 0
         )
         return (
-            "\n".join(op.format(verbose=avail_inf is None) for op in ops) + "\n"
+            "\n".join(
+                op.format(verbose=avail_inf is None, indent=indent)
+                for op in ops
+            )
+            + "\n"
         )
 
     @staticmethod
@@ -198,12 +206,14 @@ class OllamaPlayer(GamePlayer):
         result += "\nRecent Events:\n"
         result += textwrap.indent(
             "\n".join(
-                e.description for e in game.recent_events() if not e.secret
+                ("  " + e.description)
+                for e in game.recent_events()
+                if not e.secret
             ),
-            "  ",
+            prefix="  ",
         )
         result += "\n"
-        return wrap_text(result)
+        return result
 
     def doomsday_warning(self, game: GameState) -> str:
         risky, deadly = game.rules.get_doomsday_bids(game.doomsday_clock)
@@ -264,9 +274,11 @@ class OllamaPlayer(GamePlayer):
                 return action
             except InvalidActionError as e:
                 logging.debug(
-                    f"==== {phase.name} {self.name} response ====\n"
-                    f"Semantic Error: {e}"
-                    f"Model Response: {result}"
+                    wrap_text(
+                        f"==== {phase.name} {self.name} response ====\n"
+                        f"Semantic Error: {e}\n"
+                        f"Model Response: {result}\n"
+                    )
                 )
                 self.messages.append(
                     {"role": "assistant", "content": result or ""}
@@ -282,9 +294,11 @@ class OllamaPlayer(GamePlayer):
                 )
             except ValidationError as e:
                 logging.debug(
-                    f"==== {phase.name} {self.name} response ====\n"
-                    f"Failed: {e}"
-                    f"Model Response: {result}"
+                    wrap_text(
+                        f"==== {phase.name} {self.name} response ====\n"
+                        f"Failed: {e}\n"
+                        f"Model Response: {result}\n"
+                    )
                 )
                 self.messages.append(
                     {

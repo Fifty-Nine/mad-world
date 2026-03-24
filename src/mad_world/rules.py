@@ -1,10 +1,9 @@
 """Rules and static definitions for the game."""
 
+import textwrap
 from collections.abc import Callable
 
 from pydantic import BaseModel, Field
-
-from mad_world.util import wrap_text
 
 
 def increase_or_decrease(val: int) -> str:
@@ -42,19 +41,11 @@ class OperationDefinition(BaseModel):
 
         return f"  {field} {desc_fn(val)}: {abs(val)}\n"
 
-    def format(self, verbose: bool) -> str:
+    def format(self, verbose: bool, indent: str = "") -> str:
         result = f"{self.name}:\n"
 
         if verbose:
-            result += (
-                "  Description:\n"
-                + wrap_text(
-                    self.description,
-                    indent="    ",
-                    width=80,
-                )
-                + "\n"
-            )
+            result += "  Description:\n" + "    " + self.description + "\n"
 
         if self.name != "first-strike":
             result += self.format_one(-self.influence_cost, "Inf", cost_or_gain)
@@ -74,7 +65,7 @@ class OperationDefinition(BaseModel):
                 "least your opponent doesn't win\n"
             )
 
-        return result
+        return textwrap.indent(result, indent)
 
 
 DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
