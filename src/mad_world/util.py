@@ -15,6 +15,9 @@ def wrap_text(text: str, indent: str = "", width: int = 80) -> str:
     Returns:
         The wrapped text as a single string.
     """
+    if not text:
+        return ""
+
     lines = text.splitlines()
     wrapped_lines = []
     for line in lines:
@@ -22,12 +25,19 @@ def wrap_text(text: str, indent: str = "", width: int = 80) -> str:
             wrapped_lines.append(indent)
             continue
 
+        existing_indent = line[: len(line) - len(line.lstrip())]
+        combined_indent = indent + existing_indent
+
         wrapped = textwrap.wrap(
-            line,
+            line.lstrip(),
             width=width,
-            initial_indent=indent,
-            subsequent_indent=indent,
+            initial_indent=combined_indent,
+            subsequent_indent=combined_indent,
         )
         wrapped_lines.extend(wrapped)
 
-    return "\n".join(wrapped_lines)
+    result = "\n".join(wrapped_lines)
+    if text.endswith("\n"):
+        result += "\n"
+
+    return result

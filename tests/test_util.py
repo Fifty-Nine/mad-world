@@ -25,9 +25,6 @@ def test_wrap_text_indent() -> None:
     text = "Long line that needs wrapping"
     indent = "  "
     wrapped = wrap_text(text, indent=indent, width=15)
-    # "Long line that" -> 14 chars
-    # "  Long line that" -> 16 chars? No, textwrap.wrap counts indent in width.
-    # width=15, indent="  " -> 13 chars of content + 2 chars of indent.
     lines = wrapped.splitlines()
     for line in lines:
         assert line.startswith(indent)
@@ -37,7 +34,28 @@ def test_wrap_text_indent() -> None:
 def test_wrap_text_empty_lines() -> None:
     text = "A\n\nB"
     wrapped = wrap_text(text, indent="  ")
-    # My current implementation: "  A\n  \n  B"
-    # Wait, textwrap.wrap for empty string returns empty list.
-    # My loop: if not line.strip(): wrapped_lines.append(indent)
     assert wrapped == "  A\n  \n  B"
+
+
+def test_wrap_text_with_indentation() -> None:
+    text = (
+        "This is text\n"
+        "  with its own embedded indentation:\n"
+        "    here's an even more deeply nested line that exceeds the width "
+        "limit and should be wrapped but preserve the nested indentation.\n"
+        "    and here's another indented line.\n"
+        "\n"
+        "and finally here's an unindented line.\n"
+    )
+    wrapped = wrap_text(text, width=40)
+    assert wrapped == (
+        "This is text\n"
+        "  with its own embedded indentation:\n"
+        "    here's an even more deeply nested\n"
+        "    line that exceeds the width limit\n"
+        "    and should be wrapped but preserve\n"
+        "    the nested indentation.\n"
+        "    and here's another indented line.\n"
+        "\n"
+        "and finally here's an unindented line.\n"
+    )
