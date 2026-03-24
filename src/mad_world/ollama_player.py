@@ -366,7 +366,8 @@ class OllamaPlayer(GamePlayer):
 
     def add_prompt(self, prompt: str, phase: GamePhase, schema: str) -> None:
         logging.debug(
-            f"==== {self.name} {phase.name} prompt ====\n{prompt}[...]"
+            f"==== {self.name} {phase.name} prompt ====\n"
+            f"{wrap_text(prompt)}[...]"
         )
         self.messages.append({"role": "user", "content": prompt + schema})
 
