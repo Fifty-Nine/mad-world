@@ -176,7 +176,9 @@ class Diplomat(GamePlayer):
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
         my_state = game.players[self.name]
-        cost = game.rules.allowed_operations["diplomatic-summit"].influence_cost
+        cost = game.rules.allowed_operations[
+            "unilateral-drawdown"
+        ].influence_cost
 
         if my_state.influence >= cost:
             return OperationsAction(
@@ -184,7 +186,7 @@ class Diplomat(GamePlayer):
                     "I invite you to the negotiating table. "
                     "Let us step back from the brink."
                 ),
-                operations=["diplomatic-summit"],
+                operations=["unilateral-drawdown"],
             )
         else:
             return OperationsAction(

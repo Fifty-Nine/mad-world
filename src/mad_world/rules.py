@@ -108,14 +108,15 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         enemy_gdp_effect=-5,
         clock_effect=1,
     ),
-    "diplomatic-summit": OperationDefinition(
-        name="diplomatic-summit",
+    "unilateral-drawdown": OperationDefinition(
+        name="unilateral-drawdown",
         description=(
             "Expending massive political capital to walk back from the brink "
-            "of nuclear war. Generates zero economic value."
+            "of nuclear war. Generates zero economic value but has a massive "
+            "clock impact."
         ),
         influence_cost=5,
-        clock_effect=-3,
+        clock_effect=-7,
     ),
     "stand-down": OperationDefinition(
         name="stand-down",

@@ -200,7 +200,7 @@ def test_diplomat_operations_insufficient_influence() -> None:
     player = Diplomat("TestDiplomat")
     game_state = init_game([player])
 
-    # Set influence to 4 (needs 5 for diplomatic-summit)
+    # Set influence to 4 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = 4
 
     action = player.operations(game_state, message_from_opponent=None)
@@ -216,12 +216,12 @@ def test_diplomat_operations_sufficient_influence() -> None:
     player = Diplomat("TestDiplomat")
     game_state = init_game([player])
 
-    # Set influence to 5 (needs 5 for diplomatic-summit)
+    # Set influence to 5 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = 5
 
     action = player.operations(game_state, message_from_opponent=None)
 
-    assert action.operations == ["diplomatic-summit"]
+    assert action.operations == ["unilateral-drawdown"]
     assert action.message_to_opponent == (
         "I invite you to the negotiating table. "
         "Let us step back from the brink."
