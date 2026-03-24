@@ -445,3 +445,18 @@ class OllamaPlayer(GamePlayer):
         return self.retry_prompt(
             ActionResponse[OperationsAction], game
         ) or OperationsAction(operations=[])
+
+
+def debug_schemas() -> None:
+    logging.debug(
+        wrap_text(
+            "SCHEMAS USED BY MODELS\n"
+            "These are elided from later model prompt logging to save space.\n"
+            "=== OPENING ===\n"
+            f"{ActionResponse[InitialMessageAction].prompt_schema()}\n"
+            "=== BIDDING ===\n"
+            f"{ActionResponse[BiddingAction].prompt_schema()}\n"
+            "=== OPERATIONS ===\n"
+            f"{ActionResponse[OperationsAction].prompt_schema()}\n"
+        ),
+    )

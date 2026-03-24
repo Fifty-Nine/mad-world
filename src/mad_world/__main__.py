@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from mad_world.core import game_loop, present_results
-from mad_world.ollama_player import OllamaPlayer
+from mad_world.ollama_player import OllamaPlayer, debug_schemas
 from mad_world.rules import GameRules
 
 
@@ -78,6 +78,8 @@ def main(
         f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
         f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
     )
+
+    debug_schemas()
 
     try:
         present_results(
