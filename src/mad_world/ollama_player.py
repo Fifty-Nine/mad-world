@@ -102,29 +102,85 @@ class ActionResponse(BaseModel):
 class GrandStrategy(BaseModel):
     core_loop: str = Field(
         description=(
-            "In one sentence, tersely describe your core "
-            "gameplay loop for beating your opponent, assuming you "
-            "are not clock-constrained."
+            "Describe your core gameplay loop for beating your opponent, "
+            "assuming you are not clock-constrained. Must be consistent "
+            "with your persona. Limit to a few sentences."
         ),
-        examples=["Bid 3 -> domestic-investment"],
+        examples=[
+            "I will prioritize a closed-economy approach, bidding moderately "
+            "and exclusively chaining `domestic-investment` to compound my GDP "
+            "without provoking my opponent.",
+            "I will establish early dominance by bidding aggressively and "
+            "alternating between `aggressive-extraction` for rapid GDP and "
+            "`proxy-subversion` to cripple my opponent's engine.",
+            "I will play a patient, resource-starvation game. I will bid high "
+            "to hoard Influence, waiting for my opponent to exhaust their "
+            "reserves before I strike with multiple operations in a "
+            "single turn.",
+            "I will focus on maintaining exact parity with my opponent. "
+            "I will only spend Influence to match their GDP gains, ensuring "
+            "the balance of power remains perfectly static.",
+        ],
     )
 
     clock_management: str = Field(
         description=(
-            "In one sentence, tersely describe how you will "
-            "manage your escalation budget when MAD is approaching."
-        ),
-        examples=["If far enough ahead, stand-down; otherwise bid low."],
-    )
-
-    contingency_plan: str = Field(
-        description=(
-            "In one sentence, tersely describe how you will "
-            "catch up to your opponent if they take the lead."
+            "Describe how you will manage your escalation budget; how will you "
+            "balance risk against reward. Must be consistent with your "
+            "persona. Limit to a few sentences."
         ),
         examples=[
-            "I will prioritize domestic-investment and aggressive-extraction",
-            "I will prioritize proxy-subversion to pull them back",
+            "I am highly risk-averse. If the Doomsday Clock ever exceeds 18, "
+            "I will immediately halt all offensive operations and bid 0 or "
+            "purchase a `diplomatic-summit` until it falls below 12.",
+            "I practice brinkmanship. I will intentionally push the Doomsday "
+            "Clock to 22-24 to terrify my opponent. I rely on their fear of "
+            "MAD to force them to waste their turns de-escalating while I "
+            "continue to build GDP.",
+            "I view the clock as a shared resource. I will calculate the "
+            "exact MAD threshold each round and will escalate up to the "
+            "absolute mathematical limit (e.g., 24) if it guarantees a GDP "
+            "lead, but I will never blind-guess.",
+            "I will ignore the clock early in the game to build an "
+            "insurmountable lead, but will aggressively pivot to `stand-down` "
+            "operations in Rounds 8-10 to ensure we survive to scoring.",
+        ],
+    )
+    contingency_plan: str = Field(
+        description=(
+            "Describe how you will catch up to your opponent if they take the "
+            "lead. Must be consistent with your persona. Limit to a few "
+            "sentences."
+        ),
+        examples=[
+            "If trailing by more than 5 GDP, I will immediately pivot to "
+            "maximum aggression, spending all available Influence on "
+            "`proxy-subversion` to drag them down to my level.",
+            "If I fall behind, I will accept the temporary deficit and use "
+            "`stand-down` to rapidly rebuild my Influence pool, preparing for "
+            "a massive economic surge in the final rounds.",
+            "If I am losing the economic war, I will hold the world hostage. "
+            "I will intentionally spike the Doomsday Clock to force my "
+            "opponent to spend their Influence on de-escalation instead of "
+            "GDP growth.",
+            "If the GDP gap exceeds 10 points in the late game and recovery "
+            "is mathematically impossible, I will prioritize a `first-strike` "
+            "to end the game on my terms rather than accept defeat.",
+        ],
+    )
+    prohibited_actions: list[str] = Field(
+        description=(
+            "If there are actions your persona would absolutely never do, "
+            "(e.g., a pacifist would never perform a first-strike) indicate "
+            "them here, but be careful not to limit your options too "
+            "significantly."
+        ),
+        default_factory=list,
+        examples=[
+            ["first-strike", "proxy-subversion"],
+            ["diplomatic-summit", "stand-down"],
+            ["diplomatic-summit"],
+            ["aggressive-extraction"],
         ],
     )
 
@@ -148,8 +204,10 @@ class InitialMessageResponse(ActionResponse):
         description=(
             "Your grand strategy for this game. This "
             "will be repeated back to you later to keep you in "
-            "alignment with your stated intentions. This should "
-            "be consistent with your persona!"
+            "alignment with your stated intentions. Your GrandStrategy "
+            "must align with your persona--e.g. you cannot claim to be highly "
+            "risk-averse while also including first-strike in your contingency "
+            "plans."
         )
     )
 
