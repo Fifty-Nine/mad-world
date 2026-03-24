@@ -482,6 +482,10 @@ class OllamaPlayer(GamePlayer):
             "action."
             for bid in deadly
         )
+        result += (
+            "Remember that if MAD occurs, you will lose even if you "
+            "are currently winning."
+        )
         return result
 
     @staticmethod
