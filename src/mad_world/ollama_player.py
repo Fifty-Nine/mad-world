@@ -96,7 +96,7 @@ class ActionResponse(BaseModel):
 
     @classmethod
     def prompt_schema(cls) -> str:
-        return json.dumps(cls.format_schema(), indent=2)
+        return json.dumps(cls.format_schema(), indent=2, ensure_ascii=False)
 
 
 class GrandStrategy(BaseModel):
@@ -484,15 +484,20 @@ class OllamaPlayer(GamePlayer):
         )
         return result
 
+    @staticmethod
+    def dump_model_response(response: BaseModel) -> str:
+        return json.dumps(response.model_dump(), indent=2, ensure_ascii=False)
+
     def retry_prompt[T: ActionResponse](
         self,
         response_model: type[T],
         game: GameState,
         retries: int = 3,
     ) -> T | None:
-        count = 0
-        phase = game.current_phase
-        while count < retries:
+        log_header = (
+            f"==== {game.current_phase.name} {self.name} response====\n"
+        )
+        for _i in range(retries):
             adapter = TypeAdapter(response_model)
             result = self.client.chat(
                 model=self.model,
@@ -503,41 +508,10 @@ class OllamaPlayer(GamePlayer):
 
             try:
                 response = adapter.validate_json(result or "")
-                action = response.action
-                action.validate_semantics(game, self.name)
-
-                logging.debug(
-                    f"==== {phase.name} {self.name} response ====\n"
-                    f"{wrap_text(result or '')}\n"
-                    f"{wrap_text(json.dumps(response.model_dump(), indent=2))}"
-                )
-                return response
-            except InvalidActionError as e:
-                logging.debug(
-                    wrap_text(
-                        f"==== {phase.name} {self.name} response ====\n"
-                        f"Semantic Error: {e}\n"
-                        f"Model Response: {result}\n"
-                    )
-                )
-                self.messages.append(
-                    {"role": "assistant", "content": result or ""}
-                )
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": "SYSTEM ERROR: Your response was "
-                        "semantically invalid:\n"
-                        f"{e}\n"
-                        "Please correct your mistake and try again.",
-                    }
-                )
             except ValidationError as e:
                 logging.debug(
                     wrap_text(
-                        f"==== {phase.name} {self.name} response ====\n"
-                        f"Failed: {e}\n"
-                        f"Model Response: {result}\n"
+                        f"{log_header}Failed: {e}\nModel Response: {result}\n"
                     )
                 )
                 self.messages.append(
@@ -553,13 +527,43 @@ class OllamaPlayer(GamePlayer):
                         "the provided schema exactly.",
                     }
                 )
+                continue
 
-            count += 1
+            action = response.action
+            formatted_response = textwrap.indent(
+                self.dump_model_response(response), prefix="  "
+            )
+            try:
+                action.validate_semantics(game, self.name)
 
-        logging.debug(
-            f"==== {phase.name} {self.name} response ====\n"
-            f"Failed after {retries} retries."
-        )
+                logging.debug(
+                    wrap_text(
+                        f"{log_header}Model Response:\n{formatted_response}\n"
+                    )
+                )
+                return response
+
+            except InvalidActionError as e:
+                logging.debug(
+                    wrap_text(
+                        f"{log_header}Semantic Error: {e}\n"
+                        f"Model Response:\n{formatted_response}\n"
+                    )
+                )
+                self.messages.append(
+                    {"role": "assistant", "content": result or ""}
+                )
+                self.messages.append(
+                    {
+                        "role": "system",
+                        "content": "SYSTEM ERROR: Your response was "
+                        "semantically invalid:\n"
+                        f"{e}\n"
+                        "Please correct your mistake and try again.",
+                    }
+                )
+
+        logging.debug(f"{log_header}Failed after {retries} retries.")
         return None
 
     def game_ending_warning(self, game: GameState) -> str:
@@ -625,7 +629,6 @@ class OllamaPlayer(GamePlayer):
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
             f"{wrap_text(prompt)}[...]\n"
-            f"{schema}"
         )
         self.messages.append({"role": "user", "content": prompt + schema})
 
