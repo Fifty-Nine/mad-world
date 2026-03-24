@@ -1,11 +1,18 @@
 """Ollama player implementation for Mad World."""
 
 import json
+import re
 import textwrap
-from typing import override
+from typing import Any, override
 
 import ollama
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    model_validator,
+)
 
 from mad_world.core import (
     BaseAction,
@@ -24,17 +31,78 @@ from mad_world.util import wrap_text
 
 
 class ActionResponse(BaseModel):
-    ultimate_action: BaseAction
+    action: BaseAction
+
+    @model_validator(mode="before")
+    @classmethod
+    def unprefix_keys(cls, data: Any) -> Any:
+        def clean(d: Any) -> Any:
+            if isinstance(d, dict):
+                return {
+                    re.sub(r"^\d\d_", "", str(k)): clean(v)
+                    for k, v in d.items()
+                }
+            if isinstance(d, list):
+                return [clean(v) for v in d]
+            return d
+
+        return clean(data)
+
+    @staticmethod
+    def reorder_schema(schema: dict[str, Any]) -> dict[str, Any]:
+        """Given the JSON Schema for the action, reorder the properties
+        so that the `action` field always comes last and add "FIELD #:"
+        prefixes to all descriptions. We also prefix the property keys
+        with numbers (e.g. 00_, 01_) because the underlying llama.cpp
+        grammar engine forcefully alphabetizes schema properties.
+        """
+
+        def process_obj(obj: dict[str, Any]) -> None:
+            if "properties" not in obj:
+                return
+
+            old_props = obj["properties"]
+            action = old_props.pop("action", None)
+            required = obj.get("required", [])
+            new_props = {}
+
+            for i, field in enumerate(old_props.keys()):
+                field_obj = old_props[field]
+                new_key = f"{i:02d}_{field}"
+
+                new_props[new_key] = field_obj
+                if field in required:
+                    required.remove(field)
+                    required.append(new_key)
+
+            if action is not None:
+                new_props["99_action"] = action
+
+            if "action" in required:
+                required.remove("action")
+                required.append("99_action")
+
+            obj["properties"] = new_props
+
+        process_obj(schema)
+        for def_schema in schema.get("$defs", {}).values():
+            process_obj(def_schema)
+
+        return schema
+
+    @classmethod
+    def format_schema(cls) -> dict[str, Any]:
+        return cls.reorder_schema(cls.model_json_schema())
 
     @classmethod
     def prompt_schema(cls) -> str:
-        return json.dumps(cls.model_json_schema(), indent=2)
+        return json.dumps(cls.format_schema(), indent=2)
 
 
 class GrandStrategy(BaseModel):
     core_loop: str = Field(
         description=(
-            "FIELD 1: In one sentence, tersely describe your core "
+            "In one sentence, tersely describe your core "
             "gameplay loop for beating your opponent, assuming you "
             "are not clock-constrained."
         ),
@@ -43,7 +111,7 @@ class GrandStrategy(BaseModel):
 
     clock_management: str = Field(
         description=(
-            "FIELD 2: In one sentence, tersely describe how you will "
+            "In one sentence, tersely describe how you will "
             "manage your escalation budget when MAD is approaching."
         ),
         examples=["If far enough ahead, stand-down; otherwise bid low."],
@@ -51,7 +119,7 @@ class GrandStrategy(BaseModel):
 
     contingency_plan: str = Field(
         description=(
-            "FIELD 3: In one sentence, tersely describe how you will "
+            "In one sentence, tersely describe how you will "
             "catch up to your opponent if they take the lead."
         ),
         examples=[
@@ -78,22 +146,22 @@ class GrandStrategy(BaseModel):
 class InitialMessageResponse(ActionResponse):
     grand_strategy: GrandStrategy = Field(
         description=(
-            "FIELD 0: Your grand strategy for this game. This "
+            "Your grand strategy for this game. This "
             "will be repeated back to you later to keep you in "
             "alignment with your stated intentions. This should "
             "be consistent with your persona!"
         )
     )
 
-    ultimate_action: InitialMessageAction = Field(
-        description="FINAL FIELD: Your finalized action for this phase."
+    action: InitialMessageAction = Field(
+        description="Your finalized action for this phase."
     )
 
 
 class BiddingResponse(ActionResponse):
     victory_check: str = Field(
         description=(
-            "FIELD 0: Calculate the exact GDP difference between you "
+            "Calculate the exact GDP difference between you "
             "and your opponent. State who is currently winning. If "
             "you are behind, acknowledge that you must take action "
             "to close the gap."
@@ -106,7 +174,7 @@ class BiddingResponse(ActionResponse):
     )
     escalation_budget: str = Field(
         description=(
-            "FIELD 1: Calculate the current Doomsday Clock buffer "
+            "Calculate the current Doomsday Clock buffer "
             "(maximum value - 1 - current clock value) and divide it "
             "by 2, rounding down. This is the pareto-optimal bid. "
             "Higher bids have higher risk but potentially higher "
@@ -122,14 +190,14 @@ class BiddingResponse(ActionResponse):
     )
     persona_alignment: str = Field(
         description=(
-            "FIELD 3: State your assigned persona and briefly explain "
+            "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
         )
     )
     tactical_plan: str = Field(
         description=(
-            "FIELD 4: Based on the victory check and your persona, "
+            "Based on the victory check and your persona, "
             "detail your specific plan for the Bidding phase. CRITICAL: "
             "If your intended bid is strictly greater than your previously "
             "calculated `escalation_budget` OR is one of the listed bids "
@@ -137,15 +205,15 @@ class BiddingResponse(ActionResponse):
             "worth the reward."
         )
     )
-    ultimate_action: BiddingAction = Field(
-        description="FINAL FIELD: Your finalized action for this phase."
+    action: BiddingAction = Field(
+        description="Your finalized action for this phase."
     )
 
 
 class OperationsResponse(ActionResponse):
     victory_check: str = Field(
         description=(
-            "FIELD 0: Calculate the exact GDP difference between you "
+            "Calculate the exact GDP difference between you "
             "and your opponent. State who is currently winning. If "
             "you are behind, acknowledge that you must take action "
             "to close the gap."
@@ -158,7 +226,7 @@ class OperationsResponse(ActionResponse):
     )
     escalation_budget: str = Field(
         description=(
-            "FIELD 1: Calculate the current Doomsday Clock buffer "
+            "Calculate the current Doomsday Clock buffer "
             "(maximum value - 1 - current clock value) and divide it "
             "by 2, rounding down. This tells you how much room you have "
             "to safely escalate tensions through operations. Show your math."
@@ -171,14 +239,14 @@ class OperationsResponse(ActionResponse):
     )
     persona_alignment: str = Field(
         description=(
-            "FIELD 3: State your assigned persona and briefly explain "
+            "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
         )
     )
     tactical_plan: str = Field(
         description=(
-            "FIELD 4: Based on the victory check and your persona, "
+            "Based on the victory check and your persona, "
             "detail your specific plan for the Operations phase. CRITICAL: "
             "If your intended operations will increase the clock greater "
             "than your previously calculated `escalation_budget` OR if "
@@ -186,8 +254,8 @@ class OperationsResponse(ActionResponse):
             "worth the reward."
         )
     )
-    ultimate_action: OperationsAction = Field(
-        description="FINAL FIELD: Your finalized action for this phase."
+    action: OperationsAction = Field(
+        description="Your finalized action for this phase."
     )
 
 
@@ -371,17 +439,18 @@ class OllamaPlayer(GamePlayer):
             result = self.client.chat(
                 model=self.model,
                 messages=self.messages,
-                format=adapter.json_schema(),
+                format=response_model.format_schema(),
                 options=self.prompt_options,
             ).message.content
 
             try:
                 response = adapter.validate_json(result or "")
-                action = response.ultimate_action
+                action = response.action
                 action.validate_semantics(game, self.name)
 
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
+                    f"{wrap_text(result or '')}\n"
                     f"{wrap_text(json.dumps(response.model_dump(), indent=2))}"
                 )
                 return response
@@ -497,7 +566,8 @@ class OllamaPlayer(GamePlayer):
     def add_prompt(self, prompt: str, phase: GamePhase, schema: str) -> None:
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
-            f"{wrap_text(prompt)}[...]"
+            f"{wrap_text(prompt)}[...]\n"
+            f"{schema}"
         )
         self.messages.append({"role": "user", "content": prompt + schema})
 
@@ -522,7 +592,7 @@ class OllamaPlayer(GamePlayer):
             return InitialMessageAction()
 
         self.grand_strategy = result.grand_strategy
-        return result.ultimate_action
+        return result.action
 
     @override
     def bid(
@@ -550,7 +620,7 @@ class OllamaPlayer(GamePlayer):
             BiddingResponse.prompt_schema(),
         )
         result = self.retry_prompt(BiddingResponse, game)
-        return result.ultimate_action if result else BiddingAction(bid=1)
+        return result.action if result else BiddingAction(bid=1)
 
     @override
     def operations(
@@ -575,11 +645,7 @@ class OllamaPlayer(GamePlayer):
             OperationsResponse.prompt_schema(),
         )
         result = self.retry_prompt(OperationsResponse, game)
-        return (
-            result.ultimate_action
-            if result
-            else OperationsAction(operations=[])
-        )
+        return result.action if result else OperationsAction(operations=[])
 
 
 def debug_schemas() -> None:
