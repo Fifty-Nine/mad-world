@@ -5,6 +5,7 @@ description = "A small computer strategy game"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "click>=8.3.1",
     "ollama>=0.6.1",
     "pydantic>=2.12.5",
 ]

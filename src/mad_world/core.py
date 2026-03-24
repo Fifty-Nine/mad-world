@@ -5,9 +5,7 @@ import logging as logging
 import pprint
 import random
 from abc import ABC, abstractmethod
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
@@ -592,75 +590,3 @@ def present_results(
         logging.info(
             f"  {player.name}: {player.gdp} GDP, {player.influence} Inf"
         )
-
-
-if __name__ == "__main__":
-    player_1 = "Norlandia"
-    persona_1 = "Friendly Backstabber"
-    model_1 = "gemma3:12b"
-
-    player_2 = "Southern Imperium"
-    persona_2 = "Ruthless Calculator"
-    model_2 = "qwen3.5:9b"
-
-    from mad_world.ollama_player import OllamaPlayer
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    log_dir = Path("./logs")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file_base = log_dir / (
-        f"{player_1}-{persona_1}-{model_1}-vs-"
-        f"{player_2}-{persona_2}-{model_2}."
-        f"{datetime.now().isoformat()}"
-    ).replace(":", "-").replace(" ", "_")
-    debug_log_file = log_file_base.with_suffix(".debug.txt")
-    log_file = log_file_base.with_suffix(".txt")
-
-    debug_file_handler = logging.FileHandler(debug_log_file)
-    debug_file_handler.setLevel(logging.DEBUG)
-
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.INFO)
-
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.DEBUG)
-
-    logger.addHandler(debug_file_handler)
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
-
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
-    logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
-
-    logging.info(
-        "Game starting\n"
-        f"Player 1: {player_1}, {persona_1} ({model_1})\n"
-        f"Player 2: {player_2}, {persona_2} ({model_2})"
-    )
-
-    try:
-        present_results(
-            *game_loop(
-                GameRules(),
-                [
-                    OllamaPlayer(
-                        name=player_1,
-                        opponent_name=player_2,
-                        persona=persona_1,
-                        model=model_1,
-                    ),
-                    OllamaPlayer(
-                        name=player_2,
-                        opponent_name=player_1,
-                        persona=persona_2,
-                        model=model_2,
-                    ),
-                ],
-            )
-        )
-    except KeyboardInterrupt:
-        debug_log_file.unlink(missing_ok=True)
-        log_file.unlink(missing_ok=True)
