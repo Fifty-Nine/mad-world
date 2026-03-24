@@ -2,14 +2,15 @@
 
 import pprint
 import textwrap
-from typing import TypeVar, override
+from typing import override
 
 import ollama
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from mad_world.core import (
     BaseAction,
     BiddingAction,
+    GamePhase,
     GamePlayer,
     GameState,
     InitialMessageAction,
@@ -21,7 +22,51 @@ from mad_world.core import (
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
-T = TypeVar("T", bound=BaseAction)
+
+class ActionResponse[T: BaseAction](BaseModel):
+    opponent_position: str = Field(
+        description="A brief analysis of your OPPONENT's strategic position. "
+        "You MUST include this field.",
+        examples=[
+            "Weak; we have more GDP and influence,"
+            "and they are clock-constrained."
+        ],
+    )
+    opponent_next_move: str = Field(
+        description="Your best guess of your OPPONENT's action this round, "
+        "based on their strategic position and past behavior. "
+        "You MUST include this field.",
+        examples=[
+            "They will likely bid 0 to de-escalate, "
+            "as they are clock-constrained."
+        ],
+    )
+    strategic_position: str = Field(
+        description="A brief analysis of your strategic position. "
+        "You MUST include this field.",
+        examples=[
+            "Strong; we have more GDP and influence, "
+            "and they are clock-constrained."
+        ],
+    )
+    mad_risk: str = Field(
+        description="The assessed risk of triggering MAD based on the sum of "
+        "YOUR and your OPPONENT's likely actions. You MUST include this field.",
+        examples=["None; the clock is at 0.", "Extreme; the clock is at 21"],
+    )
+    final_analysis: str = Field(
+        description="Your final analysis of your next best move, taking into "
+        "account all previous fields. You MUST include this field.",
+        examples=[
+            "I will bid 0 to de-escalate, as the clock is high "
+            "and my opponent is likely to bid high."
+        ],
+    )
+    action: T = Field(description="Your submission for this phase of the game.")
+
+    @classmethod
+    def prompt_schema(cls) -> str:
+        return wrap_text(pprint.pformat(cls.model_json_schema()))
 
 
 class OllamaPlayer(GamePlayer):
@@ -126,6 +171,8 @@ class OllamaPlayer(GamePlayer):
     @staticmethod
     def format_game_state(game: GameState) -> str:
         result = (
+            f"Round {game.current_round} of {game.rules.round_count}\n"
+            f"Phase: {game.current_phase.name}\n"
             f"Doomsday clock: {game.doomsday_clock}/"
             f"{game.rules.max_clock_state}"
             f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
@@ -143,7 +190,7 @@ class OllamaPlayer(GamePlayer):
             ),
             "  ",
         )
-        return result
+        return wrap_text(result)
 
     def doomsday_warning(self, game: GameState) -> str:
         risky, deadly = game.rules.get_doomsday_bids(game.doomsday_clock)
@@ -173,29 +220,32 @@ class OllamaPlayer(GamePlayer):
             "immediate annihilation."
         )
 
-    def retry_prompt(
+    def retry_prompt[T: BaseAction](
         self,
-        model: type[T],
+        response_model: type[ActionResponse[T]],
         game: GameState,
         retries: int = 3,
     ) -> T | None:
         count = 0
         phase = game.current_phase
         while count < retries:
+            adapter = TypeAdapter(response_model)
             result = self.client.chat(
                 model=self.model,
                 messages=self.messages,
-                format=model.model_json_schema(),
+                format=adapter.json_schema(),
                 options=self.prompt_options,
             ).message.content
 
             try:
-                action = model.model_validate_json(result or "")
+                response = adapter.validate_json(result or "")
+                assert type(response.action) is not BaseAction
+                action = response.action
                 action.validate_semantics(game, self.name)
 
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
-                    f"{pprint.pformat(action.model_dump())}"
+                    f"{pprint.pformat(response.model_dump())}"
                 )
                 return action
             except InvalidActionError as e:
@@ -219,7 +269,7 @@ class OllamaPlayer(GamePlayer):
             except ValidationError as e:
                 logging.debug(
                     f"==== {phase.name} {self.name} response ====\n"
-                    f"Failed: {e!r}"
+                    f"Failed: {e}"
                     f"Model Response: {result}"
                 )
                 self.messages.append(
@@ -270,22 +320,31 @@ class OllamaPlayer(GamePlayer):
     def my_influence(self, game: GameState) -> int:
         return game.players[self.name].influence
 
+    def add_prompt(self, prompt: str, phase: GamePhase, schema: str) -> None:
+        logging.debug(
+            f"==== {self.name} {phase.name} prompt ====\n{prompt}[...]"
+        )
+        self.messages.append({"role": "user", "content": prompt + schema})
+
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
-        prompt = (
+        prompt = self.format_game_state(game)
+        prompt += (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
             "opponent. Note that your opponent will not see your message until "
             "after they have acted each phase. You should use this channel to "
             "conduct diplomacy, respond to inquiries, issue threats, etc. You "
             "must adhere to the following JSON Schema for this phase:\n"
-            f"{InitialMessageAction.model_json_schema()}"
         )
-        self.messages.append({"role": "user", "content": prompt})
-        logging.debug(f"==== {self.name} initial message prompt ====\n{prompt}")
+        self.add_prompt(
+            prompt,
+            GamePhase.OPENING,
+            ActionResponse[InitialMessageAction].prompt_schema(),
+        )
 
         return (
-            self.retry_prompt(InitialMessageAction, game)
+            self.retry_prompt(ActionResponse[InitialMessageAction], game)
             or InitialMessageAction()
         )
 
@@ -293,12 +352,7 @@ class OllamaPlayer(GamePlayer):
     def bid(
         self, game: GameState, message_from_opponent: str | None
     ) -> BiddingAction:
-        prompt = (
-            f"Round {game.current_round} of {game.rules.round_count}\n"
-            f"Phase: Bidding\n"
-            "Current Game State:\n"
-            f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
-        )
+        prompt = self.format_game_state(game)
         prompt += self.game_ending_warning(game)
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
@@ -310,23 +364,22 @@ class OllamaPlayer(GamePlayer):
         prompt += self.doomsday_warning(game)
         prompt += (
             "Your response must adhere to the following JSON Schema for this "
-            f"phase:\n{BiddingAction.model_json_schema()}"
+            "phase:\n"
         )
-        logging.debug(f"==== {self.name} bidding prompt ====\n{prompt}")
-        self.messages.append({"role": "user", "content": prompt})
-
-        return self.retry_prompt(BiddingAction, game) or BiddingAction(bid=1)
+        self.add_prompt(
+            prompt,
+            GamePhase.BIDDING,
+            ActionResponse[BiddingAction].prompt_schema(),
+        )
+        return self.retry_prompt(
+            ActionResponse[BiddingAction], game
+        ) or BiddingAction(bid=1)
 
     @override
     def operations(
         self, game: GameState, message_from_opponent: str | None
     ) -> OperationsAction:
-        prompt = (
-            f"Round {game.current_round} of {game.rules.round_count}\n"
-            f"Phase: Operations\n"
-            "Current Game State:\n"
-            f"{textwrap.indent(OllamaPlayer.format_game_state(game), '  ')}\n"
-        )
+        prompt = self.format_game_state(game)
         prompt += self.game_ending_warning(game)
         prompt += "These are the operations you can currently afford:\n"
         prompt += self.format_allowed_ops(self.my_influence(game), game.rules)
@@ -336,10 +389,12 @@ class OllamaPlayer(GamePlayer):
             "not take place. Remember that your opponents actions may also "
             "impact the clock.\nYour response must adhere to the following "
             "JSON Schema for this phase:\n"
-            f"{OperationsAction.model_json_schema()}\n"
         )
-        logging.debug(f"==== {self.name} operations prompt ====\n{prompt}")
-        self.messages.append({"role": "user", "content": prompt})
-        return self.retry_prompt(OperationsAction, game) or OperationsAction(
-            operations=[]
+        self.add_prompt(
+            prompt,
+            GamePhase.OPERATIONS,
+            ActionResponse[OperationsAction].prompt_schema(),
         )
+        return self.retry_prompt(
+            ActionResponse[OperationsAction], game
+        ) or OperationsAction(operations=[])
