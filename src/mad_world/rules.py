@@ -24,6 +24,9 @@ class OperationDefinition(BaseModel):
     influence_cost: int = Field(
         description="The influence cost of the operation."
     )
+    enemy_influence_effect: int = Field(
+        description="The effect on the opposing player's influence.", default=0
+    )
     clock_effect: int = Field(
         description="The clock impact of the operation.", default=0
     )
@@ -49,6 +52,11 @@ class OperationDefinition(BaseModel):
 
         if self.name != "first-strike":
             result += self.format_one(-self.influence_cost, "Inf", cost_or_gain)
+            result += self.format_one(
+                self.enemy_influence_effect,
+                "Opponent Inf",
+                increase_or_decrease,
+            )
             result += self.format_one(
                 self.clock_effect, "Clock", increase_or_decrease
             )

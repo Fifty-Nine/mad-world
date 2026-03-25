@@ -174,6 +174,7 @@ class GameState(BaseModel):
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
+            player.influence = max(0, player.influence)
 
         event.current_round = self.current_round
         event.current_phase = self.current_phase
@@ -463,7 +464,10 @@ def resolve_operation(
             player_name: op_def.friendly_gdp_effect,
             opponent_name: op_def.enemy_gdp_effect,
         },
-        influence_delta={player_name: -op_def.influence_cost},
+        influence_delta={
+            player_name: -op_def.influence_cost,
+            opponent_name: op_def.enemy_influence_effect,
+        },
     )
 
 

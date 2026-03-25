@@ -77,6 +77,7 @@ def test_operation_formatting() -> None:
         name="foo",
         description="bar",
         influence_cost=1,
+        enemy_influence_effect=999,
         clock_effect=-1,
         friendly_gdp_effect=2,
         enemy_gdp_effect=-3,
@@ -87,6 +88,7 @@ def test_operation_formatting() -> None:
         "  Description:\n"
         "    bar\n"
         "  Inf cost: 1\n"
+        "  Opponent Inf increase: 999\n"
         "  Clock decrease: 1\n"
         "  GDP increase: 2\n"
         "  Opponent GDP decrease: 3\n"
@@ -95,6 +97,7 @@ def test_operation_formatting() -> None:
     assert test_op.format(verbose=False, indent="x") == (
         "xfoo:\n"
         "x  Inf cost: 1\n"
+        "x  Opponent Inf increase: 999\n"
         "x  Clock decrease: 1\n"
         "x  GDP increase: 2\n"
         "x  Opponent GDP decrease: 3\n"
@@ -108,4 +111,12 @@ def test_operation_formatting() -> None:
         "  Cost: everything\n"
         "  Gain: a legacy of ashes, but at "
         "least your opponent doesn't win.\n"
+    )
+
+    test_op = OperationDefinition(
+        name="do-nothing", description="?", influence_cost=0
+    )
+    assert test_op.format(verbose=False, indent="y") == ("ydo-nothing:\n")
+    assert test_op.format(verbose=True) == (
+        "do-nothing:\n  Description:\n    ?\n"
     )
