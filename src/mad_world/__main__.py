@@ -11,7 +11,7 @@ from mad_world.ollama_player import OllamaPlayer, debug_schemas
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
-random_adjectives = [
+PERSONA_ADJECTIVES = [
     "Amateurish",
     "Belligerent",
     "Bloodthirsty",
@@ -64,7 +64,7 @@ random_adjectives = [
     "Zealous",
 ]
 
-random_nouns = [
+PERSONA_NOUNS = [
     "Apparatchik",
     "Appeaser",
     "Architect",
@@ -74,7 +74,8 @@ random_nouns = [
     "Brinksman",
     "Builder",
     "Bureaucrat",
-    "CalculatorCrusader",
+    "Calculator",
+    "Crusader",
     "Dictator",
     "Diplomat",
     "Dogmatist",
@@ -107,7 +108,7 @@ random_nouns = [
 
 
 def random_persona() -> str:
-    return f"{RANDOM.choice(random_adjectives)} {RANDOM.choice(random_nouns)}"
+    return f"{RANDOM.choice(PERSONA_ADJECTIVES)} {RANDOM.choice(PERSONA_NOUNS)}"
 
 
 def get_player(
