@@ -62,7 +62,7 @@ class OperationDefinition(BaseModel):
             result += "  Cost: everything\n"
             result += (
                 "  Gain: a legacy of ashes, but at "
-                "least your opponent doesn't win\n"
+                "least your opponent doesn't win.\n"
             )
 
         return textwrap.indent(result, indent)

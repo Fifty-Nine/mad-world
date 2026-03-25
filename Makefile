@@ -18,5 +18,8 @@ typecheck:
 test:
 	uv run pytest
 
+testverbose:
+	uv run pytest --verbose
+
 check: lint typecheck test
 	@echo "\nAll checks passed successfully!"
