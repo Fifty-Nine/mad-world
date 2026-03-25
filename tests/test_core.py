@@ -43,13 +43,14 @@ TEST_CASES = [
 ]
 
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "scenario",
     TEST_CASES,
     ids=[f"{tc.alpha.__name__}_vs_{tc.omega.__name__}" for tc in TEST_CASES],
 )
-def test_game_outcomes(scenario: Scenario) -> None:
-    winner, reason, _event_log = game_loop(
+async def test_game_outcomes(scenario: Scenario) -> None:
+    winner, reason, _event_log = await game_loop(
         GameRules(), [scenario.alpha("Alpha"), scenario.omega("Omega")]
     )
 

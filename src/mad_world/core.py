@@ -1,5 +1,6 @@
 """Core mechanics for the game."""
 
+import asyncio
 import copy
 import logging as logging
 import random
@@ -333,29 +334,29 @@ class GamePlayer(ABC):
         pass
 
     @abstractmethod
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         """Get the initial message for your opponent. This will be provided
         to them in the bidding phase of round 1.
         """
         pass
 
     @abstractmethod
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         """Get a message for your opponent before an action phase."""
         pass
 
     @abstractmethod
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         """Get the player's input for the bidding phase, given the current
         game state."""
         pass
 
     @abstractmethod
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
         pass
 
-    def game_over(  # noqa: B027
+    async def game_over(  # noqa: B027
         self,
         game: GameState,
         winner: str | None,
@@ -415,14 +416,17 @@ def process_bid(game: GameState, player_name: str, bid: int) -> None:
     )
 
 
-def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_bidding(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     """Resolve the bidding phase of the game."""
 
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].bid(game)
-    omega_action = players[1].bid(game)
+    alpha_action, omega_action = await asyncio.gather(
+        players[0].bid(game), players[1].bid(game)
+    )
 
     new_game = copy.deepcopy(game)
     process_bid(new_game, alpha_name, alpha_action.bid)
@@ -463,12 +467,15 @@ def resolve_operation(
     )
 
 
-def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_operations(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].operations(game)
-    omega_action = players[1].operations(game)
+    alpha_action, omega_action = await asyncio.gather(
+        players[0].operations(game), players[1].operations(game)
+    )
 
     new_game = copy.deepcopy(game)
     i = RANDOM.choice([0, 1])
@@ -500,54 +507,62 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     return new_game
 
 
-def resolve_messaging(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_messaging(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
+    alpha_msg, omega_msg = await asyncio.gather(
+        players[0].message(game), players[1].message(game)
+    )
+
     new_game = copy.deepcopy(game)
 
-    new_game.log_message(alpha_name, omega_name, players[0].message(game))
-    new_game.log_message(omega_name, alpha_name, players[1].message(game))
+    new_game.log_message(alpha_name, omega_name, alpha_msg)
+    new_game.log_message(omega_name, alpha_name, omega_msg)
 
     new_game.advance_phase()
 
     return new_game
 
 
-def resolve_opening(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_opening(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
+    alpha_msg, omega_msg = await asyncio.gather(
+        players[0].initial_message(game), players[1].initial_message(game)
+    )
+
     new_game = copy.deepcopy(game)
 
-    new_game.log_message(
-        alpha_name, omega_name, players[0].initial_message(game)
-    )
-    new_game.log_message(
-        omega_name, alpha_name, players[1].initial_message(game)
-    )
+    new_game.log_message(alpha_name, omega_name, alpha_msg)
+    new_game.log_message(omega_name, alpha_name, omega_msg)
 
     new_game.advance_phase()
 
     return new_game
 
 
-def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
+async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
     match game.current_phase:
         case GamePhase.OPENING:
-            return resolve_opening(game, players)
+            return await resolve_opening(game, players)
 
         case GamePhase.BIDDING_MESSAGING:
-            return resolve_messaging(game, players)
+            return await resolve_messaging(game, players)
 
         case GamePhase.BIDDING:
-            return resolve_bidding(game, players)
+            return await resolve_bidding(game, players)
 
         case GamePhase.OPERATIONS_MESSAGING:
-            return resolve_messaging(game, players)
+            return await resolve_messaging(game, players)
 
         case GamePhase.OPERATIONS:
-            return resolve_operations(game, players)
+            return await resolve_operations(game, players)
 
     return game
 
@@ -559,7 +574,7 @@ def check_game_over(game: GameState) -> bool:
     )
 
 
-def game_loop(
+async def game_loop(
     rules: GameRules, players: list[GamePlayer]
 ) -> tuple[str | None, GameOverReason, GameState]:
     game = init_game(players, rules)
@@ -568,7 +583,7 @@ def game_loop(
         p.start_game(rules)
 
     while not check_game_over(game):
-        game = iterate_game(game, players)
+        game = await iterate_game(game, players)
 
     winner, reason = game.determine_victor()
     logging.debug(f"Victor: {winner or 'no one'}")
@@ -584,7 +599,7 @@ def game_loop(
     )
 
     for player in players:
-        player.game_over(game, winner, reason)
+        await player.game_over(game, winner, reason)
 
     return (winner, reason, game)
 

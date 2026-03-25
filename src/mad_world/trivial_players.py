@@ -18,23 +18,23 @@ class CrazyIvan(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent="I'm crazy Ivan. Prepare to die!",
         )
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         return MessagingAction(message_to_opponent=None)
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
             bid=max(game.rules.allowed_bids),
         )
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         return OperationsAction(
             operations=["first-strike"],
         )
@@ -45,13 +45,13 @@ class Pacifist(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent="I seek only peace and prosperity for all.",
         )
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         if game.current_phase == GamePhase.BIDDING_MESSAGING:
             return MessagingAction(
                 message_to_opponent=(
@@ -63,13 +63,13 @@ class Pacifist(GamePlayer):
         )
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
             bid=0,
         )
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         return OperationsAction(
             operations=[],
         )
@@ -80,7 +80,7 @@ class Capitalist(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent=(
                 "Greed is good. I am here to maximize shareholder value."
@@ -88,7 +88,7 @@ class Capitalist(GamePlayer):
         )
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         if game.current_phase == GamePhase.BIDDING_MESSAGING:
             return MessagingAction(
                 message_to_opponent="A rising tide lifts all boats."
@@ -98,13 +98,13 @@ class Capitalist(GamePlayer):
         )
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
             bid=3,
         )
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         return OperationsAction(
             operations=["domestic-investment"],
         )
@@ -115,7 +115,7 @@ class Saboteur(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent=(
                 "We look forward to a long and mutually "
@@ -124,7 +124,7 @@ class Saboteur(GamePlayer):
         )
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         if game.current_phase == GamePhase.BIDDING_MESSAGING:
             return MessagingAction(
                 message_to_opponent=(
@@ -145,13 +145,13 @@ class Saboteur(GamePlayer):
         return MessagingAction(message_to_opponent=msg)
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
             bid=1,
         )
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         my_state = game.players[self.name]
         cost = game.rules.allowed_operations["proxy-subversion"].influence_cost
 
@@ -170,7 +170,7 @@ class Diplomat(GamePlayer):
         super().__init__(name)
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
             message_to_opponent=(
                 "I believe we can resolve our differences through dialogue."
@@ -178,7 +178,7 @@ class Diplomat(GamePlayer):
         )
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         if game.current_phase == GamePhase.BIDDING_MESSAGING:
             return MessagingAction(
                 message_to_opponent=(
@@ -201,13 +201,13 @@ class Diplomat(GamePlayer):
         return MessagingAction(message_to_opponent=msg)
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
             bid=1,
         )
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         my_state = game.players[self.name]
         cost = game.rules.allowed_operations[
             "unilateral-drawdown"

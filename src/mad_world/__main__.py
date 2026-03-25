@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +37,26 @@ from mad_world.util import wrap_text
     help="Persona prompt for player 2.",
 )
 def main(
+    alpha_name: str,
+    alpha_model: str,
+    alpha_persona: str,
+    omega_name: str,
+    omega_model: str,
+    omega_persona: str,
+) -> None:
+    asyncio.run(
+        amain(
+            alpha_name,
+            alpha_model,
+            alpha_persona,
+            omega_name,
+            omega_model,
+            omega_persona,
+        )
+    )
+
+
+async def amain(
     alpha_name: str,
     alpha_model: str,
     alpha_persona: str,
@@ -86,7 +107,7 @@ def main(
         logging.info(
             wrap_text(
                 format_results(
-                    *game_loop(
+                    *await game_loop(
                         GameRules(),
                         [
                             OllamaPlayer(

@@ -349,7 +349,7 @@ class OllamaPlayer(GamePlayer):
         self.opponent_name = opponent_name
         self.persona = persona
         self.model = model
-        self.client = ollama.Client()
+        self.client = ollama.AsyncClient()
         self.messages: list[dict[str, str]] = []
         self.token_limit = token_limit
         self.context_size = context_size
@@ -520,7 +520,7 @@ class OllamaPlayer(GamePlayer):
     def dump_model_response(response: BaseModel) -> str:
         return json.dumps(response.model_dump(), indent=2, ensure_ascii=False)
 
-    def retry_prompt[T: ActionResponse](
+    async def retry_prompt[T: ActionResponse](
         self,
         response_model: type[T],
         game: GameState,
@@ -531,12 +531,13 @@ class OllamaPlayer(GamePlayer):
         )
         for _i in range(retries):
             adapter = TypeAdapter(response_model)
-            result = self.client.chat(
+            result_obj = await self.client.chat(
                 model=self.model,
                 messages=self.messages,
                 format=response_model.format_schema(),
                 options=self.prompt_options,
-            ).message.content
+            )
+            result = result_obj.message.content
 
             try:
                 response = adapter.validate_json(result or "")
@@ -668,7 +669,7 @@ class OllamaPlayer(GamePlayer):
         )
 
     @override
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = self.format_game_state(game)
         prompt += (
             "You may now provide your initial message to your opponent. "
@@ -684,7 +685,7 @@ class OllamaPlayer(GamePlayer):
             GamePhase.OPENING,
             InitialMessageResponse.prompt_schema(),
         )
-        result = self.retry_prompt(InitialMessageResponse, game)
+        result = await self.retry_prompt(InitialMessageResponse, game)
         if result is None:
             return InitialMessageAction()
 
@@ -692,7 +693,7 @@ class OllamaPlayer(GamePlayer):
         return result.action
 
     @override
-    def message(self, game: GameState) -> MessagingAction:
+    async def message(self, game: GameState) -> MessagingAction:
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -715,11 +716,11 @@ class OllamaPlayer(GamePlayer):
             game.current_phase,
             MessagingResponse.prompt_schema(),
         )
-        result = self.retry_prompt(MessagingResponse, game)
+        result = await self.retry_prompt(MessagingResponse, game)
         return result.action if result else MessagingAction()
 
     @override
-    def bid(self, game: GameState) -> BiddingAction:
+    async def bid(self, game: GameState) -> BiddingAction:
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -741,11 +742,11 @@ class OllamaPlayer(GamePlayer):
             GamePhase.BIDDING,
             BiddingResponse.prompt_schema(),
         )
-        result = self.retry_prompt(BiddingResponse, game)
+        result = await self.retry_prompt(BiddingResponse, game)
         return result.action if result else BiddingAction(bid=1)
 
     @override
-    def operations(self, game: GameState) -> OperationsAction:
+    async def operations(self, game: GameState) -> OperationsAction:
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -764,11 +765,11 @@ class OllamaPlayer(GamePlayer):
             GamePhase.OPERATIONS,
             OperationsResponse.prompt_schema(),
         )
-        result = self.retry_prompt(OperationsResponse, game)
+        result = await self.retry_prompt(OperationsResponse, game)
         return result.action if result else OperationsAction(operations=[])
 
     @override
-    def game_over(
+    async def game_over(
         self, game: GameState, winner: str | None, reason: GameOverReason
     ) -> None:
         prompt = format_results(winner, reason, game)
@@ -807,7 +808,7 @@ class OllamaPlayer(GamePlayer):
             "Limit your output strictly to 2-3 paragraphs."
         )
         self.add_prompt(prompt, GamePhase.END)
-        result = self.client.chat(
+        result = await self.client.chat(
             model=self.model,
             messages=self.messages,
             options=self.prompt_options,

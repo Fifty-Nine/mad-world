@@ -6,4 +6,3 @@
 - Add crisis deck.
 - Improve first strike mechanic.
 - Add communication loop?
-- Don't block game loop for player input
