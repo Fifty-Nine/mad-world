@@ -123,7 +123,8 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     "first-strike": OperationDefinition(
         name="first-strike",
         description=(
-            "Attempt to conduct a first strike against your opponent."
+            "Launch a first strike against your opponent, immediately "
+            "triggering MAD and ending the game."
         ),
         influence_cost=0,
         clock_effect=50,
