@@ -5,11 +5,109 @@ from pathlib import Path
 
 import click
 
-from mad_world.core import GamePlayer, format_results, game_loop
+from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer, debug_schemas
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
+
+random_adjectives = [
+    "Amateurish",
+    "Belligerent",
+    "Bloodthirsty",
+    "Bureaucratic",
+    "Calculating",
+    "Careful",
+    "Cautious",
+    "Cold",
+    "Covert",
+    "Cynical",
+    "Defensive",
+    "Delusional",
+    "Desperate",
+    "Dogmatic",
+    "Elder",
+    "Erratic",
+    "Fanatical",
+    "Friendly",
+    "Ideological",
+    "Ineffective",
+    "Inflexible",
+    "Inscrutable",
+    "Insular",
+    "Jeffersonian",
+    "Kafkaesque",
+    "Leninist",
+    "Machiavellian",
+    "Maoist",
+    "Marxist",
+    "Nervous",
+    "Nixonian",
+    "Opportunistic",
+    "Paranoid",
+    "Pragmatic",
+    "Principled",
+    "Rational",
+    "Reaganesque",
+    "Reckless",
+    "Reluctant",
+    "Silent",
+    "Smiling",
+    "Spiteful",
+    "Stalinist",
+    "Stoic",
+    "Theatrical",
+    "Trotskyist",
+    "Uncompromising",
+    "Unpredictable",
+    "Vengeful",
+    "Zealous",
+]
+
+random_nouns = [
+    "Apparatchik",
+    "Appeaser",
+    "Architect",
+    "Assassin",
+    "Autocrat",
+    "Backstabber",
+    "Brinksman",
+    "Builder",
+    "Bureaucrat",
+    "CalculatorCrusader",
+    "Dictator",
+    "Diplomat",
+    "Dogmatist",
+    "Extremist",
+    "General",
+    "Idealist",
+    "Isolationist",
+    "Martyr",
+    "Mastermind",
+    "Mirror",
+    "Monarch",
+    "Opportunist",
+    "Pacifist",
+    "Plotter",
+    "Predator",
+    "Premier",
+    "Profiteer",
+    "Realist",
+    "Rogue",
+    "Saboteur",
+    "Strongman",
+    "Subverter",
+    "Survivor",
+    "Tactician",
+    "Technocrat",
+    "Vanguard",
+    "Victor",
+    "Zealot",
+]
+
+
+def random_persona() -> str:
+    return f"{RANDOM.choice(random_adjectives)} {RANDOM.choice(random_nouns)}"
 
 
 def get_player(
@@ -32,7 +130,7 @@ def get_player(
 )
 @click.option(
     "--alpha-persona",
-    default="Friendly Backstabber",
+    default=None,
     help="Persona prompt for player 1.",
 )
 @click.option(
@@ -40,21 +138,21 @@ def get_player(
 )
 @click.option(
     "--omega-model",
-    default="qwen3.5:9b",
+    default="gemma3:12b",
     help="Ollama model used for player 2.",
 )
 @click.option(
     "--omega-persona",
-    default="Ruthless Calculator",
+    default=None,
     help="Persona prompt for player 2.",
 )
 def main(
     alpha_name: str,
     alpha_model: str,
-    alpha_persona: str,
+    alpha_persona: str | None,
     omega_name: str,
     omega_model: str,
-    omega_persona: str,
+    omega_persona: str | None,
 ) -> None:
     asyncio.run(
         amain(
@@ -71,14 +169,17 @@ def main(
 async def amain(
     alpha_name: str,
     alpha_model: str,
-    alpha_persona: str,
+    alpha_persona: str | None,
     omega_name: str,
     omega_model: str,
-    omega_persona: str,
+    omega_persona: str | None,
 ) -> None:
 
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
+
+    alpha_persona = alpha_persona or random_persona()
+    omega_persona = omega_persona or random_persona()
 
     log_dir = Path("./logs")
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -116,21 +217,22 @@ async def amain(
     debug_schemas()
 
     players = [
-        get_player(alpha_name, omega_name, alpha_model, alpha_persona),
-        get_player(omega_name, alpha_name, omega_model, omega_persona),
+        get_player(
+            alpha_name,
+            omega_name,
+            alpha_model,
+            alpha_persona,
+        ),
+        get_player(
+            omega_name,
+            alpha_name,
+            omega_model,
+            omega_persona,
+        ),
     ]
-
     try:
-        logging.info(
-            wrap_text(
-                format_results(
-                    *await game_loop(
-                        GameRules(),
-                        players,
-                    )
-                )
-            )
-        )
+        winner, reason, state = await game_loop(GameRules(), players)
+        logging.info(wrap_text(format_results(winner, reason, state)))
     except KeyboardInterrupt:
         debug_log_file.unlink(missing_ok=True)
         log_file.unlink(missing_ok=True)

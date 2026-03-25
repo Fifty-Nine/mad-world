@@ -105,7 +105,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         ),
         influence_cost=4,
         enemy_gdp_effect=-5,
-        clock_effect=1,
+        clock_effect=2,
     ),
     "unilateral-drawdown": OperationDefinition(
         name="unilateral-drawdown",
@@ -115,7 +115,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "clock impact."
         ),
         influence_cost=5,
-        clock_effect=-7,
+        clock_effect=-9,
     ),
     "stand-down": OperationDefinition(
         name="stand-down",
@@ -125,8 +125,9 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "immediate diplomatic capital and cool global tensions."
         ),
         influence_cost=-3,
+        enemy_influence_effect=-1,
         friendly_gdp_effect=-5,
-        clock_effect=-1,
+        clock_effect=-2,
     ),
     "first-strike": OperationDefinition(
         name="first-strike",
@@ -153,7 +154,7 @@ class GameRules(BaseModel):
         default=0, description="Initial doomsday clock value."
     )
     max_clock_state: int = Field(
-        default=25, description="Maximum doomsday clock value."
+        default=30, description="Maximum doomsday clock value."
     )
     round_count: int = Field(
         default=10, description="Maximum number of rounds."
@@ -166,7 +167,7 @@ class GameRules(BaseModel):
         description="The set of operations allowed in the game.",
     )
     allowed_bids: list[int] = Field(
-        default=[0, 1, 3, 5, 8],
+        default=[0, 1, 3, 5, 10],
         description="The set of bids allowed in the game.",
     )
 

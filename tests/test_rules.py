@@ -12,10 +12,12 @@ from mad_world.rules import (
     "clock,max_clock,allowed_bids,risky,deadly",
     [
         (0, 25, (0, 1, 3, 5, 8), [], []),
+        (24, 25, (0, 1, 3, 5, 8), [(0, 3)], [1, 3, 5, 8]),
         (20, 25, (0, 1, 3, 5, 8), [(0, 8), (1, 5), (3, 3)], [5, 8]),
         (10, 25, (0, 1, 3, 5, 8), [(8, 8)], []),
         (0, 1, (0, 1, 3, 5, 8), [(0, 3)], [1, 3, 5, 8]),
         (0, 1, (0,), [], []),
+        (29, 30, (0, 1, 3, 5, 10), [(0, 3)], [1, 3, 5, 10]),
     ],
 )
 def test_get_doomsday_bids(
@@ -30,15 +32,6 @@ def test_get_doomsday_bids(
     rules.allowed_bids = allowed_bids
 
     assert rules.get_doomsday_bids(clock) == (risky, deadly)
-
-
-def test_get_doomsday_bids_clock_24() -> None:
-    rules = GameRules()
-    risky, deadly = rules.get_doomsday_bids(24)
-
-    # At 24, anything but 0 is deadly.
-    assert deadly == [1, 3, 5, 8]
-    assert risky == [(0, 3)]
 
 
 @pytest.mark.parametrize(

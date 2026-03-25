@@ -36,7 +36,7 @@ TEST_CASES = [
     Scenario(Saboteur, Saboteur, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Saboteur, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Diplomat, Pacifist, None, GameOverReason.STALEMATE),
-    Scenario(Diplomat, Capitalist, None, GameOverReason.WORLD_DESTROYED),
+    Scenario(Diplomat, Capitalist, "Omega", GameOverReason.ECONOMIC_VICTORY),
     Scenario(Diplomat, Saboteur, "Omega", GameOverReason.ECONOMIC_VICTORY),
     Scenario(Diplomat, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Diplomat, Diplomat, None, GameOverReason.STALEMATE),
