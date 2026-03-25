@@ -34,6 +34,15 @@ from mad_world.util import wrap_text
 
 
 class ActionResponse(BaseModel):
+    chain_of_thought: list[str] = Field(
+        description=(
+            "Think through the previous turn. Did you advance "
+            "your goals? Did your opponent act in accordance with "
+            "their words? Did you make any mistakes? What are you "
+            "going to do now? Limit to 10-20 brief thoughts, one "
+            "thought per list item."
+        )
+    )
     action: BaseAction
 
     @model_validator(mode="before")
