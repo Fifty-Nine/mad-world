@@ -599,8 +599,8 @@ def format_results(
         f"Reason: {reason.name}\n"
     )
 
-    result += (
-        "Final scores" + " (before MAD):\n"
+    result += "Final scores" + (
+        " (before MAD):\n"
         if reason == GameOverReason.WORLD_DESTROYED
         else ":\n"
     )
