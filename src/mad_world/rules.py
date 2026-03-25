@@ -1,10 +1,9 @@
 """Rules and static definitions for the game."""
 
+import textwrap
 from collections.abc import Callable
 
 from pydantic import BaseModel, Field
-
-from mad_world.util import wrap_text
 
 
 def increase_or_decrease(val: int) -> str:
@@ -25,6 +24,9 @@ class OperationDefinition(BaseModel):
     influence_cost: int = Field(
         description="The influence cost of the operation."
     )
+    enemy_influence_effect: int = Field(
+        description="The effect on the opposing player's influence.", default=0
+    )
     clock_effect: int = Field(
         description="The clock impact of the operation.", default=0
     )
@@ -42,22 +44,19 @@ class OperationDefinition(BaseModel):
 
         return f"  {field} {desc_fn(val)}: {abs(val)}\n"
 
-    def format(self, verbose: bool) -> str:
+    def format(self, verbose: bool, indent: str = "") -> str:
         result = f"{self.name}:\n"
 
         if verbose:
-            result += (
-                "  Description:\n"
-                + wrap_text(
-                    self.description,
-                    indent="    ",
-                    width=80,
-                )
-                + "\n"
-            )
+            result += "  Description:\n" + "    " + self.description + "\n"
 
         if self.name != "first-strike":
             result += self.format_one(-self.influence_cost, "Inf", cost_or_gain)
+            result += self.format_one(
+                self.enemy_influence_effect,
+                "Opponent Inf",
+                increase_or_decrease,
+            )
             result += self.format_one(
                 self.clock_effect, "Clock", increase_or_decrease
             )
@@ -71,10 +70,10 @@ class OperationDefinition(BaseModel):
             result += "  Cost: everything\n"
             result += (
                 "  Gain: a legacy of ashes, but at "
-                "least your opponent doesn't win\n"
+                "least your opponent doesn't win.\n"
             )
 
-        return result
+        return textwrap.indent(result, indent)
 
 
 DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
@@ -108,14 +107,15 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         enemy_gdp_effect=-5,
         clock_effect=1,
     ),
-    "diplomatic-summit": OperationDefinition(
-        name="diplomatic-summit",
+    "unilateral-drawdown": OperationDefinition(
+        name="unilateral-drawdown",
         description=(
             "Expending massive political capital to walk back from the brink "
-            "of nuclear war. Generates zero economic value."
+            "of nuclear war. Generates zero economic value but has a massive "
+            "clock impact."
         ),
         influence_cost=5,
-        clock_effect=-3,
+        clock_effect=-7,
     ),
     "stand-down": OperationDefinition(
         name="stand-down",
@@ -131,12 +131,13 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
     "first-strike": OperationDefinition(
         name="first-strike",
         description=(
-            "Attempt to conduct a first strike against your opponent."
+            "Launch a first strike against your opponent, immediately "
+            "triggering MAD and ending the game."
         ),
         influence_cost=0,
         clock_effect=50,
-        friendly_gdp_effect=-100,
-        enemy_gdp_effect=-100,
+        friendly_gdp_effect=-1000,
+        enemy_gdp_effect=-1000,
     ),
 }
 

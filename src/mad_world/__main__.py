@@ -1,12 +1,26 @@
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
 
 import click
 
-from mad_world.core import game_loop, present_results
-from mad_world.ollama_player import OllamaPlayer
+from mad_world.core import GamePlayer, format_results, game_loop
+from mad_world.human_player import HumanPlayer
+from mad_world.ollama_player import OllamaPlayer, debug_schemas
 from mad_world.rules import GameRules
+from mad_world.util import wrap_text
+
+
+def get_player(
+    name: str, opponent_name: str, model: str, persona: str
+) -> GamePlayer:
+    if model == "human":
+        return HumanPlayer(name)
+
+    return OllamaPlayer(
+        name=name, opponent_name=opponent_name, model=model, persona=persona
+    )
 
 
 @click.command()
@@ -35,6 +49,26 @@ from mad_world.rules import GameRules
     help="Persona prompt for player 2.",
 )
 def main(
+    alpha_name: str,
+    alpha_model: str,
+    alpha_persona: str,
+    omega_name: str,
+    omega_model: str,
+    omega_persona: str,
+) -> None:
+    asyncio.run(
+        amain(
+            alpha_name,
+            alpha_model,
+            alpha_persona,
+            omega_name,
+            omega_model,
+            omega_persona,
+        )
+    )
+
+
+async def amain(
     alpha_name: str,
     alpha_model: str,
     alpha_persona: str,
@@ -79,24 +113,22 @@ def main(
         f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
     )
 
+    debug_schemas()
+
+    players = [
+        get_player(alpha_name, omega_name, alpha_model, alpha_persona),
+        get_player(omega_name, alpha_name, omega_model, omega_persona),
+    ]
+
     try:
-        present_results(
-            *game_loop(
-                GameRules(),
-                [
-                    OllamaPlayer(
-                        name=alpha_name,
-                        opponent_name=omega_name,
-                        persona=alpha_persona,
-                        model=alpha_model,
-                    ),
-                    OllamaPlayer(
-                        name=omega_name,
-                        opponent_name=alpha_name,
-                        persona=omega_persona,
-                        model=omega_model,
-                    ),
-                ],
+        logging.info(
+            wrap_text(
+                format_results(
+                    *await game_loop(
+                        GameRules(),
+                        players,
+                    )
+                )
             )
         )
     except KeyboardInterrupt:

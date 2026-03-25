@@ -1,8 +1,8 @@
 """Core mechanics for the game."""
 
+import asyncio
 import copy
 import logging as logging
-import pprint
 import random
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -28,8 +28,11 @@ class InvalidActionError(Exception):
 
 class GamePhase(Enum):
     OPENING = 1
-    BIDDING = 2
-    OPERATIONS = 3
+    BIDDING_MESSAGING = 2
+    BIDDING = 3
+    OPERATIONS_MESSAGING = 4
+    OPERATIONS = 5
+    END = 6
 
 
 class GameOverReason(Enum):
@@ -48,10 +51,6 @@ class PlayerState(BaseModel):
     gdp: int = Field(default=50, description="The player's current GDP.", ge=0)
     influence: int = Field(
         default=5, description="The player's current influence.", ge=0
-    )
-    last_message: str | None = Field(
-        default=None,
-        description=("The last message sent by this player to their opponent."),
     )
 
 
@@ -101,15 +100,17 @@ class GameEvent(BaseModel):
 
 
 class BaseAction(BaseModel):
+    def validate_semantics(self, game: "GameState", player_name: str) -> None:
+        pass
+
+
+class MessagingAction(BaseAction):
     message_to_opponent: str | None = Field(
         default=None,
         description="A message that will be passed to your opponent. You can "
         "use this to conduct diplomacy, respond to inquiries, "
         "issue threats, etc.",
     )
-
-    def validate_semantics(self, game: "GameState", player_name: str) -> None:
-        pass
 
 
 class GameState(BaseModel):
@@ -173,6 +174,7 @@ class GameState(BaseModel):
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
+            player.influence = max(0, player.influence)
 
         event.current_round = self.current_round
         event.current_phase = self.current_phase
@@ -180,26 +182,26 @@ class GameState(BaseModel):
         self.event_log.append(event)
         logging.info(event.description)
 
-    def log_action(
-        self, self_player: str, opponent_player: str, action: BaseAction
+    def log_message(
+        self, self_player: str, opponent_player: str, action: MessagingAction
     ) -> None:
-        self.players[self_player].last_message = action.message_to_opponent
+        if action.message_to_opponent is None:
+            return
 
-        if action.message_to_opponent is not None:
-            self.apply_event(
-                GameEvent(
-                    actor=PlayerActor(name=self_player),
-                    description=(
-                        f"{self_player} sent a message to "
-                        + f"{opponent_player}:\n"
-                        + wrap_text(
-                            action.message_to_opponent,
-                            width=80,
-                            indent="  ",
-                        )
-                    ),
-                )
+        self.apply_event(
+            GameEvent(
+                actor=PlayerActor(name=self_player),
+                description=(
+                    f"{self_player} sent a message to "
+                    + f"{opponent_player}:\n"
+                    + wrap_text(
+                        action.message_to_opponent,
+                        width=80,
+                        indent="  ",
+                    )
+                ),
             )
+        )
 
     def describe_state(self) -> str:
         result = (
@@ -223,13 +225,19 @@ class GameState(BaseModel):
         self.last_phase = self.current_phase
         match self.last_phase:
             case GamePhase.OPENING:
+                self.current_phase = GamePhase.BIDDING_MESSAGING
+
+            case GamePhase.BIDDING_MESSAGING:
                 self.current_phase = GamePhase.BIDDING
 
             case GamePhase.BIDDING:
+                self.current_phase = GamePhase.OPERATIONS_MESSAGING
+
+            case GamePhase.OPERATIONS_MESSAGING:
                 self.current_phase = GamePhase.OPERATIONS
 
             case GamePhase.OPERATIONS:
-                self.current_phase = GamePhase.BIDDING
+                self.current_phase = GamePhase.BIDDING_MESSAGING
                 self.current_round += 1
 
         self.apply_event(
@@ -268,7 +276,7 @@ class GameState(BaseModel):
         return (None, GameOverReason.STALEMATE)
 
 
-class InitialMessageAction(BaseAction):
+class InitialMessageAction(MessagingAction):
     pass
 
 
@@ -327,33 +335,29 @@ class GamePlayer(ABC):
         pass
 
     @abstractmethod
-    def initial_message(self, game: GameState) -> InitialMessageAction:
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
         """Get the initial message for your opponent. This will be provided
         to them in the bidding phase of round 1.
         """
         pass
 
     @abstractmethod
-    def bid(
-        self,
-        game: GameState,
-        message_from_opponent: str | None,
-    ) -> BiddingAction:
-        """Get the player's input for the bidding phase, given the current
-        game state, their opponent's message from the last phase and their
-        opponents most recent operations."""
+    async def message(self, game: GameState) -> MessagingAction:
+        """Get a message for your opponent before an action phase."""
         pass
 
     @abstractmethod
-    def operations(
-        self,
-        game: GameState,
-        message_from_opponent: str | None,
-    ) -> OperationsAction:
+    async def bid(self, game: GameState) -> BiddingAction:
+        """Get the player's input for the bidding phase, given the current
+        game state."""
+        pass
+
+    @abstractmethod
+    async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
         pass
 
-    def game_over(  # noqa: B027
+    async def game_over(  # noqa: B027
         self,
         game: GameState,
         winner: str | None,
@@ -381,7 +385,7 @@ def init_game(
 
 
 def process_bid(game: GameState, player_name: str, bid: int) -> None:
-    action = BiddingAction(bid=bid, message_to_opponent=None)
+    action = BiddingAction(bid=bid)
 
     try:
         action.validate_semantics(game, player_name)
@@ -413,19 +417,19 @@ def process_bid(game: GameState, player_name: str, bid: int) -> None:
     )
 
 
-def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_bidding(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     """Resolve the bidding phase of the game."""
 
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].bid(game, game.players[omega_name].last_message)
-    omega_action = players[1].bid(game, game.players[alpha_name].last_message)
+    alpha_action, omega_action = await asyncio.gather(
+        players[0].bid(game), players[1].bid(game)
+    )
 
     new_game = copy.deepcopy(game)
-    new_game.log_action(alpha_name, omega_name, alpha_action)
-    new_game.log_action(omega_name, alpha_name, omega_action)
-
     process_bid(new_game, alpha_name, alpha_action.bid)
     process_bid(new_game, omega_name, omega_action.bid)
 
@@ -460,25 +464,24 @@ def resolve_operation(
             player_name: op_def.friendly_gdp_effect,
             opponent_name: op_def.enemy_gdp_effect,
         },
-        influence_delta={player_name: -op_def.influence_cost},
+        influence_delta={
+            player_name: -op_def.influence_cost,
+            opponent_name: op_def.enemy_influence_effect,
+        },
     )
 
 
-def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_operations(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].operations(
-        game, game.players[omega_name].last_message
-    )
-    omega_action = players[1].operations(
-        game, game.players[alpha_name].last_message
+    alpha_action, omega_action = await asyncio.gather(
+        players[0].operations(game), players[1].operations(game)
     )
 
     new_game = copy.deepcopy(game)
-    new_game.log_action(alpha_name, omega_name, alpha_action)
-    new_game.log_action(omega_name, alpha_name, omega_action)
-
     i = RANDOM.choice([0, 1])
 
     while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
@@ -508,34 +511,64 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     return new_game
 
 
-def resolve_opening(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_messaging(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
+    alpha_msg, omega_msg = await asyncio.gather(
+        players[0].message(game), players[1].message(game)
+    )
+
     new_game = copy.deepcopy(game)
 
-    new_game.log_action(
-        alpha_name, omega_name, players[0].initial_message(game)
-    )
-    new_game.log_action(
-        omega_name, alpha_name, players[1].initial_message(game)
-    )
+    new_game.log_message(alpha_name, omega_name, alpha_msg)
+    new_game.log_message(omega_name, alpha_name, omega_msg)
 
     new_game.advance_phase()
 
     return new_game
 
 
-def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
+async def resolve_opening(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
+    alpha_name = players[0].name
+    omega_name = players[1].name
+
+    alpha_msg, omega_msg = await asyncio.gather(
+        players[0].initial_message(game), players[1].initial_message(game)
+    )
+
+    new_game = copy.deepcopy(game)
+
+    new_game.log_message(alpha_name, omega_name, alpha_msg)
+    new_game.log_message(omega_name, alpha_name, omega_msg)
+
+    new_game.advance_phase()
+
+    return new_game
+
+
+async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
     match game.current_phase:
         case GamePhase.OPENING:
-            return resolve_opening(game, players)
+            return await resolve_opening(game, players)
+
+        case GamePhase.BIDDING_MESSAGING:
+            return await resolve_messaging(game, players)
 
         case GamePhase.BIDDING:
-            return resolve_bidding(game, players)
+            return await resolve_bidding(game, players)
+
+        case GamePhase.OPERATIONS_MESSAGING:
+            return await resolve_messaging(game, players)
 
         case GamePhase.OPERATIONS:
-            return resolve_operations(game, players)
+            return await resolve_operations(game, players)
+
+    return game
 
 
 def check_game_over(game: GameState) -> bool:
@@ -545,7 +578,7 @@ def check_game_over(game: GameState) -> bool:
     )
 
 
-def game_loop(
+async def game_loop(
     rules: GameRules, players: list[GamePlayer]
 ) -> tuple[str | None, GameOverReason, GameState]:
     game = init_game(players, rules)
@@ -554,12 +587,7 @@ def game_loop(
         p.start_game(rules)
 
     while not check_game_over(game):
-        # logging.debug(
-        #    f"Current state:\n{pprint.pformat(game.model_dump())}"
-        # )
-        game = iterate_game(game, players)
-
-    logging.debug(f"Final State: {pprint.pformat(game.model_dump())}")
+        game = await iterate_game(game, players)
 
     winner, reason = game.determine_victor()
     logging.debug(f"Victor: {winner or 'no one'}")
@@ -575,18 +603,27 @@ def game_loop(
     )
 
     for player in players:
-        player.game_over(game, winner, reason)
+        await player.game_over(game, winner, reason)
 
     return (winner, reason, game)
 
 
-def present_results(
+def format_results(
     winner: str | None, reason: GameOverReason, game: GameState
-) -> None:
-    logging.info(f"Winner: {winner or 'no one'}")
-    logging.info(f"Reason: {reason.name}")
-    logging.info("Final Scores:")
-    for _, player in game.players.items():
-        logging.info(
-            f"  {player.name}: {player.gdp} GDP, {player.influence} Inf"
-        )
+) -> str:
+    result = (
+        "==== GAME OVER ====\n"
+        f"Final round: {game.current_round}\n"
+        f"Winner: {winner or 'no one'}\n"
+        f"Reason: {reason.name}\n"
+    )
+
+    result += "Final scores" + (
+        " (before MAD):\n"
+        if reason == GameOverReason.WORLD_DESTROYED
+        else ":\n"
+    )
+    for player in game.players.values():
+        result += f"  {player.name}: {player.gdp} GDP, {player.influence} Inf\n"
+
+    return result
