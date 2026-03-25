@@ -4,9 +4,10 @@ from pathlib import Path
 
 import click
 
-from mad_world.core import game_loop, present_results
+from mad_world.core import format_results, game_loop
 from mad_world.ollama_player import OllamaPlayer, debug_schemas
 from mad_world.rules import GameRules
+from mad_world.util import wrap_text
 
 
 @click.command()
@@ -82,23 +83,27 @@ def main(
     debug_schemas()
 
     try:
-        present_results(
-            *game_loop(
-                GameRules(),
-                [
-                    OllamaPlayer(
-                        name=alpha_name,
-                        opponent_name=omega_name,
-                        persona=alpha_persona,
-                        model=alpha_model,
-                    ),
-                    OllamaPlayer(
-                        name=omega_name,
-                        opponent_name=alpha_name,
-                        persona=omega_persona,
-                        model=omega_model,
-                    ),
-                ],
+        logging.info(
+            wrap_text(
+                format_results(
+                    *game_loop(
+                        GameRules(),
+                        [
+                            OllamaPlayer(
+                                name=alpha_name,
+                                opponent_name=omega_name,
+                                persona=alpha_persona,
+                                model=alpha_model,
+                            ),
+                            OllamaPlayer(
+                                name=omega_name,
+                                opponent_name=alpha_name,
+                                persona=omega_persona,
+                                model=omega_model,
+                            ),
+                        ],
+                    )
+                )
             )
         )
     except KeyboardInterrupt:

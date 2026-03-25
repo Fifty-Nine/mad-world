@@ -29,6 +29,7 @@ class GamePhase(Enum):
     OPENING = 1
     BIDDING = 2
     OPERATIONS = 3
+    END = 4
 
 
 class GameOverReason(Enum):
@@ -536,6 +537,8 @@ def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
         case GamePhase.OPERATIONS:
             return resolve_operations(game, players)
 
+    return game
+
 
 def check_game_over(game: GameState) -> bool:
     return (
@@ -574,13 +577,22 @@ def game_loop(
     return (winner, reason, game)
 
 
-def present_results(
+def format_results(
     winner: str | None, reason: GameOverReason, game: GameState
-) -> None:
-    logging.info(f"Winner: {winner or 'no one'}")
-    logging.info(f"Reason: {reason.name}")
-    logging.info("Final Scores:")
-    for _, player in game.players.items():
-        logging.info(
-            f"  {player.name}: {player.gdp} GDP, {player.influence} Inf"
-        )
+) -> str:
+    result = (
+        "==== GAME OVER ====\n"
+        f"Final round: {game.current_round}\n"
+        f"Winner: {winner or 'no one'}\n"
+        f"Reason: {reason.name}\n"
+    )
+
+    result += (
+        "Final scores" + " (before MAD):\n"
+        if reason == GameOverReason.WORLD_DESTROYED
+        else ":\n"
+    )
+    for player in game.players.values():
+        result += f"  {player.name}: {player.gdp} GDP, {player.influence} Inf\n"
+
+    return result

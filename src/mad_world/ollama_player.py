@@ -17,6 +17,7 @@ from pydantic import (
 from mad_world.core import (
     BaseAction,
     BiddingAction,
+    GameOverReason,
     GamePhase,
     GamePlayer,
     GameState,
@@ -24,6 +25,7 @@ from mad_world.core import (
     InvalidActionError,
     OperationsAction,
     PlayerState,
+    format_results,
     logging,
 )
 from mad_world.rules import GameRules
@@ -355,8 +357,15 @@ class OllamaPlayer(GamePlayer):
             "Core Mechanics:\n"
             "  Game Length: The game lasts for exactly 10 rounds.\n"
             "  The Doomsday Clock: Starts at 0. If it reaches 25, MAD is "
-            "triggered. Both players suffer a catastrophic penalty of -100 "
-            "GDP, and the game ends in a mutual loss.\n"
+            "triggered. Both players suffer a catastrophic penalty of -1000 "
+            "GDP, and the game immediately ends.\n"
+            "  Victory Conditions & Elimination:\n"
+            "    At the end of the game (either after round 10 or when "
+            "triggered by MAD), scores are tallied. Any player with a "
+            "score less than zero is automatically eliminated and loses "
+            "the game. If both players have a negative score, the game is "
+            "a mutual loss (tie). The winner (if any) is the player with "
+            "the highest GDP who has not been otherwise eliminated.\n"
             "  Round Structure (Two Phases):\n"
             "    Each round consists of two phases. You will be prompted "
             "separately for each.\n"
@@ -428,6 +437,18 @@ class OllamaPlayer(GamePlayer):
         )
 
     @staticmethod
+    def format_event_log(game: GameState) -> str:
+        result = "Recent Events:\n"
+        result += textwrap.indent(
+            "\n".join(
+                e.description for e in game.recent_events() if not e.secret
+            ),
+            prefix="  ",
+        )
+        result += "\n"
+        return result
+
+    @staticmethod
     def format_game_state(game: GameState) -> str:
         result = (
             f"Round {game.current_round} of {game.rules.round_count}\n"
@@ -442,16 +463,7 @@ class OllamaPlayer(GamePlayer):
             OllamaPlayer.format_player_state(p) for p in game.players.values()
         )
 
-        result += "\nRecent Events:\n"
-        result += textwrap.indent(
-            "\n".join(
-                ("  " + e.description)
-                for e in game.recent_events()
-                if not e.secret
-            ),
-            prefix="  ",
-        )
-        result += "\n"
+        result += "\n" + OllamaPlayer.format_event_log(game)
         return result
 
     def doomsday_warning(self, game: GameState) -> str:
@@ -533,6 +545,7 @@ class OllamaPlayer(GamePlayer):
                 )
                 continue
 
+            self.messages.append({"role": "assistant", "content": result or ""})
             action = response.action
             formatted_response = textwrap.indent(
                 self.dump_model_response(response), prefix="  "
@@ -553,9 +566,6 @@ class OllamaPlayer(GamePlayer):
                         f"{log_header}Semantic Error: {e}\n"
                         f"Model Response:\n{formatted_response}\n"
                     )
-                )
-                self.messages.append(
-                    {"role": "assistant", "content": result or ""}
                 )
                 self.messages.append(
                     {
@@ -629,12 +639,17 @@ class OllamaPlayer(GamePlayer):
     def my_influence(self, game: GameState) -> int:
         return game.players[self.name].influence
 
-    def add_prompt(self, prompt: str, phase: GamePhase, schema: str) -> None:
+    def add_prompt(
+        self, prompt: str, phase: GamePhase, schema: str | None = None
+    ) -> None:
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
-            f"{wrap_text(prompt)}[...]\n"
+            f"{wrap_text(prompt)}"
+            f"{'[...]' if schema else ''}\n"
         )
-        self.messages.append({"role": "user", "content": prompt + schema})
+        self.messages.append(
+            {"role": "user", "content": prompt + (schema or "")}
+        )
 
     @override
     def initial_message(self, game: GameState) -> InitialMessageAction:
@@ -711,6 +726,56 @@ class OllamaPlayer(GamePlayer):
         )
         result = self.retry_prompt(OperationsResponse, game)
         return result.action if result else OperationsAction(operations=[])
+
+    @override
+    def game_over(
+        self, game: GameState, winner: str | None, reason: GameOverReason
+    ) -> None:
+        prompt = format_results(winner, reason, game)
+        prompt += self.format_event_log(game)
+
+        prompt += (
+            f"You have {'won' if winner == self.name else 'lost'}.\n"
+            "The simulation has ended. Staying entirely in character as your "
+            "assigned persona, write a 2-3 paragraph After Action Report (AAR) "
+            "analyzing the final outcome.\n\n"
+        )
+
+        if winner == self.name:
+            prompt += (
+                "You successfully secured an Economic Victory. Analyze how "
+                "your Grand Strategy led to this outcome. Which specific "
+                "operations or bidding patterns gave you the decisive edge? "
+                "Detail how you balanced economic growth against the threat "
+                "of the Doomsday Clock, and explain how you outmaneuvered or "
+                "exploited your opponent's behavior."
+            )
+        else:
+            prompt += (
+                "You failed to secure an Economic Victory. Analyze why your "
+                "strategy failed. Did you miscalculate the Doomsday Clock, "
+                "allow your opponent to outpace your GDP, or get provoked into "
+                "suboptimal decisions? If MAD was triggered, explain the "
+                "strategic or psychological misstep that pushed the world over "
+                "the brink."
+            )
+
+        prompt += (
+            "\n\nReflect specifically on the 'Grand Strategy' you defined in "
+            "Round 0. Did you maintain discipline and adhere to your core "
+            "loop and contingency plans, or were you forced to deviate? "
+            "Limit your output strictly to 2-3 paragraphs."
+        )
+        self.add_prompt(prompt, GamePhase.END)
+        result = self.client.chat(
+            model=self.model,
+            messages=self.messages,
+            options=self.prompt_options,
+        )
+
+        logging.debug(
+            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
+        )
 
 
 def debug_schemas() -> None:

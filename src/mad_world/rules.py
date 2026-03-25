@@ -127,8 +127,8 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         ),
         influence_cost=0,
         clock_effect=50,
-        friendly_gdp_effect=-100,
-        enemy_gdp_effect=-100,
+        friendly_gdp_effect=-1000,
+        enemy_gdp_effect=-1000,
     ),
 }
 
