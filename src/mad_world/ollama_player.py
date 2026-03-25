@@ -48,6 +48,8 @@ class ActionResponse(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def unprefix_keys(cls, data: Any) -> Any:
+        """Strip off digit prefixes added by reorder_schema."""
+
         def clean(d: Any) -> Any:
             if isinstance(d, dict):
                 return {
@@ -63,10 +65,11 @@ class ActionResponse(BaseModel):
     @staticmethod
     def reorder_schema(schema: dict[str, Any]) -> dict[str, Any]:
         """Given the JSON Schema for the action, reorder the properties
-        so that the `action` field always comes last and add "FIELD #:"
-        prefixes to all descriptions. We also prefix the property keys
-        with numbers (e.g. 00_, 01_) because the underlying llama.cpp
-        grammar engine forcefully alphabetizes schema properties.
+        so that the `action` field always comes last. We also prefix the
+        property keys with numbers (e.g. 00_, 01_) because the underlying
+        llama.cpp grammar engine forcefully alphabetizes schema properties.
+        These prefixes are stripped off by `unprefix_keys` before the caller
+        ultimately sees them.
         """
 
         def process_obj(obj: dict[str, Any]) -> None:
