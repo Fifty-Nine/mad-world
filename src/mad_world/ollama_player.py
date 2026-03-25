@@ -23,6 +23,7 @@ from mad_world.core import (
     GameState,
     InitialMessageAction,
     InvalidActionError,
+    MessagingAction,
     OperationsAction,
     PlayerState,
     format_results,
@@ -214,6 +215,21 @@ class InitialMessageResponse(ActionResponse):
     )
 
     action: InitialMessageAction = Field(
+        description="Your finalized action for this phase."
+    )
+
+
+class MessagingResponse(ActionResponse):
+    message_goal: str = Field(
+        description="The goal of the next message to your opponent.",
+        examples=[
+            "Lull my opponent into a false sense of security.",
+            "Make overtures to a détente to avoid MAD.",
+            "Get them to bid low by telling them I'm going to bid high.",
+            "Foster cooperation to avert disaster.",
+        ],
+    )
+    action: MessagingAction = Field(
         description="Your finalized action for this phase."
     )
 
@@ -657,10 +673,11 @@ class OllamaPlayer(GamePlayer):
         prompt += (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
-            "opponent. Note that your opponent will not see your message until "
-            "after they have acted each phase. You should use this channel to "
-            "conduct diplomacy, respond to inquiries, issue threats, etc. You "
-            "must adhere to the following JSON Schema for this phase:\n"
+            "opponent. You will have a chance to send a message to your "
+            "opponent before they have to commit to their actions in each "
+            "phase. You should use this channel to conduct diplomacy, respond "
+            "to inquiries, issue threats, etc. You must adhere to the "
+            "following JSON Schema for this phase:\n"
         )
         self.add_prompt(
             prompt,
@@ -675,9 +692,34 @@ class OllamaPlayer(GamePlayer):
         return result.action
 
     @override
-    def bid(
-        self, game: GameState, message_from_opponent: str | None
-    ) -> BiddingAction:
+    def message(self, game: GameState) -> MessagingAction:
+        prompt = self.format_game_state(game)
+        prompt += self.my_strategy()
+        prompt += self.game_ending_warning(game)
+        prompt += self.first_strike_warning(game)
+
+        target_phase = (
+            "BIDDING"
+            if game.current_phase == GamePhase.BIDDING_MESSAGING
+            else "OPERATIONS"
+        )
+        prompt += (
+            f"You may now provide a message to your opponent. They will see "
+            f"this message BEFORE they commit to their actions in the upcoming "
+            f"{target_phase} phase. Use this channel to conduct diplomacy, "
+            f"respond to inquiries, issue threats, etc. You must adhere to the "
+            f"following JSON Schema for this phase:\n"
+        )
+        self.add_prompt(
+            prompt,
+            game.current_phase,
+            MessagingResponse.prompt_schema(),
+        )
+        result = self.retry_prompt(MessagingResponse, game)
+        return result.action if result else MessagingAction()
+
+    @override
+    def bid(self, game: GameState) -> BiddingAction:
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -703,9 +745,7 @@ class OllamaPlayer(GamePlayer):
         return result.action if result else BiddingAction(bid=1)
 
     @override
-    def operations(
-        self, game: GameState, message_from_opponent: str | None
-    ) -> OperationsAction:
+    def operations(self, game: GameState) -> OperationsAction:
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -785,6 +825,8 @@ def debug_schemas() -> None:
             "These are elided from later model prompt logging to save space.\n"
             "=== OPENING ===\n"
             f"{InitialMessageResponse.prompt_schema()}\n"
+            "=== MESSAGING ===\n"
+            f"{MessagingResponse.prompt_schema()}\n"
             "=== BIDDING ===\n"
             f"{BiddingResponse.prompt_schema()}\n"
             "=== OPERATIONS ===\n"

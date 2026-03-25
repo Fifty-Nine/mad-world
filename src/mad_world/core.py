@@ -27,9 +27,11 @@ class InvalidActionError(Exception):
 
 class GamePhase(Enum):
     OPENING = 1
-    BIDDING = 2
-    OPERATIONS = 3
-    END = 4
+    BIDDING_MESSAGING = 2
+    BIDDING = 3
+    OPERATIONS_MESSAGING = 4
+    OPERATIONS = 5
+    END = 6
 
 
 class GameOverReason(Enum):
@@ -48,10 +50,6 @@ class PlayerState(BaseModel):
     gdp: int = Field(default=50, description="The player's current GDP.", ge=0)
     influence: int = Field(
         default=5, description="The player's current influence.", ge=0
-    )
-    last_message: str | None = Field(
-        default=None,
-        description=("The last message sent by this player to their opponent."),
     )
 
 
@@ -101,15 +99,17 @@ class GameEvent(BaseModel):
 
 
 class BaseAction(BaseModel):
+    def validate_semantics(self, game: "GameState", player_name: str) -> None:
+        pass
+
+
+class MessagingAction(BaseAction):
     message_to_opponent: str | None = Field(
         default=None,
         description="A message that will be passed to your opponent. You can "
         "use this to conduct diplomacy, respond to inquiries, "
         "issue threats, etc.",
     )
-
-    def validate_semantics(self, game: "GameState", player_name: str) -> None:
-        pass
 
 
 class GameState(BaseModel):
@@ -180,26 +180,26 @@ class GameState(BaseModel):
         self.event_log.append(event)
         logging.info(event.description)
 
-    def log_action(
-        self, self_player: str, opponent_player: str, action: BaseAction
+    def log_message(
+        self, self_player: str, opponent_player: str, action: MessagingAction
     ) -> None:
-        self.players[self_player].last_message = action.message_to_opponent
+        if action.message_to_opponent is None:
+            return
 
-        if action.message_to_opponent is not None:
-            self.apply_event(
-                GameEvent(
-                    actor=PlayerActor(name=self_player),
-                    description=(
-                        f"{self_player} sent a message to "
-                        + f"{opponent_player}:\n"
-                        + wrap_text(
-                            action.message_to_opponent,
-                            width=80,
-                            indent="  ",
-                        )
-                    ),
-                )
+        self.apply_event(
+            GameEvent(
+                actor=PlayerActor(name=self_player),
+                description=(
+                    f"{self_player} sent a message to "
+                    + f"{opponent_player}:\n"
+                    + wrap_text(
+                        action.message_to_opponent,
+                        width=80,
+                        indent="  ",
+                    )
+                ),
             )
+        )
 
     def describe_state(self) -> str:
         result = (
@@ -223,13 +223,19 @@ class GameState(BaseModel):
         self.last_phase = self.current_phase
         match self.last_phase:
             case GamePhase.OPENING:
+                self.current_phase = GamePhase.BIDDING_MESSAGING
+
+            case GamePhase.BIDDING_MESSAGING:
                 self.current_phase = GamePhase.BIDDING
 
             case GamePhase.BIDDING:
+                self.current_phase = GamePhase.OPERATIONS_MESSAGING
+
+            case GamePhase.OPERATIONS_MESSAGING:
                 self.current_phase = GamePhase.OPERATIONS
 
             case GamePhase.OPERATIONS:
-                self.current_phase = GamePhase.BIDDING
+                self.current_phase = GamePhase.BIDDING_MESSAGING
                 self.current_round += 1
 
         self.apply_event(
@@ -268,7 +274,7 @@ class GameState(BaseModel):
         return (None, GameOverReason.STALEMATE)
 
 
-class InitialMessageAction(BaseAction):
+class InitialMessageAction(MessagingAction):
     pass
 
 
@@ -334,22 +340,18 @@ class GamePlayer(ABC):
         pass
 
     @abstractmethod
-    def bid(
-        self,
-        game: GameState,
-        message_from_opponent: str | None,
-    ) -> BiddingAction:
-        """Get the player's input for the bidding phase, given the current
-        game state, their opponent's message from the last phase and their
-        opponents most recent operations."""
+    def message(self, game: GameState) -> MessagingAction:
+        """Get a message for your opponent before an action phase."""
         pass
 
     @abstractmethod
-    def operations(
-        self,
-        game: GameState,
-        message_from_opponent: str | None,
-    ) -> OperationsAction:
+    def bid(self, game: GameState) -> BiddingAction:
+        """Get the player's input for the bidding phase, given the current
+        game state."""
+        pass
+
+    @abstractmethod
+    def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
         pass
 
@@ -381,7 +383,7 @@ def init_game(
 
 
 def process_bid(game: GameState, player_name: str, bid: int) -> None:
-    action = BiddingAction(bid=bid, message_to_opponent=None)
+    action = BiddingAction(bid=bid)
 
     try:
         action.validate_semantics(game, player_name)
@@ -419,13 +421,10 @@ def resolve_bidding(game: GameState, players: list[GamePlayer]) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].bid(game, game.players[omega_name].last_message)
-    omega_action = players[1].bid(game, game.players[alpha_name].last_message)
+    alpha_action = players[0].bid(game)
+    omega_action = players[1].bid(game)
 
     new_game = copy.deepcopy(game)
-    new_game.log_action(alpha_name, omega_name, alpha_action)
-    new_game.log_action(omega_name, alpha_name, omega_action)
-
     process_bid(new_game, alpha_name, alpha_action.bid)
     process_bid(new_game, omega_name, omega_action.bid)
 
@@ -468,17 +467,10 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
-    alpha_action = players[0].operations(
-        game, game.players[omega_name].last_message
-    )
-    omega_action = players[1].operations(
-        game, game.players[alpha_name].last_message
-    )
+    alpha_action = players[0].operations(game)
+    omega_action = players[1].operations(game)
 
     new_game = copy.deepcopy(game)
-    new_game.log_action(alpha_name, omega_name, alpha_action)
-    new_game.log_action(omega_name, alpha_name, omega_action)
-
     i = RANDOM.choice([0, 1])
 
     while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
@@ -508,16 +500,30 @@ def resolve_operations(game: GameState, players: list[GamePlayer]) -> GameState:
     return new_game
 
 
+def resolve_messaging(game: GameState, players: list[GamePlayer]) -> GameState:
+    alpha_name = players[0].name
+    omega_name = players[1].name
+
+    new_game = copy.deepcopy(game)
+
+    new_game.log_message(alpha_name, omega_name, players[0].message(game))
+    new_game.log_message(omega_name, alpha_name, players[1].message(game))
+
+    new_game.advance_phase()
+
+    return new_game
+
+
 def resolve_opening(game: GameState, players: list[GamePlayer]) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
     new_game = copy.deepcopy(game)
 
-    new_game.log_action(
+    new_game.log_message(
         alpha_name, omega_name, players[0].initial_message(game)
     )
-    new_game.log_action(
+    new_game.log_message(
         omega_name, alpha_name, players[1].initial_message(game)
     )
 
@@ -531,8 +537,14 @@ def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
         case GamePhase.OPENING:
             return resolve_opening(game, players)
 
+        case GamePhase.BIDDING_MESSAGING:
+            return resolve_messaging(game, players)
+
         case GamePhase.BIDDING:
             return resolve_bidding(game, players)
+
+        case GamePhase.OPERATIONS_MESSAGING:
+            return resolve_messaging(game, players)
 
         case GamePhase.OPERATIONS:
             return resolve_operations(game, players)

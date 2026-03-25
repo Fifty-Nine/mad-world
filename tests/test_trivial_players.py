@@ -1,6 +1,6 @@
 """Tests for the trivial player implementations."""
 
-from mad_world.core import init_game
+from mad_world.core import GamePhase, init_game
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
@@ -27,11 +27,10 @@ def test_crazy_ivan_bid() -> None:
     rules = GameRules()
     game_state = init_game([player], rules)
 
-    action = player.bid(game_state, message_from_opponent=None)
+    action = player.bid(game_state)
 
     # Ivan always bids the maximum allowed
     assert action.bid == max(rules.allowed_bids)
-    assert action.message_to_opponent is None
 
 
 def test_crazy_ivan_operations() -> None:
@@ -39,9 +38,17 @@ def test_crazy_ivan_operations() -> None:
     player = CrazyIvan("TestIvan")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == ["first-strike"]
+
+
+def test_crazy_ivan_message() -> None:
+    """Test Crazy Ivan's message logic."""
+    player = CrazyIvan("TestIvan")
+    game_state = init_game([player])
+
+    action = player.message(game_state)
     assert action.message_to_opponent is None
 
 
@@ -60,14 +67,10 @@ def test_pacifist_bid() -> None:
     player = Pacifist("TestPacifist")
     game_state = init_game([player])
 
-    action = player.bid(game_state, message_from_opponent=None)
+    action = player.bid(game_state)
 
     # Pacifist always bids 0
     assert action.bid == 0
-    assert (
-        action.message_to_opponent
-        == "Let us de-escalate tensions and work together."
-    )
 
 
 def test_pacifist_operations() -> None:
@@ -75,9 +78,25 @@ def test_pacifist_operations() -> None:
     player = Pacifist("TestPacifist")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == []
+
+
+def test_pacifist_message() -> None:
+    """Test Pacifist's message logic."""
+    player = Pacifist("TestPacifist")
+    game_state = init_game([player])
+
+    game_state.current_phase = GamePhase.BIDDING_MESSAGING
+    action = player.message(game_state)
+    assert (
+        action.message_to_opponent
+        == "Let us de-escalate tensions and work together."
+    )
+
+    game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
+    action = player.message(game_state)
     assert action.message_to_opponent == "I offer you the hand of friendship."
 
 
@@ -96,10 +115,9 @@ def test_capitalist_bid() -> None:
     player = Capitalist("TestCap")
     game_state = init_game([player])
 
-    action = player.bid(game_state, message_from_opponent=None)
+    action = player.bid(game_state)
 
     assert action.bid == 3
-    assert action.message_to_opponent == "A rising tide lifts all boats."
 
 
 def test_capitalist_operations() -> None:
@@ -107,9 +125,22 @@ def test_capitalist_operations() -> None:
     player = Capitalist("TestCap")
     game_state = init_game([player])
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == ["domestic-investment"]
+
+
+def test_capitalist_message() -> None:
+    """Test Capitalist's message logic."""
+    player = Capitalist("TestCap")
+    game_state = init_game([player])
+
+    game_state.current_phase = GamePhase.BIDDING_MESSAGING
+    action = player.message(game_state)
+    assert action.message_to_opponent == "A rising tide lifts all boats."
+
+    game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
+    action = player.message(game_state)
     assert action.message_to_opponent == "Building a better tomorrow."
 
 
@@ -128,13 +159,9 @@ def test_saboteur_bid() -> None:
     player = Saboteur("TestSaboteur")
     game_state = init_game([player])
 
-    action = player.bid(game_state, message_from_opponent=None)
+    action = player.bid(game_state)
 
     assert action.bid == 1
-    assert (
-        action.message_to_opponent
-        == "Just moving some paperwork around. Administrative things."
-    )
 
 
 def test_saboteur_operations_insufficient_influence() -> None:
@@ -145,13 +172,9 @@ def test_saboteur_operations_insufficient_influence() -> None:
     # Set influence to 3 (needs 4 for proxy-subversion)
     game_state.players["TestSaboteur"].influence = 3
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == []
-    assert (
-        action.message_to_opponent
-        == "Everything is quiet on the western front."
-    )
 
 
 def test_saboteur_operations_sufficient_influence() -> None:
@@ -162,12 +185,36 @@ def test_saboteur_operations_sufficient_influence() -> None:
     # Set influence to 4 (needs 4 for proxy-subversion)
     game_state.players["TestSaboteur"].influence = 4
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == ["proxy-subversion"]
+
+
+def test_saboteur_message() -> None:
+    """Test Saboteur's message logic."""
+    player = Saboteur("TestSaboteur")
+    game_state = init_game([player])
+
+    game_state.current_phase = GamePhase.BIDDING_MESSAGING
+    action = player.message(game_state)
+    assert (
+        action.message_to_opponent
+        == "Just moving some paperwork around. Administrative things."
+    )
+
+    game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game_state.players["TestSaboteur"].influence = 4
+    action = player.message(game_state)
     assert action.message_to_opponent == (
         "Oh, did your infrastructure spontaneously combust? "
         "Must be the weather."
+    )
+
+    game_state.players["TestSaboteur"].influence = 3
+    action = player.message(game_state)
+    assert (
+        action.message_to_opponent
+        == "Everything is quiet on the western front."
     )
 
 
@@ -186,13 +233,9 @@ def test_diplomat_bid() -> None:
     player = Diplomat("TestDiplomat")
     game_state = init_game([player])
 
-    action = player.bid(game_state, message_from_opponent=None)
+    action = player.bid(game_state)
 
     assert action.bid == 1
-    assert (
-        action.message_to_opponent
-        == "Let us keep the channels of communication open."
-    )
 
 
 def test_diplomat_operations_insufficient_influence() -> None:
@@ -203,12 +246,9 @@ def test_diplomat_operations_insufficient_influence() -> None:
     # Set influence to 4 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = 4
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == []
-    assert (
-        action.message_to_opponent == "We must continue our diplomatic efforts."
-    )
 
 
 def test_diplomat_operations_sufficient_influence() -> None:
@@ -219,10 +259,33 @@ def test_diplomat_operations_sufficient_influence() -> None:
     # Set influence to 5 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = 5
 
-    action = player.operations(game_state, message_from_opponent=None)
+    action = player.operations(game_state)
 
     assert action.operations == ["unilateral-drawdown"]
+
+
+def test_diplomat_message() -> None:
+    """Test Diplomat's message logic."""
+    player = Diplomat("TestDiplomat")
+    game_state = init_game([player])
+
+    game_state.current_phase = GamePhase.BIDDING_MESSAGING
+    action = player.message(game_state)
+    assert (
+        action.message_to_opponent
+        == "Let us keep the channels of communication open."
+    )
+
+    game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game_state.players["TestDiplomat"].influence = 5
+    action = player.message(game_state)
     assert action.message_to_opponent == (
         "I invite you to the negotiating table. "
         "Let us step back from the brink."
+    )
+
+    game_state.players["TestDiplomat"].influence = 4
+    action = player.message(game_state)
+    assert (
+        action.message_to_opponent == "We must continue our diplomatic efforts."
     )
