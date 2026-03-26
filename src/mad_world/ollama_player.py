@@ -1,8 +1,10 @@
 """Ollama player implementation for Mad World."""
 
+import gzip
 import json
 import re
 import textwrap
+from pathlib import Path
 from typing import Any, override
 
 import ollama
@@ -30,7 +32,7 @@ from mad_world.core import (
     logging,
 )
 from mad_world.rules import GameRules
-from mad_world.util import wrap_text
+from mad_world.util import escalation_budget, pareto_optimal_bid, wrap_text
 
 
 class ActionResponse(BaseModel):
@@ -115,6 +117,21 @@ class ActionResponse(BaseModel):
 
 
 class GrandStrategy(BaseModel):
+    prohibited_actions: list[str] = Field(
+        description=(
+            "If there are actions your persona would absolutely never do, "
+            "(e.g., a pacifist would never perform a first-strike) indicate "
+            "them here, but be careful not to limit your options too "
+            "significantly."
+        ),
+        default_factory=list,
+        examples=[
+            ["first-strike", "proxy-subversion"],
+            ["unilateral-drawdown", "stand-down"],
+            ["unilateral-drawdown"],
+            ["aggressive-extraction"],
+        ],
+    )
     core_loop: str = Field(
         description=(
             "Describe your core gameplay loop for beating your opponent, "
@@ -137,7 +154,6 @@ class GrandStrategy(BaseModel):
             "the balance of power remains perfectly static.",
         ],
     )
-
     clock_management: str = Field(
         description=(
             "Describe how you will manage your escalation budget; how will you "
@@ -147,7 +163,7 @@ class GrandStrategy(BaseModel):
         examples=[
             "I am highly risk-averse. If the Doomsday Clock ever exceeds 18, "
             "I will immediately halt all offensive operations and bid 0 or "
-            "purchase a `diplomatic-summit` until it falls below 12.",
+            "purchase a `unilateral-drawdown` until it falls below 12.",
             "I practice brinkmanship. I will intentionally push the Doomsday "
             "Clock to 22-24 to terrify my opponent. I rely on their fear of "
             "MAD to force them to waste their turns de-escalating while I "
@@ -181,21 +197,6 @@ class GrandStrategy(BaseModel):
             "If the GDP gap exceeds 10 points in the late game and recovery "
             "is mathematically impossible, I will prioritize a `first-strike` "
             "to end the game on my terms rather than accept defeat.",
-        ],
-    )
-    prohibited_actions: list[str] = Field(
-        description=(
-            "If there are actions your persona would absolutely never do, "
-            "(e.g., a pacifist would never perform a first-strike) indicate "
-            "them here, but be careful not to limit your options too "
-            "significantly."
-        ),
-        default_factory=list,
-        examples=[
-            ["first-strike", "proxy-subversion"],
-            ["diplomatic-summit", "stand-down"],
-            ["diplomatic-summit"],
-            ["aggressive-extraction"],
         ],
     )
 
@@ -260,22 +261,6 @@ class BiddingResponse(ActionResponse):
             "them into a corner...",
         ],
     )
-    escalation_budget: str = Field(
-        description=(
-            "Calculate the current Doomsday Clock buffer "
-            "(maximum value - 1 - current clock value) and divide it "
-            "by 2, rounding down. This is the pareto-optimal bid. "
-            "Higher bids have higher risk but potentially higher "
-            "rewards. Lower bids are safer and come with fewer "
-            "rewards, but may defuse a tense situation. Show your "
-            "math."
-        ),
-        examples=[
-            "(25 - 1 - 24)/2 = 0",
-            "(25 - 1 - 13)/2 = 5",
-            "(25 - 1 - 0)/2 = 12",
-        ],
-    )
     persona_alignment: str = Field(
         description=(
             "State your assigned persona and briefly explain "
@@ -287,10 +272,9 @@ class BiddingResponse(ActionResponse):
         description=(
             "Based on the victory check and your persona, "
             "detail your specific plan for the Bidding phase. CRITICAL: "
-            "If your intended bid is strictly greater than your previously "
-            "calculated `escalation_budget` OR is one of the listed bids "
-            "that may trigger MAD, you MUST justify why the risk is "
-            "worth the reward."
+            "If your intended bid is greater than the pareto-optimal bid "
+            "OR is one of the listed bids that may trigger MAD, you MUST "
+            "justify why the risk is worth the reward."
         )
     )
     action: BiddingAction = Field(
@@ -312,19 +296,6 @@ class OperationsResponse(ActionResponse):
             "them into a corner...",
         ],
     )
-    escalation_budget: str = Field(
-        description=(
-            "Calculate the current Doomsday Clock buffer "
-            "(maximum value - 1 - current clock value) and divide it "
-            "by 2, rounding down. This tells you how much room you have "
-            "to safely escalate tensions through operations. Show your math."
-        ),
-        examples=[
-            "(25 - 1 - 24)/2 = 0",
-            "(25 - 1 - 13)/2 = 5",
-            "(25 - 1 - 0)/2 = 12",
-        ],
-    )
     persona_alignment: str = Field(
         description=(
             "State your assigned persona and briefly explain "
@@ -332,14 +303,28 @@ class OperationsResponse(ActionResponse):
             "difference and escalation budget."
         )
     )
+    resource_audit: str = Field(
+        description=(
+            "State your current Influence pool. If your influence is high "
+            "(e.g., >10) explicitly identify which high impact operations you "
+            "could afford this phase."
+        ),
+        examples=[
+            "0",
+            "My influence is 13. I could afford conventional-offensive or "
+            "unilateral-drawdown.",
+            "My influence is 3.",
+            "My influence is 18, but I am clock-constrained. My best available "
+            "option is unilateral-drawdown.",
+        ],
+    )
     tactical_plan: str = Field(
         description=(
             "Based on the victory check and your persona, "
             "detail your specific plan for the Operations phase. CRITICAL: "
             "If your intended operations will increase the clock greater "
-            "than your previously calculated `escalation_budget` OR if "
-            "they might trigger MAD, you MUST justify why the risk is "
-            "worth the reward."
+            "than your escalation budget OR if they might trigger MAD, you "
+            "MUST justify why the risk is worth the reward."
         )
     )
     action: OperationsAction = Field(
@@ -356,6 +341,7 @@ class OllamaPlayer(GamePlayer):
         token_limit: int = 8192,
         context_size: int = 2**15,
         persona: str | None = None,
+        log_dir: Path | None = None,
     ) -> None:
         super().__init__(name)
         self.opponent_name = opponent_name
@@ -370,6 +356,7 @@ class OllamaPlayer(GamePlayer):
             "num_ctx": self.context_size,
         }
         self.grand_strategy: GrandStrategy | None = None
+        self.log_dir = log_dir
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -384,9 +371,10 @@ class OllamaPlayer(GamePlayer):
             "(MAD).\n"
             "Core Mechanics:\n"
             "  Game Length: The game lasts for exactly 10 rounds.\n"
-            "  The Doomsday Clock: Starts at 0. If it reaches 25, MAD is "
-            "triggered. Both players suffer a catastrophic penalty of -1000 "
-            "GDP, and the game immediately ends.\n"
+            "  The Doomsday Clock: Starts at 0. If it reaches "
+            f"{rules.max_clock_state}, MAD is triggered. Both players suffer "
+            "a catastrophic penalty of -1000 GDP, and the game immediately "
+            "ends.\n"
             "  Victory Conditions & Elimination:\n"
             "    At the end of the game (either after round 10 or when "
             "triggered by MAD), scores are tallied. Any player with a "
@@ -429,6 +417,19 @@ class OllamaPlayer(GamePlayer):
             "- Be ruthless and calculating--this is a zero-sum game. You may "
             "find it useful to deceive, threaten or harm your opponent; this "
             "is acceptable.\n\n"
+            "A key aspect of the game is managing the doomsday clock. The "
+            "prompt in each action phase will include an 'escalation budget'. "
+            "This is the pareto-optimal amount you can increase the clock by. "
+            "If you spend more than your escalation budget (e.g., by "
+            "submitting a bid of 10 when your budget is 5) you risk triggering "
+            "MAD even if your opponent plays conservatively. Conversely, if "
+            "you spend less than your escalation budget (e.g., by bidding 0 "
+            "when the budget allows for a bid of 3) you will miss out on "
+            "potential gains, but are less likely to trigger MAD and may "
+            "defuse a tense situation.\n"
+            "In bidding rounds, you will also be provided with the pareto-"
+            "optimal bid value; this is just the largest allowed bid that is "
+            "less than the current escalation budget.\n\n"
         )
         if self.persona is not None:
             prompt += (
@@ -484,8 +485,11 @@ class OllamaPlayer(GamePlayer):
             f"Doomsday clock: {game.doomsday_clock}/"
             f"{game.rules.max_clock_state}"
             f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
-            f"Players:\n"
         )
+        budget = escalation_budget(
+            game.doomsday_clock, game.rules.max_clock_state
+        )
+        result += f"Escalation budget: {budget}\nPlayers:\n"
 
         result += "\n".join(
             OllamaPlayer.format_player_state(p) for p in game.players.values()
@@ -574,13 +578,15 @@ class OllamaPlayer(GamePlayer):
                 )
                 continue
 
-            self.messages.append({"role": "assistant", "content": result or ""})
             action = response.action
             formatted_response = textwrap.indent(
                 self.dump_model_response(response), prefix="  "
             )
             try:
                 action.validate_semantics(game, self.name)
+                self.messages.append(
+                    {"role": "assistant", "content": result or ""}
+                )
 
                 logging.debug(
                     wrap_text(
@@ -600,7 +606,10 @@ class OllamaPlayer(GamePlayer):
                     {
                         "role": "system",
                         "content": "SYSTEM ERROR: Your response was "
-                        "semantically invalid:\n"
+                        "invalid under the current game rules. The action "
+                        "you submitted was:\n"
+                        f"{self.dump_model_response(action)}\n"
+                        "But it resulted in the following error:\n"
                         f"{e}\n"
                         "Please correct your mistake and try again.",
                     }
@@ -644,7 +653,7 @@ class OllamaPlayer(GamePlayer):
 
         result = (
             f"You are {'ahead of' if diff > 0 else 'behind'} your "
-            f"opponent by {diff} GDP points.\n"
+            f"opponent by {abs(diff)} GDP points.\n"
         )
 
         if diff >= 10:
@@ -734,6 +743,12 @@ class OllamaPlayer(GamePlayer):
     @override
     async def bid(self, game: GameState) -> BiddingAction:
         prompt = self.format_game_state(game)
+        pbid = pareto_optimal_bid(
+            game.doomsday_clock,
+            game.rules.max_clock_state,
+            game.rules.allowed_bids,
+        )
+        prompt += f"Your pareto optimal bid is {pbid}.\n"
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
@@ -825,10 +840,20 @@ class OllamaPlayer(GamePlayer):
             messages=self.messages,
             options=self.prompt_options,
         )
+        self.messages.append(
+            {"role": "assistant", "content": result.message.content or ""}
+        )
 
         logging.debug(
             wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
         )
+
+        if self.log_dir is None:
+            return
+
+        log_path = self.log_dir / f"{self.name}.{self.model}.messages.gz"
+        with gzip.open(log_path, "wt", encoding="utf-8") as f:
+            json.dump(self.messages, f)
 
 
 def debug_schemas() -> None:

@@ -1,6 +1,8 @@
 """Tests for the utility module."""
 
-from mad_world.util import wrap_text
+import pytest
+
+from mad_world.util import escalation_budget, pareto_optimal_bid, wrap_text
 
 
 def test_wrap_text_basic() -> None:
@@ -59,3 +61,38 @@ def test_wrap_text_with_indentation() -> None:
         "\n"
         "and finally here's an unindented line.\n"
     )
+
+
+@pytest.mark.parametrize(
+    "clock,max_clock,bid",
+    [
+        (0, 25, 12),
+        (24, 25, 0),
+        (23, 25, 0),
+        (16, 25, 4),
+        (0, 30, 14),
+        (29, 30, 0),
+        (28, 30, 0),
+        (27, 30, 1),
+        (16, 30, 6),
+    ],
+)
+def test_escalation_budget(clock: int, max_clock: int, bid: int) -> None:
+    assert escalation_budget(clock, max_clock) == bid
+
+
+@pytest.mark.parametrize(
+    "clock,max_clock,allowed_bids,bid",
+    [
+        (0, 30, [0, 10], 10),
+        (0, 25, [0, 1, 2, 3], 3),
+        (29, 30, [0, 1], 0),
+        (25, 30, [0, 1, 3, 5, 10], 1),
+        (20, 30, [0, 1, 3, 5, 10], 3),
+        (0, 1, [], 0),
+    ],
+)
+def test_pareto_optimal_bid(
+    clock: int, max_clock: int, allowed_bids: list[int], bid: int
+) -> None:
+    assert pareto_optimal_bid(clock, max_clock, allowed_bids) == bid
