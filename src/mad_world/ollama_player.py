@@ -589,6 +589,7 @@ class OllamaPlayer(GamePlayer):
                 logging.debug(
                     wrap_text(
                         f"{log_header}Failed: {e}\nModel Response: {result}\n"
+                        f"Model done reason: {result_obj.done_reason}\n"
                     )
                 )
                 self.messages.append(
