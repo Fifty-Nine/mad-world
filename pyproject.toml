@@ -44,7 +44,7 @@ disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=mad_world --cov-report=term-missing:skip-covered --cov-fail-under=76"
+addopts = "--cov=mad_world --cov-report=term-missing:skip-covered --cov-fail-under=77"
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 
