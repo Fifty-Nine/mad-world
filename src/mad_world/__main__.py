@@ -9,7 +9,7 @@ import click
 from mad_world import trivial_players
 from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
 from mad_world.human_player import HumanPlayer
-from mad_world.ollama_player import OllamaPlayer, debug_schemas
+from mad_world.ollama_player import OllamaPlayer
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
@@ -335,8 +335,6 @@ async def amain(
         f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
         f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
     )
-
-    debug_schemas()
 
     players = [
         get_player(

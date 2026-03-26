@@ -360,7 +360,9 @@ class OllamaPlayer(GamePlayer):
             "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None
-        self.log_dir = log_dir
+        self.log_base = (
+            log_dir / f"{self.name}" if log_dir is not None else None
+        )
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -447,6 +449,31 @@ class OllamaPlayer(GamePlayer):
             + wrap_text(prompt, width=80)
             + "\n"
         )
+
+        if self.log_base is None:
+            return
+
+        settings_path = self.log_base.with_suffix(".model-settings.json")
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {"model": self.model, "options": self.prompt_options},
+                indent=2,
+                ensure_ascii=False,
+                fp=f,
+            )
+
+        schemas_path = self.log_base.with_suffix(".schemas.json.gz")
+        with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
+            f.write(
+                "=== OPENING ===\n"
+                f"{InitialMessageResponse.prompt_schema()}\n"
+                "=== MESSAGING ===\n"
+                f"{MessagingResponse.prompt_schema()}\n"
+                "=== BIDDING ===\n"
+                f"{BiddingResponse.prompt_schema()}\n"
+                "=== OPERATIONS ===\n"
+                f"{OperationsResponse.prompt_schema()}\n"
+            )
 
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
@@ -852,36 +879,9 @@ class OllamaPlayer(GamePlayer):
             wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
         )
 
-        if self.log_dir is None:
+        if self.log_base is None:
             return
 
-        log_base = self.log_dir / f"{self.name}.{self.model}"
-        messages_path = log_base.with_suffix(".messages.gz")
-        settings_path = log_base.with_suffix(".model-settings.json")
+        messages_path = self.log_base.with_suffix(".messages.gz")
         with gzip.open(messages_path, "wt", encoding="utf-8") as f:
             json.dump(self.messages, f)
-
-        with open(settings_path, "w", encoding="utf-8") as f:
-            json.dump(
-                {"model": self.model, "options": self.prompt_options},
-                indent=2,
-                ensure_ascii=False,
-                fp=f,
-            )
-
-
-def debug_schemas() -> None:
-    logging.debug(
-        wrap_text(
-            "SCHEMAS USED BY MODELS\n"
-            "These are elided from later model prompt logging to save space.\n"
-            "=== OPENING ===\n"
-            f"{InitialMessageResponse.prompt_schema()}\n"
-            "=== MESSAGING ===\n"
-            f"{MessagingResponse.prompt_schema()}\n"
-            "=== BIDDING ===\n"
-            f"{BiddingResponse.prompt_schema()}\n"
-            "=== OPERATIONS ===\n"
-            f"{OperationsResponse.prompt_schema()}\n"
-        ),
-    )
