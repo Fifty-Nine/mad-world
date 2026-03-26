@@ -339,23 +339,23 @@ class GamePlayer(ABC):
         """Get the initial message for your opponent. This will be provided
         to them in the bidding phase of round 1.
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def message(self, game: GameState) -> MessagingAction:
         """Get a message for your opponent before an action phase."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def bid(self, game: GameState) -> BiddingAction:
         """Get the player's input for the bidding phase, given the current
         game state."""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
-        pass
+        pass  # pragma: no cover
 
     async def game_over(  # noqa: B027
         self,

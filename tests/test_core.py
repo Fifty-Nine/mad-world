@@ -7,6 +7,7 @@ import pytest
 
 from mad_world.core import (
     ActorKind,
+    BaseAction,
     BiddingAction,
     GameEvent,
     GameOverReason,
@@ -18,6 +19,7 @@ from mad_world.core import (
     PlayerActor,
     PlayerState,
     SystemActor,
+    format_results,
     game_loop,
     iterate_game,
     process_bid,
@@ -177,3 +179,43 @@ def test_actor_models() -> None:
 
     sa = SystemActor()
     assert sa.actor_kind == ActorKind.SYSTEM
+
+
+def test_format_results(basic_game: GameState) -> None:
+    res = format_results("Alpha", GameOverReason.ECONOMIC_VICTORY, basic_game)
+    assert "Winner: Alpha" in res
+    assert "Reason: ECONOMIC_VICTORY" in res
+
+    res_mad = format_results(None, GameOverReason.WORLD_DESTROYED, basic_game)
+    assert "Winner: no one" in res_mad
+    assert "Reason: WORLD_DESTROYED" in res_mad
+    assert "(before MAD)" in res_mad
+
+
+def test_recent_events(basic_game: GameState) -> None:
+    basic_game.last_round = 2
+    basic_game.last_phase = GamePhase.BIDDING
+    event = GameEvent(
+        actor=SystemActor(),
+        description="test",
+        current_round=2,
+        current_phase=GamePhase.BIDDING,
+    )
+    basic_game.event_log.append(event)
+    basic_game.event_log.append(
+        GameEvent(
+            actor=SystemActor(),
+            description="other",
+            current_round=1,
+            current_phase=GamePhase.OPERATIONS,
+        )
+    )
+
+    recent = basic_game.recent_events()
+    assert len(recent) == 1
+    assert recent[0].description == "test"
+
+
+def test_base_action_validate_semantics(basic_game: GameState) -> None:
+    action = BaseAction()
+    action.validate_semantics(basic_game, "Alpha")
