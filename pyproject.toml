@@ -47,3 +47,8 @@ testpaths = ["tests"]
 addopts = "--cov=src/mad_world --cov-report=term-missing --cov-fail-under=50"
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+omit = [
+	"src/mad_world/ollama_chat.py"
+]
