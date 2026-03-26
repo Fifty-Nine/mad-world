@@ -9,7 +9,7 @@ import click
 from mad_world import trivial_players
 from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
 from mad_world.human_player import HumanPlayer
-from mad_world.ollama_player import OllamaPlayer, debug_schemas
+from mad_world.ollama_player import OllamaPlayer
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
@@ -26,8 +26,10 @@ PERSONA_ADJECTIVES = (
     "Cynical",
     "Defensive",
     "Delusional",
+    "Devouring",
     "Desperate",
     "Dogmatic",
+    "Earnest",
     "Elder",
     "Erratic",
     "Fanatical",
@@ -52,7 +54,9 @@ PERSONA_ADJECTIVES = (
     "Opportunistic",
     "Paranoid",
     "Pragmatic",
+    "Pretentious",
     "Principled",
+    "Quixotic",
     "Rational",
     "Reaganesque",
     "Reckless",
@@ -84,6 +88,7 @@ PERSONA_NOUNS = (
     "Builder",
     "Bureaucrat",
     "Calculator",
+    "Criminal",
     "Crusader",
     "Dictator",
     "Diplomat",
@@ -92,6 +97,7 @@ PERSONA_NOUNS = (
     "General",
     "Idealist",
     "Isolationist",
+    "Jackass",
     "Martyr",
     "Mastermind",
     "Mirror",
@@ -110,6 +116,7 @@ PERSONA_NOUNS = (
     "Survivor",
     "Tactician",
     "Technocrat",
+    "Thug",
     "Vanguard",
     "Victor",
     "Zealot",
@@ -335,8 +342,6 @@ async def amain(
         f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
         f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
     )
-
-    debug_schemas()
 
     players = [
         get_player(

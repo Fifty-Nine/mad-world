@@ -360,7 +360,9 @@ class OllamaPlayer(GamePlayer):
             "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None
-        self.log_dir = log_dir
+        self.log_base = (
+            log_dir / f"{self.name}" if log_dir is not None else None
+        )
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -447,6 +449,28 @@ class OllamaPlayer(GamePlayer):
             + wrap_text(prompt, width=80)
             + "\n"
         )
+
+        if self.log_base is None:
+            return
+
+        settings_path = self.log_base.with_suffix(".model-settings.json")
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {"model": self.model, "options": self.prompt_options},
+                indent=2,
+                ensure_ascii=False,
+                fp=f,
+            )
+
+        schemas_path = self.log_base.with_suffix(".schemas.json.gz")
+        with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
+            schemas = {
+                "opening": InitialMessageResponse.prompt_schema(),
+                "messaging": MessagingResponse.prompt_schema(),
+                "bidding": BiddingResponse.prompt_schema(),
+                "operations": OperationsResponse.prompt_schema(),
+            }
+            json.dump(schemas, f, indent=2, ensure_ascii=False)
 
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
@@ -684,6 +708,12 @@ class OllamaPlayer(GamePlayer):
     def add_prompt(
         self, prompt: str, phase: GamePhase, schema: str | None = None
     ) -> None:
+        if schema is not None:
+            prompt += (
+                "You should output strictly valid JSON matching this JSON "
+                "Schema:\n"
+            )
+
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
             f"{wrap_text(prompt)}"
@@ -702,8 +732,7 @@ class OllamaPlayer(GamePlayer):
             "opponent. You will have a chance to send a message to your "
             "opponent before they have to commit to their actions in each "
             "phase. You should use this channel to conduct diplomacy, respond "
-            "to inquiries, issue threats, etc. You must adhere to the "
-            "following JSON Schema for this phase:\n"
+            "to inquiries, issue threats, etc.\n"
         )
         self.add_prompt(
             prompt,
@@ -733,8 +762,7 @@ class OllamaPlayer(GamePlayer):
             f"You may now provide a message to your opponent. They will see "
             f"this message BEFORE they commit to their actions in the upcoming "
             f"{target_phase} phase. Use this channel to conduct diplomacy, "
-            f"respond to inquiries, issue threats, etc. You must adhere to the "
-            f"following JSON Schema for this phase:\n"
+            f"respond to inquiries, issue threats, etc.\n"
         )
         self.add_prompt(
             prompt,
@@ -764,10 +792,6 @@ class OllamaPlayer(GamePlayer):
         )
 
         prompt += self.doomsday_warning(game)
-        prompt += (
-            "Your response must adhere to the following JSON Schema for this "
-            "phase:\n"
-        )
         self.add_prompt(
             prompt,
             GamePhase.BIDDING,
@@ -788,8 +812,7 @@ class OllamaPlayer(GamePlayer):
             "\nYou may undertake any number of operations, but you must "
             "have sufficient influence, otherwise the operation will "
             "not take place. Remember that your opponents actions may also "
-            "impact the clock.\nYour response must adhere to the following "
-            "JSON Schema for this phase:\n"
+            "impact the clock.\n"
         )
         self.add_prompt(
             prompt,
@@ -852,36 +875,9 @@ class OllamaPlayer(GamePlayer):
             wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
         )
 
-        if self.log_dir is None:
+        if self.log_base is None:
             return
 
-        log_base = self.log_dir / f"{self.name}.{self.model}"
-        messages_path = log_base.with_suffix(".messages.gz")
-        settings_path = log_base.with_suffix(".model-settings.json")
+        messages_path = self.log_base.with_suffix(".messages.gz")
         with gzip.open(messages_path, "wt", encoding="utf-8") as f:
             json.dump(self.messages, f)
-
-        with open(settings_path, "w", encoding="utf-8") as f:
-            json.dump(
-                {"model": self.model, "options": self.prompt_options},
-                indent=2,
-                ensure_ascii=False,
-                fp=f,
-            )
-
-
-def debug_schemas() -> None:
-    logging.debug(
-        wrap_text(
-            "SCHEMAS USED BY MODELS\n"
-            "These are elided from later model prompt logging to save space.\n"
-            "=== OPENING ===\n"
-            f"{InitialMessageResponse.prompt_schema()}\n"
-            "=== MESSAGING ===\n"
-            f"{MessagingResponse.prompt_schema()}\n"
-            "=== BIDDING ===\n"
-            f"{BiddingResponse.prompt_schema()}\n"
-            "=== OPERATIONS ===\n"
-            f"{OperationsResponse.prompt_schema()}\n"
-        ),
-    )

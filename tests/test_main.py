@@ -110,10 +110,7 @@ def test_get_player(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 @patch("mad_world.__main__.game_loop", new_callable=AsyncMock)
-@patch("mad_world.__main__.debug_schemas")
-async def test_amain_success(
-    mock_debug_schemas: MagicMock, mock_game_loop: AsyncMock, tmp_path: Path
-) -> None:
+async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
     # Mock game_loop return value
     mock_state = MagicMock()
     mock_state.current_round = 10
@@ -141,7 +138,6 @@ async def test_amain_success(
     )
 
     assert mock_game_loop.called
-    assert mock_debug_schemas.called
 
 
 @pytest.mark.asyncio
