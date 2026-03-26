@@ -464,16 +464,13 @@ class OllamaPlayer(GamePlayer):
 
         schemas_path = self.log_base.with_suffix(".schemas.json.gz")
         with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
-            f.write(
-                "=== OPENING ===\n"
-                f"{InitialMessageResponse.prompt_schema()}\n"
-                "=== MESSAGING ===\n"
-                f"{MessagingResponse.prompt_schema()}\n"
-                "=== BIDDING ===\n"
-                f"{BiddingResponse.prompt_schema()}\n"
-                "=== OPERATIONS ===\n"
-                f"{OperationsResponse.prompt_schema()}\n"
-            )
+            schemas = {
+                "opening": InitialMessageResponse.prompt_schema(),
+                "messaging": MessagingResponse.prompt_schema(),
+                "bidding": BiddingResponse.prompt_schema(),
+                "operations": OperationsResponse.prompt_schema(),
+            }
+            json.dump(schemas, f, indent=2, ensure_ascii=False)
 
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
