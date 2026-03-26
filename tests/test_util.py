@@ -63,6 +63,11 @@ def test_wrap_text_with_indentation() -> None:
     )
 
 
+def test_wrap_empty() -> None:
+    assert wrap_text("") == ""
+    assert wrap_text("", indent="  ") == ""
+
+
 @pytest.mark.parametrize(
     "clock,max_clock,bid",
     [

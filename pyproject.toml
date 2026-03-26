@@ -44,7 +44,7 @@ disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src/mad_world --cov-report=term-missing --cov-fail-under=50"
+addopts = "--cov=mad_world --cov-report=term-missing:skip-covered --cov-fail-under=51"
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 
@@ -52,3 +52,6 @@ asyncio_default_fixture_loop_scope = "function"
 omit = [
 	"src/mad_world/ollama_chat.py"
 ]
+
+[tool.coverage.report]
+precision = 2
