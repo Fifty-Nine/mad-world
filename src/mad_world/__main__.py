@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -189,15 +190,15 @@ async def amain(
     alpha_persona = alpha_persona or random_persona()
     omega_persona = omega_persona or random_persona()
 
-    log_dir = Path("./logs")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file_base = log_dir / (
+    log_dir_base = Path("./logs")
+    log_dir = log_dir_base / (
         f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
         f"{omega_name}-{omega_persona}-{omega_model}."
         f"{datetime.now().isoformat()}"
     ).replace(":", "-").replace(" ", "_")
-    debug_log_file = log_file_base.with_suffix(".debug.txt")
-    log_file = log_file_base.with_suffix(".txt")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    debug_log_file = log_dir / "debug.txt"
+    log_file = log_dir / "log.txt"
 
     debug_file_handler = logging.FileHandler(debug_log_file)
     debug_file_handler.setLevel(logging.DEBUG)
@@ -242,8 +243,8 @@ async def amain(
         winner, reason, state = await game_loop(GameRules(), players)
         logging.info(wrap_text(format_results(winner, reason, state)))
     except KeyboardInterrupt:
-        debug_log_file.unlink(missing_ok=True)
-        log_file.unlink(missing_ok=True)
+        if log_dir.exists() and log_dir.is_dir():
+            shutil.rmtree(log_dir)
 
 
 if __name__ == "__main__":
