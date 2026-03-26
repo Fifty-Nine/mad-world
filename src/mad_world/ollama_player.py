@@ -147,7 +147,7 @@ class GrandStrategy(BaseModel):
         examples=[
             "I am highly risk-averse. If the Doomsday Clock ever exceeds 18, "
             "I will immediately halt all offensive operations and bid 0 or "
-            "purchase a `diplomatic-summit` until it falls below 12.",
+            "purchase a `unilateral-drawdown` until it falls below 12.",
             "I practice brinkmanship. I will intentionally push the Doomsday "
             "Clock to 22-24 to terrify my opponent. I rely on their fear of "
             "MAD to force them to waste their turns de-escalating while I "
@@ -193,8 +193,8 @@ class GrandStrategy(BaseModel):
         default_factory=list,
         examples=[
             ["first-strike", "proxy-subversion"],
-            ["diplomatic-summit", "stand-down"],
-            ["diplomatic-summit"],
+            ["unilateral-drawdown", "stand-down"],
+            ["unilateral-drawdown"],
             ["aggressive-extraction"],
         ],
     )
