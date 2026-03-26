@@ -1,5 +1,6 @@
 """Ollama player implementation for Mad World."""
 
+import gzip
 import json
 import re
 import textwrap
@@ -838,10 +839,20 @@ class OllamaPlayer(GamePlayer):
             messages=self.messages,
             options=self.prompt_options,
         )
+        self.messages.append(
+            {"role": "assistant", "content": result.message.content or ""}
+        )
 
         logging.debug(
             wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
         )
+
+        if self.log_dir is None:
+            return
+
+        log_path = self.log_dir / f"{self.name}.{self.model}.messages.gz"
+        with gzip.open(log_path, "wt", encoding="utf-8") as f:
+            json.dump(self.messages, f)
 
 
 def debug_schemas() -> None:
