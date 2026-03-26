@@ -70,11 +70,13 @@ def test_get_player(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    player_human = get_player("Alpha", "Omega", "human", "Persona", log_dir)
+    player_human = get_player(
+        "Alpha", "Omega", "human", "Persona", 0.0, 1, 1, log_dir
+    )
     assert isinstance(player_human, HumanPlayer)
 
     player_ollama = get_player(
-        "Alpha", "Omega", "gemma3:12b", "Persona", log_dir
+        "Alpha", "Omega", "gemma3:12b", "Persona", 0.0, 1, 1, log_dir
     )
     assert isinstance(player_ollama, OllamaPlayer)
     assert player_ollama.model == "gemma3:12b"
@@ -100,9 +102,15 @@ async def test_amain_success(
         "Alpha",
         "human",
         "PersonaA",
+        0.0,
+        1,
+        1,
         "Omega",
         "human",
         "PersonaB",
+        0.0,
+        1,
+        1,
         log_dir_base=tmp_path,
     )
 
@@ -122,9 +130,15 @@ async def test_amain_keyboard_interrupt(
         "Alpha",
         "human",
         "PersonaA",
+        0.0,
+        1,
+        1,
         "Omega",
         "human",
         "PersonaB",
+        0.0,
+        1,
+        1,
         log_dir_base=tmp_path,
     )
 
