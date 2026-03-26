@@ -5,5 +5,6 @@
 - Add crisis deck.
 - Improve first strike mechanic.
 - Add communication loop?
-- Add a space-efficient binary log of model turns so that we can resume models and ask them why they blew themselves up.
 - Add a TUI interface.
++ Add influence cap/decay
++ Add coop win condition
