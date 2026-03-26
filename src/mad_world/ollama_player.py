@@ -573,13 +573,15 @@ class OllamaPlayer(GamePlayer):
                 )
                 continue
 
-            self.messages.append({"role": "assistant", "content": result or ""})
             action = response.action
             formatted_response = textwrap.indent(
                 self.dump_model_response(response), prefix="  "
             )
             try:
                 action.validate_semantics(game, self.name)
+                self.messages.append(
+                    {"role": "assistant", "content": result or ""}
+                )
 
                 logging.debug(
                     wrap_text(
@@ -599,7 +601,10 @@ class OllamaPlayer(GamePlayer):
                     {
                         "role": "system",
                         "content": "SYSTEM ERROR: Your response was "
-                        "semantically invalid:\n"
+                        "invalid under the current game rules. The action "
+                        "you submitted was:\n"
+                        f"{self.dump_model_response(action)}\n"
+                        "But it resulted in the following error:\n"
                         f"{e}\n"
                         "Please correct your mistake and try again.",
                     }
