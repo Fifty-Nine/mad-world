@@ -129,6 +129,19 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         friendly_gdp_effect=-5,
         clock_effect=-2,
     ),
+    "conventional-offensive": OperationDefinition(
+        name="conventional-offensive",
+        description=(
+            "Commit to a widespread, bloody conventional war in a regional "
+            "theater. Causes massive economic disruption domestically and "
+            "internationally, while pushing the world to the brink of total "
+            "war."
+        ),
+        influence_cost=2,
+        friendly_gdp_effect=-4,
+        enemy_gdp_effect=-12,
+        clock_effect=4,
+    ),
     "first-strike": OperationDefinition(
         name="first-strike",
         description=(
