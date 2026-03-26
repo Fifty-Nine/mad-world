@@ -18,6 +18,7 @@ from mad_world.__main__ import (
 from mad_world.core import GameOverReason
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
+from mad_world.trivial_players import CrazyIvan, Pacifist
 
 
 def test_random_persona() -> None:
@@ -79,7 +80,6 @@ def test_get_player(tmp_path: Path) -> None:
     player_crazy = get_player(
         "Alpha", "Omega", "CrazyIvan", "Persona", 0.0, 1, 1, log_dir
     )
-    from mad_world.trivial_players import CrazyIvan
 
     assert isinstance(player_crazy, CrazyIvan)
     assert player_crazy.name == "Alpha"
@@ -98,7 +98,6 @@ def test_get_player(tmp_path: Path) -> None:
     player_pacifist = get_player(
         "Alpha", "Omega", "pacifist", "Persona", 0.0, 1, 1, log_dir
     )
-    from mad_world.trivial_players import Pacifist
 
     assert isinstance(player_pacifist, Pacifist)
 
