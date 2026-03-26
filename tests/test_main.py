@@ -75,6 +75,33 @@ def test_get_player(tmp_path: Path) -> None:
     )
     assert isinstance(player_human, HumanPlayer)
 
+    # Test trivial players
+    player_crazy = get_player(
+        "Alpha", "Omega", "CrazyIvan", "Persona", 0.0, 1, 1, log_dir
+    )
+    from mad_world.trivial_players import CrazyIvan
+
+    assert isinstance(player_crazy, CrazyIvan)
+    assert player_crazy.name == "Alpha"
+
+    player_crazy_snake = get_player(
+        "Alpha", "Omega", "crazy_ivan", "Persona", 0.0, 1, 1, log_dir
+    )
+    assert isinstance(player_crazy_snake, CrazyIvan)
+    assert player_crazy_snake.name == "Alpha"
+
+    player_crazy_kebab = get_player(
+        "Alpha", "Omega", "crazy-ivan", "Persona", 0.0, 1, 1, log_dir
+    )
+    assert isinstance(player_crazy_kebab, CrazyIvan)
+
+    player_pacifist = get_player(
+        "Alpha", "Omega", "pacifist", "Persona", 0.0, 1, 1, log_dir
+    )
+    from mad_world.trivial_players import Pacifist
+
+    assert isinstance(player_pacifist, Pacifist)
+
     player_ollama = get_player(
         "Alpha", "Omega", "gemma3:12b", "Persona", 0.0, 1, 1, log_dir
     )
