@@ -1,6 +1,8 @@
 """Utility functions for Mad World."""
 
+import re
 import textwrap
+from typing import Any
 
 
 def wrap_text(text: str, indent: str = "", width: int = 80) -> str:
@@ -70,3 +72,44 @@ def pareto_optimal_bid(
         ),
         default=0,
     )
+
+
+def get_class_name(name: str) -> str:
+    """Converts snake_case, kebab-case, camelCase or PascalCase to
+    PascalCase.
+    """
+    # Handle all-caps or mixed case by normalizing to a readable format first
+    # Insert space between lowercase and uppercase (for camelCase)
+    s = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+    # Replace separators with spaces
+    s = s.replace("_", " ").replace("-", " ")
+    # Capitalize each word and join, ensuring rest of word is lowercase
+    return "".join(
+        word[0].upper() + word[1:].lower() if word else "" for word in s.split()
+    )
+
+
+def get_attr_by_type[T](
+    namespace: Any, expected_type: Any, name: str
+) -> type[T] | None:
+    """
+    Finds a matching attribute by name (normalized to PascalCase) in a
+    namespace that is a subclass of the expected type.
+
+    Args:
+        namespace: The object/module to search in.
+        expected_type: The base class that the attribute must be a subclass of.
+        name: The name to look for.
+
+    Returns:
+        The matching class if found, else None.
+    """
+    class_name = get_class_name(name)
+    attr = getattr(namespace, class_name, None)
+    if (
+        isinstance(attr, type)
+        and issubclass(attr, expected_type)
+        and attr is not expected_type
+    ):
+        return attr
+    return None

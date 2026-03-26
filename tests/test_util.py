@@ -2,7 +2,13 @@
 
 import pytest
 
-from mad_world.util import escalation_budget, pareto_optimal_bid, wrap_text
+from mad_world.util import (
+    escalation_budget,
+    get_attr_by_type,
+    get_class_name,
+    pareto_optimal_bid,
+    wrap_text,
+)
 
 
 def test_wrap_text_basic() -> None:
@@ -101,3 +107,49 @@ def test_pareto_optimal_bid(
     clock: int, max_clock: int, allowed_bids: list[int], bid: int
 ) -> None:
     assert pareto_optimal_bid(clock, max_clock, allowed_bids) == bid
+
+
+def test_get_class_name() -> None:
+    assert get_class_name("crazy_ivan") == "CrazyIvan"
+    assert get_class_name("crazy-ivan") == "CrazyIvan"
+    assert get_class_name("crazyIvan") == "CrazyIvan"
+    assert get_class_name("CrazyIvan") == "CrazyIvan"
+    assert get_class_name("pacifist") == "Pacifist"
+
+
+def test_get_attr_by_type() -> None:
+    class Base:
+        pass
+
+    class SubClass(Base):
+        pass
+
+    class AnotherSub(Base):
+        pass
+
+    class NotASub:
+        pass
+
+    class Namespace:
+        def __init__(self) -> None:
+            self.SubClass = SubClass
+            self.AnotherSub = AnotherSub
+            self.NotASub = NotASub
+            self.Base = Base
+
+    ns = Namespace()
+
+    # Test various naming formats
+    assert get_attr_by_type(ns, Base, "SubClass") is SubClass
+    assert get_attr_by_type(ns, Base, "sub_class") is SubClass
+    assert get_attr_by_type(ns, Base, "sub-class") is SubClass
+    assert get_attr_by_type(ns, Base, "SUB_CLASS") is SubClass
+    assert get_attr_by_type(ns, Base, "another_sub") is AnotherSub
+
+    # Should return None for:
+    # 1. Classes that don't exist
+    assert get_attr_by_type(ns, Base, "Unknown") is None
+    # 2. Classes that are not subclasses of the expected type
+    assert get_attr_by_type(ns, Base, "not_a_sub") is None
+    # 3. The base class itself
+    assert get_attr_by_type(ns, Base, "Base") is None

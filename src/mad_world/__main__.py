@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from mad_world import trivial_players
 from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer, debug_schemas
@@ -131,6 +132,10 @@ def get_player(
 ) -> GamePlayer:
     if model == "human":
         return HumanPlayer(name)
+
+    trivial_cls = trivial_players.get_trivial_player_class(model)
+    if trivial_cls:
+        return trivial_cls(name)
 
     return OllamaPlayer(
         name=name,

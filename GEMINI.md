@@ -11,6 +11,10 @@ Welcome to the `mad-world` repository. Please adhere to the following guidelines
 
 ## 2. Code Style and Typing
 * **Strict Typing:** The project enforces strict Mypy checks. Ensure all new functions, methods, and variables are properly typed.
+* **Python 3.12+ Type Parameters:** This project uses the new type parameter syntax introduced in Python 3.12 (PEP 695).
+  * Prefer the square-bracket syntax for generics (e.g., `def get_attr[T](...)`) instead of manual `TypeVar` declarations.
+  * Use the built-in `type[]` instead of the deprecated `typing.Type[]`.
+  * **Abstract Classes:** Note that Mypy does not allow passing abstract base classes (like `GamePlayer`) to parameters typed as `type[T]`. If a utility function must accept an ABC as a filter or type check, use `Any` for that specific parameter to avoid `type-abstract` diagnostic errors.
 * **Pydantic Models:** The codebase heavily utilizes Pydantic `BaseModel`s for state management.
   * Always use **keyword arguments** when instantiating Pydantic models (e.g., `OperationDefinition(name="domestic-investment", ...)`), as positional arguments will fail strict Mypy checks.
 * **Line Length (E501):** Ruff is configured with a line length of 80 characters. The formatter intentionally does *not* auto-wrap long string literals (like game text or descriptions). If you encounter an `E501 Line too long` error on a string, you must **manually break it up** using implicit string concatenation (wrapped in parentheses).

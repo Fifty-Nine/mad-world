@@ -1,5 +1,6 @@
 """Trivial player implementations for Mad World."""
 
+import sys
 from typing import override
 
 from mad_world.core import (
@@ -11,6 +12,12 @@ from mad_world.core import (
     MessagingAction,
     OperationsAction,
 )
+from mad_world.util import get_attr_by_type
+
+
+def get_trivial_player_class(name: str) -> type[GamePlayer] | None:
+    """Finds a trivial player class by name."""
+    return get_attr_by_type(sys.modules[__name__], GamePlayer, name)
 
 
 class CrazyIvan(GamePlayer):
