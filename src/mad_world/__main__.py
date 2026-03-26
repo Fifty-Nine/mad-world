@@ -120,13 +120,17 @@ def random_persona() -> str:
 
 
 def get_player(
-    name: str, opponent_name: str, model: str, persona: str
+    name: str, opponent_name: str, model: str, persona: str, log_dir: Path
 ) -> GamePlayer:
     if model == "human":
         return HumanPlayer(name)
 
     return OllamaPlayer(
-        name=name, opponent_name=opponent_name, model=model, persona=persona
+        name=name,
+        opponent_name=opponent_name,
+        model=model,
+        persona=persona,
+        log_dir=log_dir,
     )
 
 
@@ -226,18 +230,8 @@ async def amain(
     debug_schemas()
 
     players = [
-        get_player(
-            alpha_name,
-            omega_name,
-            alpha_model,
-            alpha_persona,
-        ),
-        get_player(
-            omega_name,
-            alpha_name,
-            omega_model,
-            omega_persona,
-        ),
+        get_player(alpha_name, omega_name, alpha_model, alpha_persona, log_dir),
+        get_player(omega_name, alpha_name, omega_model, omega_persona, log_dir),
     ]
     try:
         winner, reason, state = await game_loop(GameRules(), players)

@@ -3,6 +3,7 @@
 import json
 import re
 import textwrap
+from pathlib import Path
 from typing import Any, override
 
 import ollama
@@ -339,6 +340,7 @@ class OllamaPlayer(GamePlayer):
         token_limit: int = 8192,
         context_size: int = 2**15,
         persona: str | None = None,
+        log_dir: Path | None = None,
     ) -> None:
         super().__init__(name)
         self.opponent_name = opponent_name
@@ -353,6 +355,7 @@ class OllamaPlayer(GamePlayer):
             "num_ctx": self.context_size,
         }
         self.grand_strategy: GrandStrategy | None = None
+        self.log_dir = log_dir
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
