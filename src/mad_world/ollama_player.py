@@ -340,6 +340,7 @@ class OllamaPlayer(GamePlayer):
         model: str = "qwen3.5:9b",
         token_limit: int = 8192,
         context_size: int = 2**15,
+        temperature: float = 0.0,
         persona: str | None = None,
         log_dir: Path | None = None,
     ) -> None:
@@ -351,9 +352,12 @@ class OllamaPlayer(GamePlayer):
         self.messages: list[dict[str, str]] = []
         self.token_limit = token_limit
         self.context_size = context_size
+        self.temperature = temperature
         self.prompt_options = {
             "num_predict": self.token_limit,
             "num_ctx": self.context_size,
+            "temperature": self.temperature,
+            "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None
         self.log_dir = log_dir
@@ -851,9 +855,19 @@ class OllamaPlayer(GamePlayer):
         if self.log_dir is None:
             return
 
-        log_path = self.log_dir / f"{self.name}.{self.model}.messages.gz"
-        with gzip.open(log_path, "wt", encoding="utf-8") as f:
+        log_base = self.log_dir / f"{self.name}.{self.model}"
+        messages_path = log_base.with_suffix(".messages.gz")
+        settings_path = log_base.with_suffix(".model-settings.json")
+        with gzip.open(messages_path, "wt", encoding="utf-8") as f:
             json.dump(self.messages, f)
+
+        with open(settings_path, "w+", encoding="utf-8") as f:
+            json.dump(
+                {"model": self.model, "options": self.prompt_options},
+                indent=2,
+                ensure_ascii=False,
+                fp=f,
+            )
 
 
 def debug_schemas() -> None:

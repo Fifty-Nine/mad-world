@@ -120,7 +120,14 @@ def random_persona() -> str:
 
 
 def get_player(
-    name: str, opponent_name: str, model: str, persona: str, log_dir: Path
+    name: str,
+    opponent_name: str,
+    model: str,
+    persona: str,
+    temperature: float,
+    context: int,
+    tokens: int,
+    log_dir: Path,
 ) -> GamePlayer:
     if model == "human":
         return HumanPlayer(name)
@@ -130,6 +137,9 @@ def get_player(
         opponent_name=opponent_name,
         model=model,
         persona=persona,
+        context_size=context,
+        token_limit=tokens,
+        temperature=temperature,
         log_dir=log_dir,
     )
 
@@ -147,6 +157,19 @@ def get_player(
     help="Persona prompt for player 1.",
 )
 @click.option(
+    "--alpha-temperature", default=0.0, help="Temperature for player 1 model."
+)
+@click.option(
+    "--alpha-context",
+    default=2**15,
+    help="Context window size for player 1 model.",
+)
+@click.option(
+    "--alpha-tokens",
+    default=2**13,
+    help="Output token budget for player 1 model.",
+)
+@click.option(
     "--omega-name", default="Southern Imperium", help="Name of player 2."
 )
 @click.option(
@@ -160,6 +183,19 @@ def get_player(
     help="Persona prompt for player 2.",
 )
 @click.option(
+    "--omega-temperature", default=0.0, help="Temperature for player 2 model."
+)
+@click.option(
+    "--omega-context",
+    default=2**15,
+    help="Context window size for player 2 model.",
+)
+@click.option(
+    "--omega-tokens",
+    default=2**13,
+    help="Output token budget for player 2 model.",
+)
+@click.option(
     "--log-dir",
     default="./logs",
     type=click.Path(path_type=Path),
@@ -169,9 +205,15 @@ def main(
     alpha_name: str,
     alpha_model: str,
     alpha_persona: str | None,
+    alpha_temperature: float,
+    alpha_context: int,
+    alpha_tokens: int,
     omega_name: str,
     omega_model: str,
     omega_persona: str | None,
+    omega_temperature: float,
+    omega_context: int,
+    omega_tokens: int,
     log_dir: Path,
 ) -> None:
     asyncio.run(
@@ -179,9 +221,15 @@ def main(
             alpha_name,
             alpha_model,
             alpha_persona,
+            alpha_temperature,
+            alpha_context,
+            alpha_tokens,
             omega_name,
             omega_model,
             omega_persona,
+            omega_temperature,
+            omega_context,
+            omega_tokens,
             log_dir_base=log_dir,
         )
     )
@@ -250,9 +298,15 @@ async def amain(
     alpha_name: str,
     alpha_model: str,
     alpha_persona: str | None,
+    alpha_temperature: float,
+    alpha_context: int,
+    alpha_tokens: int,
     omega_name: str,
     omega_model: str,
     omega_persona: str | None,
+    omega_temperature: float,
+    omega_context: int,
+    omega_tokens: int,
     log_dir_base: Path = Path("./logs"),
 ) -> None:
 
@@ -280,8 +334,26 @@ async def amain(
     debug_schemas()
 
     players = [
-        get_player(alpha_name, omega_name, alpha_model, alpha_persona, log_dir),
-        get_player(omega_name, alpha_name, omega_model, omega_persona, log_dir),
+        get_player(
+            alpha_name,
+            omega_name,
+            alpha_model,
+            alpha_persona,
+            alpha_temperature,
+            alpha_context,
+            alpha_tokens,
+            log_dir,
+        ),
+        get_player(
+            omega_name,
+            alpha_name,
+            omega_model,
+            omega_persona,
+            omega_temperature,
+            omega_context,
+            alpha_tokens,
+            log_dir,
+        ),
     ]
     try:
         winner, reason, state = await game_loop(GameRules(), players)
