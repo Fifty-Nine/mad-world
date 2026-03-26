@@ -179,28 +179,15 @@ def main(
     )
 
 
-async def amain(
-    alpha_name: str,
-    alpha_model: str,
-    alpha_persona: str | None,
-    omega_name: str,
-    omega_model: str,
-    omega_persona: str | None,
-) -> None:
-
+def setup_logging(log_dir: Path) -> None:
+    """Configures logging for the game session."""
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    alpha_persona = alpha_persona or random_persona()
-    omega_persona = omega_persona or random_persona()
+    # Clear existing handlers if any
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
 
-    log_dir_base = Path("./logs")
-    log_dir = log_dir_base / (
-        f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
-        f"{omega_name}-{omega_persona}-{omega_model}."
-        f"{datetime.now().isoformat()}"
-    ).replace(":", "-").replace(" ", "_")
-    log_dir.mkdir(parents=True, exist_ok=True)
     debug_log_file = log_dir / "debug.txt"
     log_file = log_dir / "log.txt"
 
@@ -220,6 +207,60 @@ async def amain(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+
+
+def create_log_session_dir(
+    log_dir_base: Path,
+    alpha_name: str,
+    alpha_persona: str,
+    alpha_model: str,
+    omega_name: str,
+    omega_persona: str,
+    omega_model: str,
+    timestamp: datetime | None = None,
+) -> Path:
+    """Creates a unique directory for the game session logs."""
+    if timestamp is None:
+        timestamp = datetime.now()
+
+    dir_name = (
+        (
+            f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
+            f"{omega_name}-{omega_persona}-{omega_model}."
+            f"{timestamp.isoformat()}"
+        )
+        .replace(":", "-")
+        .replace(" ", "_")
+    )
+
+    log_dir = log_dir_base / dir_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
+
+
+async def amain(
+    alpha_name: str,
+    alpha_model: str,
+    alpha_persona: str | None,
+    omega_name: str,
+    omega_model: str,
+    omega_persona: str | None,
+) -> None:
+
+    alpha_persona = alpha_persona or random_persona()
+    omega_persona = omega_persona or random_persona()
+
+    log_dir = create_log_session_dir(
+        Path("./logs"),
+        alpha_name,
+        alpha_persona,
+        alpha_model,
+        omega_name,
+        omega_persona,
+        omega_model,
+    )
+
+    setup_logging(log_dir)
 
     logging.info(
         "Game starting\n"
