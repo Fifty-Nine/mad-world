@@ -1,12 +1,13 @@
 """Ollama chat script for Mad World."""
 
 import asyncio
+import copy
 import gzip
 import json
 import shlex
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 import click
 import ollama
@@ -58,6 +59,20 @@ def print_slash_help(command_name: str | None) -> None:
     else:
         for name, cmd in slash_commands.commands.items():
             click.secho(f"{name}: {cmd.get_short_help_str()}", fg="yellow")
+
+
+pending_images: list[bytes] = []
+
+
+@slash_commands.command(
+    name="image",
+    help="Include an IMAGE in your next prompt.",
+    add_help_option=False,
+)
+@click.argument("image", type=click.File("rb"))
+def load_image(image: BinaryIO) -> None:
+    global pending_images
+    pending_images += (image.read(),)
 
 
 async def run_chat(log_file: Path, model: str) -> int:
@@ -120,7 +135,14 @@ async def run_chat(log_file: Path, model: str) -> int:
 
             continue
 
-        messages.append({"role": "user", "content": user_input})
+        messages.append(
+            {
+                "role": "user",
+                "content": user_input,
+                "images": copy.deepcopy(pending_images),
+            }
+        )
+        pending_images.clear()
 
         click.secho("Assistant > ", fg="green", bold=True, nl=False)
 
