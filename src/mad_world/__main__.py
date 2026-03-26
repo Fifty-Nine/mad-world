@@ -159,6 +159,12 @@ def get_player(
     default=None,
     help="Persona prompt for player 2.",
 )
+@click.option(
+    "--log-dir",
+    default="./logs",
+    type=click.Path(path_type=Path),
+    help="Base directory for logs.",
+)
 def main(
     alpha_name: str,
     alpha_model: str,
@@ -166,6 +172,7 @@ def main(
     omega_name: str,
     omega_model: str,
     omega_persona: str | None,
+    log_dir: Path,
 ) -> None:
     asyncio.run(
         amain(
@@ -175,6 +182,7 @@ def main(
             omega_name,
             omega_model,
             omega_persona,
+            log_dir_base=log_dir,
         )
     )
 
@@ -245,13 +253,14 @@ async def amain(
     omega_name: str,
     omega_model: str,
     omega_persona: str | None,
+    log_dir_base: Path = Path("./logs"),
 ) -> None:
 
     alpha_persona = alpha_persona or random_persona()
     omega_persona = omega_persona or random_persona()
 
     log_dir = create_log_session_dir(
-        Path("./logs"),
+        log_dir_base,
         alpha_name,
         alpha_persona,
         alpha_model,
@@ -283,4 +292,4 @@ async def amain(
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover
