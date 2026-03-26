@@ -9,13 +9,10 @@ import pytest
 
 from mad_world.core import (
     BiddingAction,
-    GamePhase,
     GameState,
     InitialMessageAction,
-    PlayerState,
 )
 from mad_world.human_player import HumanPlayer
-from mad_world.rules import GameRules
 
 
 @contextlib.contextmanager
@@ -29,22 +26,6 @@ def mock_human_input(
         patch("mad_world.human_player.patch_stdout", MagicMock()),
     ):
         yield mock_prompt
-
-
-@pytest.fixture
-def basic_game() -> GameState:
-    rules = GameRules()
-    players = {
-        "Alpha": PlayerState(name="Alpha", gdp=50, influence=5),
-        "Omega": PlayerState(name="Omega", gdp=50, influence=5),
-    }
-    return GameState(
-        players=players,
-        rules=rules,
-        doomsday_clock=0,
-        current_round=1,
-        current_phase=GamePhase.BIDDING,
-    )
 
 
 @pytest.mark.asyncio
