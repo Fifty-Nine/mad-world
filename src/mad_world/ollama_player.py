@@ -711,6 +711,12 @@ class OllamaPlayer(GamePlayer):
     def add_prompt(
         self, prompt: str, phase: GamePhase, schema: str | None = None
     ) -> None:
+        if schema is not None:
+            prompt += (
+                "You should output strictly valid JSON matching this JSON "
+                "Schema:\n"
+            )
+
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
             f"{wrap_text(prompt)}"
@@ -729,8 +735,7 @@ class OllamaPlayer(GamePlayer):
             "opponent. You will have a chance to send a message to your "
             "opponent before they have to commit to their actions in each "
             "phase. You should use this channel to conduct diplomacy, respond "
-            "to inquiries, issue threats, etc. You must adhere to the "
-            "following JSON Schema for this phase:\n"
+            "to inquiries, issue threats, etc.\n"
         )
         self.add_prompt(
             prompt,
@@ -760,8 +765,7 @@ class OllamaPlayer(GamePlayer):
             f"You may now provide a message to your opponent. They will see "
             f"this message BEFORE they commit to their actions in the upcoming "
             f"{target_phase} phase. Use this channel to conduct diplomacy, "
-            f"respond to inquiries, issue threats, etc. You must adhere to the "
-            f"following JSON Schema for this phase:\n"
+            f"respond to inquiries, issue threats, etc.\n"
         )
         self.add_prompt(
             prompt,
@@ -791,10 +795,6 @@ class OllamaPlayer(GamePlayer):
         )
 
         prompt += self.doomsday_warning(game)
-        prompt += (
-            "Your response must adhere to the following JSON Schema for this "
-            "phase:\n"
-        )
         self.add_prompt(
             prompt,
             GamePhase.BIDDING,
@@ -815,8 +815,7 @@ class OllamaPlayer(GamePlayer):
             "\nYou may undertake any number of operations, but you must "
             "have sufficient influence, otherwise the operation will "
             "not take place. Remember that your opponents actions may also "
-            "impact the clock.\nYour response must adhere to the following "
-            "JSON Schema for this phase:\n"
+            "impact the clock.\n"
         )
         self.add_prompt(
             prompt,
