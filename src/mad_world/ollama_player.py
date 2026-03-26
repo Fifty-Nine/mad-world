@@ -115,6 +115,21 @@ class ActionResponse(BaseModel):
 
 
 class GrandStrategy(BaseModel):
+    prohibited_actions: list[str] = Field(
+        description=(
+            "If there are actions your persona would absolutely never do, "
+            "(e.g., a pacifist would never perform a first-strike) indicate "
+            "them here, but be careful not to limit your options too "
+            "significantly."
+        ),
+        default_factory=list,
+        examples=[
+            ["first-strike", "proxy-subversion"],
+            ["unilateral-drawdown", "stand-down"],
+            ["unilateral-drawdown"],
+            ["aggressive-extraction"],
+        ],
+    )
     core_loop: str = Field(
         description=(
             "Describe your core gameplay loop for beating your opponent, "
@@ -137,7 +152,6 @@ class GrandStrategy(BaseModel):
             "the balance of power remains perfectly static.",
         ],
     )
-
     clock_management: str = Field(
         description=(
             "Describe how you will manage your escalation budget; how will you "
@@ -181,21 +195,6 @@ class GrandStrategy(BaseModel):
             "If the GDP gap exceeds 10 points in the late game and recovery "
             "is mathematically impossible, I will prioritize a `first-strike` "
             "to end the game on my terms rather than accept defeat.",
-        ],
-    )
-    prohibited_actions: list[str] = Field(
-        description=(
-            "If there are actions your persona would absolutely never do, "
-            "(e.g., a pacifist would never perform a first-strike) indicate "
-            "them here, but be careful not to limit your options too "
-            "significantly."
-        ),
-        default_factory=list,
-        examples=[
-            ["first-strike", "proxy-subversion"],
-            ["unilateral-drawdown", "stand-down"],
-            ["unilateral-drawdown"],
-            ["aggressive-extraction"],
         ],
     )
 
@@ -301,6 +300,21 @@ class OperationsResponse(ActionResponse):
             "how this persona would approach the current GDP "
             "difference and escalation budget."
         )
+    )
+    resource_audit: str = Field(
+        description=(
+            "State your current Influence pool. If your influence is high "
+            "(e.g., >10) explicitly identify which high impact operations you "
+            "could afford this phase."
+        ),
+        examples=[
+            "0",
+            "My influence is 13. I could afford conventional-offensive or "
+            "unilateral-drawdown.",
+            "My influence is 3.",
+            "My influence is 18, but I am clock-constrained. My best available "
+            "option is unilateral-drawdown.",
+        ],
     )
     tactical_plan: str = Field(
         description=(
