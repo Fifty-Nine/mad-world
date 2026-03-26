@@ -24,11 +24,8 @@ style = Style.from_dict(
 )
 
 
-SLASH_COMMANDS: dict[str, tuple[str, Callable[[], None]]] = {
-    "/exit": ("Exit the shell.", lambda: sys.exit(0)),
-    "/quit": ("Exit the shell.", lambda: sys.exit(0)),
-    "/help": ("Print this help output.", lambda: print_help()),
-}
+def exit_loop() -> None:
+    raise StopIteration()
 
 
 def print_help() -> None:
@@ -37,14 +34,21 @@ def print_help() -> None:
         click.secho(f"  {key}: {desc}", fg="yellow")
 
 
-async def run_chat(log_file: Path, model: str) -> None:
+SLASH_COMMANDS: dict[str, tuple[str, Callable[[], None]]] = {
+    "/exit": ("Exit the shell.", exit_loop),
+    "/quit": ("Exit the shell.", exit_loop),
+    "/help": ("Print this help output.", lambda: print_help()),
+}
+
+
+async def run_chat(log_file: Path, model: str) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
             messages: list[dict[str, Any]] = json.load(f)
     except Exception as e:
         click.secho(f"Error loading log file: {e}", fg="red", err=True)
-        sys.exit(1)
+        return 1
 
     if not isinstance(messages, list):
         click.secho(
@@ -52,7 +56,7 @@ async def run_chat(log_file: Path, model: str) -> None:
             fg="red",
             err=True,
         )
-        sys.exit(1)
+        return 1
 
     click.secho(f"Loaded {len(messages)} messages from {log_file}", fg="yellow")
     click.secho(f"Using model: {model}", fg="yellow")
@@ -77,19 +81,19 @@ async def run_chat(log_file: Path, model: str) -> None:
                 enable_history_search=True,
             )
         except (EOFError, KeyboardInterrupt):
-            break
+            return 0
 
         user_input = user_input.strip()
         if not user_input:
             continue
 
-        cmd_ent = SLASH_COMMANDS.get(user_input)
+        cmd_ent = SLASH_COMMANDS.get(user_input.lower())
         if cmd_ent is not None:
-            cmd_ent[1]()
-            continue
-
-        if user_input.lower() in ("/exit", "/quit"):
-            break
+            try:
+                cmd_ent[1]()
+                continue
+            except StopIteration:
+                return 0
 
         messages.append({"role": "user", "content": user_input})
 
@@ -130,7 +134,7 @@ def main(log_file: Path, model: str) -> None:
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
-    asyncio.run(run_chat(log_file, model))
+    sys.exit(asyncio.run(run_chat(log_file, model)))
 
 
 if __name__ == "__main__":
