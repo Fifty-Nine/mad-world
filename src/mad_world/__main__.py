@@ -351,7 +351,7 @@ async def amain(
             omega_persona,
             omega_temperature,
             omega_context,
-            alpha_tokens,
+            omega_tokens,
             log_dir,
         ),
     ]

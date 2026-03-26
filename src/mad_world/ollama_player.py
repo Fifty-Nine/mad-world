@@ -861,7 +861,7 @@ class OllamaPlayer(GamePlayer):
         with gzip.open(messages_path, "wt", encoding="utf-8") as f:
             json.dump(self.messages, f)
 
-        with open(settings_path, "w+", encoding="utf-8") as f:
+        with open(settings_path, "w", encoding="utf-8") as f:
             json.dump(
                 {"model": self.model, "options": self.prompt_options},
                 indent=2,
