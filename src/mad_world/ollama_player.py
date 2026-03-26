@@ -372,7 +372,7 @@ class OllamaPlayer(GamePlayer):
             "Core Mechanics:\n"
             "  Game Length: The game lasts for exactly 10 rounds.\n"
             "  The Doomsday Clock: Starts at 0. If it reaches "
-            "f{rules.max_clock_state}, MAD is triggered. Both players suffer "
+            f"{rules.max_clock_state}, MAD is triggered. Both players suffer "
             "a catastrophic penalty of -1000 GDP, and the game immediately "
             "ends.\n"
             "  Victory Conditions & Elimination:\n"
