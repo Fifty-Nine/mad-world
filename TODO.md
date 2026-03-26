@@ -1,8 +1,9 @@
 - Expand testing
-- Add coverage check.
 - Add stochastic clock effects.
 - Add clock decay?
 - Implement mandates
 - Add crisis deck.
 - Improve first strike mechanic.
 - Add communication loop?
+- Add a space-efficient binary log of model turns so that we can resume models and ask them why they blew themselves up.
+- Add a TUI interface.
