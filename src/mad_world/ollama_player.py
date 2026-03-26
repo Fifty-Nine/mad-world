@@ -629,7 +629,7 @@ class OllamaPlayer(GamePlayer):
 
         result = (
             f"You are {'ahead of' if diff > 0 else 'behind'} your "
-            f"opponent by {diff} GDP points.\n"
+            f"opponent by {abs(diff)} GDP points.\n"
         )
 
         if diff >= 10:
