@@ -3,8 +3,8 @@
 import asyncio
 import gzip
 import json
+import shlex
 import sys
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -24,21 +24,40 @@ style = Style.from_dict(
 )
 
 
+@click.group()
+def slash_commands() -> None:
+    pass
+
+
+@slash_commands.command(
+    name="quit", help="Exit the application.", add_help_option=False
+)
 def exit_loop() -> None:
     raise StopIteration()
 
 
-def print_help() -> None:
-    click.secho("Supported slash commands:", fg="yellow")
-    for key, (desc, _cb) in SLASH_COMMANDS.items():
-        click.secho(f"  {key}: {desc}", fg="yellow")
+@slash_commands.command(
+    name="help",
+    help=(
+        "Print the list of available commands or, with an argument, "
+        "get the help for the given command."
+    ),
+    add_help_option=False,
+)
+@click.argument("command_name", default=None)
+def print_slash_help(command_name: str | None) -> None:
+    if command_name:
+        ctx = click.Context(slash_commands, info_name=command_name)
+        cmd = slash_commands.get_command(ctx, command_name)
 
+        if cmd:
+            click.secho(cmd.get_help(ctx), fg="yellow")
+        else:
+            click.secho(f"Error: No such command: '{command_name}'", fg="red")
 
-SLASH_COMMANDS: dict[str, tuple[str, Callable[[], None]]] = {
-    "/exit": ("Exit the shell.", exit_loop),
-    "/quit": ("Exit the shell.", exit_loop),
-    "/help": ("Print this help output.", lambda: print_help()),
-}
+    else:
+        for name, cmd in slash_commands.commands.items():
+            click.secho(f"{name}: {cmd.get_short_help_str()}", fg="yellow")
 
 
 async def run_chat(log_file: Path, model: str) -> int:
@@ -60,7 +79,7 @@ async def run_chat(log_file: Path, model: str) -> int:
 
     click.secho(f"Loaded {len(messages)} messages from {log_file}", fg="yellow")
     click.secho(f"Using model: {model}", fg="yellow")
-    click.echo("Type '/exit' or '/quit' to end the session.\n")
+    click.echo("Type '/quit' to end the session.\n")
 
     client = ollama.AsyncClient()
 
@@ -76,7 +95,7 @@ async def run_chat(log_file: Path, model: str) -> int:
             user_input = await session.prompt_async(
                 [("class:user", "User > ")],
                 style=style,
-                completer=WordCompleter(list(SLASH_COMMANDS.keys())),
+                completer=WordCompleter(list(slash_commands.commands.keys())),
                 complete_while_typing=False,
                 enable_history_search=True,
             )
@@ -87,13 +106,19 @@ async def run_chat(log_file: Path, model: str) -> int:
         if not user_input:
             continue
 
-        cmd_ent = SLASH_COMMANDS.get(user_input.lower())
-        if cmd_ent is not None:
+        if user_input.startswith("/"):
+            args = shlex.split(user_input[1:])
+
             try:
-                cmd_ent[1]()
-                continue
+                slash_commands.main(args=args, standalone_mode=False)
+
+            except click.ClickException as e:
+                click.secho(f"Error: {e.format_message()}", fg="red")
+
             except StopIteration:
                 return 0
+
+            continue
 
         messages.append({"role": "user", "content": user_input})
 
