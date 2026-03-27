@@ -13,7 +13,7 @@ make setup
 To run the linters, type checker, and tests against the current state of the code:
 
 ```bash
-make check
+make all-checks
 ```
 
 ## Formatting
