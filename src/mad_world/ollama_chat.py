@@ -93,6 +93,55 @@ def process_slash_command(user_input: str) -> bool:
     return True
 
 
+def prompt_loop(
+    session: PromptSession[str],
+    client: ollama.Client,
+    model: str,
+    messages: list[dict[str, Any]],
+) -> None:
+    user_input = session.prompt(
+        [("class:user", "User > ")],
+        style=style,
+        completer=WordCompleter(list(slash_commands.commands.keys())),
+        complete_while_typing=False,
+        enable_history_search=True,
+    ).strip()
+
+    if not user_input or process_slash_command(user_input):
+        return
+
+    messages.append(
+        {
+            "role": "user",
+            "content": user_input,
+            "images": copy.deepcopy(pending_images),
+        }
+    )
+    pending_images.clear()
+
+    click.secho("Assistant > ", fg="green", bold=True, nl=False)
+
+    full_response = ""
+    try:
+        for part in client.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+        ):
+            content = part["message"]["content"]
+            click.echo(content, nl=False)
+            full_response += content
+        click.echo("\n")
+
+    except Exception as e:
+        click.secho(
+            f"\nError communicating with Ollama: {e}", fg="red", err=True
+        )
+        return
+
+    messages.append({"role": "assistant", "content": full_response})
+
+
 def run_chat(log_file: Path, model: str) -> int:
     """Run the interactive chat session."""
     try:
@@ -123,46 +172,7 @@ def run_chat(log_file: Path, model: str) -> int:
     )
 
     while True:
-        user_input = session.prompt(
-            [("class:user", "User > ")],
-            style=style,
-            completer=WordCompleter(list(slash_commands.commands.keys())),
-            complete_while_typing=False,
-            enable_history_search=True,
-        ).strip()
-
-        if not user_input or process_slash_command(user_input):
-            continue
-
-        messages.append(
-            {
-                "role": "user",
-                "content": user_input,
-                "images": copy.deepcopy(pending_images),
-            }
-        )
-        pending_images.clear()
-
-        click.secho("Assistant > ", fg="green", bold=True, nl=False)
-
-        full_response = ""
-        try:
-            for part in client.chat(
-                model=model,
-                messages=messages,
-                stream=True,
-            ):
-                content = part["message"]["content"]
-                click.echo(content, nl=False)
-                full_response += content
-            click.echo("\n")
-        except Exception as e:
-            click.secho(
-                f"\nError communicating with Ollama: {e}", fg="red", err=True
-            )
-            continue
-
-        messages.append({"role": "assistant", "content": full_response})
+        prompt_loop(session, client, model, messages)
 
 
 @click.command()
