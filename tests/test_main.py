@@ -53,7 +53,7 @@ def test_setup_logging(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    setup_logging(log_dir)
+    setup_logging(logging.INFO, log_dir)
 
     logger = logging.getLogger()
     # Check if handlers were added
@@ -135,6 +135,7 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
         1,
         1,
         log_dir_base=tmp_path,
+        verbosity=logging.INFO,
     )
 
     assert mock_game_loop.called
@@ -162,6 +163,7 @@ async def test_amain_keyboard_interrupt(
         1,
         1,
         log_dir_base=tmp_path,
+        verbosity=logging.INFO,
     )
 
     assert mock_rmtree.called
