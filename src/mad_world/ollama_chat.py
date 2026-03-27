@@ -49,9 +49,8 @@ def exit_loop() -> None:
 def print_slash_help(command_name: str | None) -> None:
     if command_name:
         ctx = click.Context(slash_commands, info_name=command_name)
-        cmd = slash_commands.get_command(ctx, command_name)
 
-        if cmd:
+        if cmd := slash_commands.get_command(ctx, command_name):
             click.secho(cmd.get_help(ctx), fg="yellow")
         else:
             click.secho(f"Error: No such command: '{command_name}'", fg="red")
