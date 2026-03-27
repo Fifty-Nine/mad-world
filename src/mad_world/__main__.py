@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+from click_loglevel import LogLevel
 
 from mad_world import trivial_players
 from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
@@ -213,6 +214,14 @@ def get_player(
     type=click.Path(path_type=Path),
     help="Base directory for logs.",
 )
+@click.option(
+    "-v",
+    "--verbosity",
+    type=LogLevel(),
+    default="DEBUG",
+    help="Set verbosity level.",
+    show_default=True,
+)
 def main(
     alpha_name: str,
     alpha_model: str,
@@ -226,6 +235,7 @@ def main(
     omega_temperature: float,
     omega_context: int,
     omega_tokens: int,
+    verbosity: int,
     log_dir: Path,
 ) -> None:
     asyncio.run(
@@ -242,12 +252,13 @@ def main(
             omega_temperature,
             omega_context,
             omega_tokens,
+            verbosity,
             log_dir_base=log_dir,
         )
     )
 
 
-def setup_logging(log_dir: Path) -> None:
+def setup_logging(verbosity: int, log_dir: Path) -> None:
     """Configures logging for the game session."""
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -266,7 +277,7 @@ def setup_logging(log_dir: Path) -> None:
     file_handler.setLevel(logging.INFO)
 
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.DEBUG)
+    stream_handler.setLevel(verbosity)
 
     logger.addHandler(debug_file_handler)
     logger.addHandler(file_handler)
@@ -319,6 +330,7 @@ async def amain(
     omega_temperature: float,
     omega_context: int,
     omega_tokens: int,
+    verbosity: int,
     log_dir_base: Path = Path("./logs"),
 ) -> None:
 
@@ -335,7 +347,7 @@ async def amain(
         omega_model,
     )
 
-    setup_logging(log_dir)
+    setup_logging(verbosity, log_dir)
 
     logging.info(
         "Game starting\n"

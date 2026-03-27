@@ -55,6 +55,18 @@ wheels = [
 ]
 
 [[package]]
+name = "click-loglevel"
+version = "0.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/1e/3e9e7836e1a21486a71045a654ef2ff8c6a0d72f331ddefd9ec0d11b3b9c/click_loglevel-0.7.0.tar.gz", hash = "sha256:a0a623fbe35d87f65ae266f8ab27dcc7e7de1015c0b2bdca45c57f3ef01f61f5", size = 7993, upload-time = "2025-10-28T12:29:44.173Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/fe/1850599c1a186c83901883d6a7aa126e04860dbe319447da0c91d1746b2b/click_loglevel-0.7.0-py3-none-any.whl", hash = "sha256:5f7ca7af45545c17ecfcbfcaa469667016652bdc859dbeb104cee7503ab0f7b6", size = 6851, upload-time = "2025-10-28T12:29:42.928Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -295,6 +307,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
+    { name = "click-loglevel" },
     { name = "ollama" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
@@ -313,6 +326,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
+    { name = "click-loglevel", specifier = ">=0.7.0" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.52" },
     { name = "pydantic", specifier = ">=2.12.5" },
