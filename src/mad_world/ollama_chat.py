@@ -1,6 +1,5 @@
 """Ollama chat script for Mad World."""
 
-import asyncio
 import copy
 import gzip
 import json
@@ -94,7 +93,7 @@ def process_slash_command(user_input: str) -> bool:
     return True
 
 
-async def run_chat(log_file: Path, model: str) -> int:
+def run_chat(log_file: Path, model: str) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
@@ -115,7 +114,7 @@ async def run_chat(log_file: Path, model: str) -> int:
     click.secho(f"Using model: {model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
-    client = ollama.AsyncClient()
+    client = ollama.Client()
 
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
@@ -124,18 +123,15 @@ async def run_chat(log_file: Path, model: str) -> int:
     )
 
     while True:
-        user_input = await session.prompt_async(
+        user_input = session.prompt(
             [("class:user", "User > ")],
             style=style,
             completer=WordCompleter(list(slash_commands.commands.keys())),
             complete_while_typing=False,
             enable_history_search=True,
-        )
+        ).strip()
 
-        if not (user_input := user_input.strip()):
-            continue
-
-        if process_slash_command(user_input):
+        if not user_input or process_slash_command(user_input):
             continue
 
         messages.append(
@@ -151,7 +147,7 @@ async def run_chat(log_file: Path, model: str) -> int:
 
         full_response = ""
         try:
-            async for part in await client.chat(
+            for part in client.chat(
                 model=model,
                 messages=messages,
                 stream=True,
@@ -185,7 +181,7 @@ def main(log_file: Path, model: str) -> None:
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        asyncio.run(run_chat(log_file, model))
+        run_chat(log_file, model)
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):
