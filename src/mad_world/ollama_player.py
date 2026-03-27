@@ -343,6 +343,7 @@ class OllamaPlayer(GamePlayer):
         temperature: float = 0.0,
         persona: str | None = None,
         log_dir: Path | None = None,
+        compression_threshold: float = 0.95,
     ) -> None:
         super().__init__(name)
         self.opponent_name = opponent_name
@@ -363,6 +364,7 @@ class OllamaPlayer(GamePlayer):
         self.log_base = (
             log_dir / f"{self.name}" if log_dir is not None else None
         )
+        self.compression_threshold = compression_threshold
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -589,6 +591,7 @@ class OllamaPlayer(GamePlayer):
                 logging.debug(
                     wrap_text(
                         f"{log_header}Failed: {e}\nModel Response: {result}\n"
+                        f"Model done reason: {result_obj.done_reason}\n"
                     )
                 )
                 self.messages.append(
@@ -621,6 +624,7 @@ class OllamaPlayer(GamePlayer):
                         f"{log_header}Model Response:\n{formatted_response}\n"
                     )
                 )
+                await self._check_and_compress(result_obj)
                 return response
 
             except InvalidActionError as e:
@@ -645,6 +649,70 @@ class OllamaPlayer(GamePlayer):
 
         logging.debug(f"{log_header}Failed after {retries} retries.")
         return None
+
+    async def _compress_context(self) -> None:
+        logging.info(
+            f"[{self.name}] Context usage exceeded 95%. Compressing context..."
+        )
+        compression_prompt = (
+            "The game has been running for a while and we need to summarize "
+            "the events to save memory. Please provide a detailed but concise "
+            "summary of the game so far. Focus on historical context important "
+            "for your upcoming turns and any plans you have already set in "
+            "motion. Record detals about historic events that are important "
+            "understanding your current position or diplomatic posture towards "
+            "your opponent. Finally, you do not need to include details about "
+            "the rules or mechanical game state, as this will be provided to "
+            "you automatically. Do NOT output JSON, just output the text "
+            "summary."
+        )
+
+        temp_messages = [
+            *self.messages,
+            {"role": "user", "content": compression_prompt},
+        ]
+
+        summary_response = await self.client.chat(
+            model=self.model,
+            messages=temp_messages,
+            options=self.prompt_options,
+        )
+
+        summary = summary_response.message.content or ""
+
+        if not summary:
+            logging.warning(
+                f"[{self.name}] Compression failed; continuing without context!"
+            )
+            summary = (
+                "Oops! Unfortunately, an error occurred while summarizing your "
+                "context. Good luck, we're all counting on you!\n"
+            )
+
+        original_system_prompt = self.messages[0]
+        compression_system_message = {
+            "role": "system",
+            "content": (
+                "To save context space, the earlier history of this game "
+                "has been summarized as follows:\n\n" + summary
+            ),
+        }
+
+        self.messages = [original_system_prompt, compression_system_message]
+        logging.debug(f"[{self.name}] Context successfully compressed.")
+
+    async def _check_and_compress(self, response_obj: Any) -> None:
+        prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
+        eval_count = getattr(response_obj, "eval_count", 0) or 0
+        total_tokens = prompt_eval_count + eval_count
+
+        usage = total_tokens / self.context_size
+        logging.debug(
+            f"[{self.name}] Context usage: {total_tokens}/"
+            f"{self.context_size} ({usage:.1%})"
+        )
+        if usage > self.compression_threshold:
+            await self._compress_context()
 
     def game_ending_warning(self, game: GameState) -> str:
         if game.current_round < (game.rules.round_count - 2):
