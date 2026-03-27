@@ -1,5 +1,6 @@
 - **Implement mandates**
-- **Add prompt compression.**
+- **Implement crisis**
+- **Add blame tracker**
 - **Add influence cap/decay**
 - **Add coop win condition**
 - Expand testing
