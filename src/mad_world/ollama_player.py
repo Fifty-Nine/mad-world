@@ -19,6 +19,7 @@ from pydantic import (
 from mad_world.core import (
     BaseAction,
     BiddingAction,
+    GameEvent,
     GameOverReason,
     GamePhase,
     GamePlayer,
@@ -202,16 +203,12 @@ class GrandStrategy(BaseModel):
 
     def to_prompt(self) -> str:
         return (
-            "As a reminder, here is the grand strategy you originally "
-            "proposed:\n"
-            "  Core gameply loop:\n"
-            f"    {self.core_loop}\n"
-            "  Clock management strategy:\n"
-            f"    {self.clock_management}\n"
-            "  Contingency plan:\n"
-            f"    {self.contingency_plan}\n"
-            "\nYou are not strictly bound to these directives, but you "
-            "should have a reason for deviating from them.\n"
+            "Core gameply loop:\n"
+            f"  {self.core_loop}\n"
+            "Clock management strategy:\n"
+            f"  {self.clock_management}\n"
+            "Contingency plan:\n"
+            f"  {self.contingency_plan}\n"
         )
 
 
@@ -496,12 +493,10 @@ class OllamaPlayer(GamePlayer):
         )
 
     @staticmethod
-    def format_event_log(game: GameState) -> str:
+    def format_event_log(events: list[GameEvent]) -> str:
         result = "Recent Events:\n"
         result += textwrap.indent(
-            "\n".join(
-                e.description for e in game.recent_events() if not e.secret
-            ),
+            "\n".join(e.description for e in events if not e.secret),
             prefix="  ",
         )
         result += "\n"
@@ -525,7 +520,7 @@ class OllamaPlayer(GamePlayer):
             OllamaPlayer.format_player_state(p) for p in game.players.values()
         )
 
-        result += "\n" + OllamaPlayer.format_event_log(game)
+        result += "\n" + OllamaPlayer.format_event_log(game.recent_events())
         return result
 
     def doomsday_warning(self, game: GameState) -> str:
@@ -624,7 +619,7 @@ class OllamaPlayer(GamePlayer):
                         f"{log_header}Model Response:\n{formatted_response}\n"
                     )
                 )
-                await self._check_and_compress(result_obj)
+                await self._check_and_compress(result_obj, game)
                 return response
 
             except InvalidActionError as e:
@@ -650,26 +645,49 @@ class OllamaPlayer(GamePlayer):
         logging.debug(f"{log_header}Failed after {retries} retries.")
         return None
 
-    async def _compress_context(self) -> None:
-        logging.info(
+    async def _compress_context(self, game: GameState) -> None:
+        logging.debug(
             f"[{self.name}] Context usage exceeded 95%. Compressing context..."
         )
         compression_prompt = (
-            "The game has been running for a while and we need to summarize "
-            "the events to save memory. Please provide a detailed but concise "
-            "summary of the game so far. Focus on historical context important "
-            "for your upcoming turns and any plans you have already set in "
-            "motion. Record detals about historic events that are important "
-            "understanding your current position or diplomatic posture towards "
-            "your opponent. Finally, you do not need to include details about "
-            "the rules or mechanical game state, as this will be provided to "
-            "you automatically. Do NOT output JSON, just output the text "
-            "summary."
+            "System Directive: Internal Memory Update\n"
+            "You must now update your internal memory of the conflict so far. "
+            "Write a concise, first-person narrative summary of your "
+            "relationship with your opponent and your overarching strategy.\n"
+            "\nCRITICAL CONSTRAINTS:\n"
+            "1. STRICTLY OMIT ALL GAME MECHANICS:\n"
+            "You are strictly forbidden from mentioning game rules, numerical "
+            "values (GDP, Influence, Doomsday Clock), or the hardcoded names "
+            'of operations (e.g., NEVER say "I used proxy-subversion" or '
+            '"I bid 10").\n'
+            "2. FOCUS ON PSYCHOLOGY & GEOPOLITICS:\n"
+            "Translate your past actions into narrative concepts. Instead of "
+            'saying "I used `unilateral-drawdown`," say "I made a massive '
+            'public concession to walk us back from the brink." Instead of '
+            '"They have higher GDP," say "They are currently dominating '
+            "the global economy.\n"
+            "3. TRACK BETRAYALS & POSTURE:\n"
+            "Focus on whether your opponent has honored their diplomatic "
+            "messages, whether they are acting fearful or aggressive, and how "
+            "they have reacted to your deceptions.\n"
+            "4. STAY IN CHARACTER:\n"
+            "Write from the perspective of your assigned persona.\n"
+            "5. DO NOT DEVIATE FROM THE OUTPUT FORMAT:\n"
+            "Write only items matching the description below. Do not include "
+            "any additional text.\n\n"
+            "Output Format:\n"
+            "Provide exactly 3 to 4 terse bullet points summarizing the "
+            "geopolitical history of the conflict so far and your immediate "
+            "strategic intent.\n"
+        )
+
+        logging.debug(
+            f"[{self.name}] Compression prompt:\n{compression_prompt}\n"
         )
 
         temp_messages = [
             *self.messages,
-            {"role": "user", "content": compression_prompt},
+            {"role": "system", "content": compression_prompt},
         ]
 
         summary_response = await self.client.chat(
@@ -694,14 +712,28 @@ class OllamaPlayer(GamePlayer):
             "role": "system",
             "content": (
                 "To save context space, the earlier history of this game "
-                "has been summarized as follows:\n\n" + summary
+                "has been summarized.\n"
+                + self.format_event_log(game.event_log)
+                + "\n"
+                + self.my_strategy(for_compression=True)
+                + (
+                    "Here are your persona's memories of the "
+                    "game prior to compression:\n"
+                )
+                + textwrap.indent(summary, prefix="  ")
             ),
         }
+        logging.debug(
+            f"[{self.name}] Compressed context:\n"
+            f"{compression_system_message['content']}\n"
+        )
 
         self.messages = [original_system_prompt, compression_system_message]
         logging.debug(f"[{self.name}] Context successfully compressed.")
 
-    async def _check_and_compress(self, response_obj: Any) -> None:
+    async def _check_and_compress(
+        self, response_obj: Any, game: GameState
+    ) -> None:
         prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
         eval_count = getattr(response_obj, "eval_count", 0) or 0
         total_tokens = prompt_eval_count + eval_count
@@ -712,7 +744,7 @@ class OllamaPlayer(GamePlayer):
             f"{self.context_size} ({usage:.1%})"
         )
         if usage > self.compression_threshold:
-            await self._compress_context()
+            await self._compress_context(game)
 
     def game_ending_warning(self, game: GameState) -> str:
         if game.current_round < (game.rules.round_count - 2):
@@ -767,8 +799,29 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
-    def my_strategy(self) -> str:
-        return self.grand_strategy.to_prompt() if self.grand_strategy else ""
+    def my_strategy(self, for_compression: bool = False) -> str:
+        if self.grand_strategy is None:
+            return ""
+
+        if for_compression:
+            prefix = "Here is your persona's original grand strategy:\n"
+            suffix = "\n\n"
+
+        else:
+            prefix = (
+                "As a reminder, here is the grand strategy you originally "
+                "proposed:\n"
+            )
+            suffix = (
+                "\nYou are not strictly bound to these directives, but you "
+                "should have a reason for deviating from them.\n"
+            )
+
+        return (
+            f"{prefix}"
+            f"{textwrap.indent(self.grand_strategy.to_prompt(), prefix='  ')}"
+            f"{suffix}"
+        )
 
     def my_influence(self, game: GameState) -> int:
         return game.players[self.name].influence
@@ -895,7 +948,7 @@ class OllamaPlayer(GamePlayer):
         self, game: GameState, winner: str | None, reason: GameOverReason
     ) -> None:
         prompt = format_results(winner, reason, game)
-        prompt += self.format_event_log(game)
+        prompt += self.format_event_log(game.recent_events())
 
         prompt += (
             f"You have {'won' if winner == self.name else 'lost'}.\n"
