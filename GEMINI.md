@@ -5,7 +5,7 @@ Welcome to the `mad-world` repository. Please adhere to the following guidelines
 ## 1. Tooling and Workflow
 * **Package Manager:** `uv` is used for all dependency management and environment isolation. Do not use `pip` or `venv` directly. Add dependencies with `uv add` or `uv add --dev`.
 * **Task Runner:** A `Makefile` is provided for common operations.
-  * Run `make check` frequently to run Ruff (linting), Mypy (type checking), and Pytest (testing) against the current uncommitted codebase.
+  * Run `make all-checks` frequently to run Ruff (linting), Mypy (type checking), and Pytest (testing) against the current uncommitted codebase.
   * Run `make format` to automatically format the code and fix safe linting errors.
 * **Pre-commit:** The project uses `pre-commit`. Hooks (like Mypy) are configured to run locally via `uv` to share the same environment and dependencies as the project.
 

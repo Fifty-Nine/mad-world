@@ -1,0 +1,9 @@
+id: use-walrus-operator
+language: python
+severity: error
+rule:
+  follows:
+    pattern:
+      context: $VAR = $$$EXPR
+      selector: expression_statement
+  pattern: "if $VAR: $$$B"

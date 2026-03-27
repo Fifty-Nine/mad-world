@@ -1,0 +1,15 @@
+id: python-excessive-nesting
+language: Python
+rule:
+  kind: block
+  inside:
+    kind: block
+    stopBy: end
+    inside:
+      kind: block
+      stopBy: end
+      inside:
+        kind: block
+        stopBy: end
+message: "Code exceeds 3 levels of nesting."
+severity: warning
