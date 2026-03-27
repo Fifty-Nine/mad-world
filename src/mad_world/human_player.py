@@ -20,7 +20,7 @@ from mad_world.core import (
 from mad_world.rules import GameRules
 
 
-class FinishInput(Exception):  # noqa: N818
+class FinishInput(Exception):
     """Raised to indicate that the user has finished entering input."""
 
     pass

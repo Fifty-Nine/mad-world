@@ -6,6 +6,7 @@ import gzip
 import json
 import shlex
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -25,6 +26,11 @@ style = Style.from_dict(
 )
 
 
+@dataclass
+class QuitProgram(Exception):
+    rc: int
+
+
 @click.group()
 def slash_commands() -> None:
     pass
@@ -34,7 +40,7 @@ def slash_commands() -> None:
     name="quit", help="Exit the application.", add_help_option=False
 )
 def exit_loop() -> None:
-    raise StopIteration()
+    raise QuitProgram(0)
 
 
 @slash_commands.command(
@@ -74,6 +80,20 @@ def load_image(image: BinaryIO) -> None:
     pending_images += (image.read(),)
 
 
+def process_slash_command(user_input: str) -> bool:
+    if not user_input.startswith("/"):
+        return False
+
+    args = shlex.split(user_input[1:])
+    try:
+        slash_commands.main(args=args, standalone_mode=False)
+
+    except click.ClickException as e:
+        click.secho(f"Error: {e.format_message()}", fg="red")
+
+    return True
+
+
 async def run_chat(log_file: Path, model: str) -> int:
     """Run the interactive chat session."""
     try:
@@ -104,34 +124,18 @@ async def run_chat(log_file: Path, model: str) -> int:
     )
 
     while True:
-        try:
-            # Using prompt_toolkit to get user input
-            user_input = await session.prompt_async(
-                [("class:user", "User > ")],
-                style=style,
-                completer=WordCompleter(list(slash_commands.commands.keys())),
-                complete_while_typing=False,
-                enable_history_search=True,
-            )
-        except (EOFError, KeyboardInterrupt):
-            return 0
+        user_input = await session.prompt_async(
+            [("class:user", "User > ")],
+            style=style,
+            completer=WordCompleter(list(slash_commands.commands.keys())),
+            complete_while_typing=False,
+            enable_history_search=True,
+        )
 
-        user_input = user_input.strip()
-        if not user_input:
+        if not (user_input := user_input.strip()):
             continue
 
-        if user_input.startswith("/"):
-            args = shlex.split(user_input[1:])
-
-            try:
-                slash_commands.main(args=args, standalone_mode=False)
-
-            except click.ClickException as e:
-                click.secho(f"Error: {e.format_message()}", fg="red")
-
-            except StopIteration:
-                return 0
-
+        if process_slash_command(user_input):
             continue
 
         messages.append(
@@ -180,7 +184,12 @@ def main(log_file: Path, model: str) -> None:
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
-    sys.exit(asyncio.run(run_chat(log_file, model)))
+    try:
+        asyncio.run(run_chat(log_file, model))
+    except QuitProgram as qp:
+        sys.exit(qp.rc)
+    except (KeyboardInterrupt, EOFError):
+        sys.exit(0)
 
 
 if __name__ == "__main__":
