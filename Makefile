@@ -21,5 +21,6 @@ test:
 testverbose:
 	uv run pytest --verbose
 
-check: lint typecheck test
+check:
+	uv run pre-commit run --all-files
 	@echo "\nAll checks passed successfully!"
