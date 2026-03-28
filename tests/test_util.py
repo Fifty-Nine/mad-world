@@ -1,5 +1,7 @@
 """Tests for the utility module."""
 
+from typing import Any
+
 import pytest
 
 from mad_world.util import (
@@ -8,6 +10,8 @@ from mad_world.util import (
     get_class_name,
     get_doomsday_bids,
     pareto_optimal_bid,
+    remove_ordering_prefix,
+    reorder_schema_properties,
     wrap_text,
 )
 
@@ -180,3 +184,92 @@ def test_get_doomsday_bids(
         risky,
         deadly,
     )
+
+
+def test_reorder_schema_properties() -> None:
+    schema = {
+        "properties": {
+            "foo": {"type": "string"},
+            "action": {"type": "string"},
+            "bar": {"type": "number"},
+        },
+        "required": ["foo", "action"],
+        "$defs": {
+            "sub": {
+                "properties": {
+                    "baz": {"type": "boolean"},
+                    "action": {"type": "string"},
+                },
+                "required": ["action"],
+            }
+        },
+    }
+
+    reordered = reorder_schema_properties(schema, "action")
+
+    # Check main properties
+    assert "00_foo" in reordered["properties"]
+    assert "01_bar" in reordered["properties"]
+    assert "99_action" in reordered["properties"]
+    assert "foo" not in reordered["properties"]
+    assert "bar" not in reordered["properties"]
+    assert "action" not in reordered["properties"]
+
+    # Check required
+    assert "00_foo" in reordered["required"]
+    assert "99_action" in reordered["required"]
+    assert "foo" not in reordered["required"]
+    assert "action" not in reordered["required"]
+
+    # Check $defs
+    sub = reordered["$defs"]["sub"]
+    assert "00_baz" in sub["properties"]
+    assert "99_action" in sub["properties"]
+    assert "99_action" in sub["required"]
+
+
+def test_reorder_schema_properties_no_action() -> None:
+    schema = {
+        "properties": {
+            "foo": {"type": "string"},
+        },
+        "required": ["foo", "action"],
+    }
+    reordered = reorder_schema_properties(schema, "action")
+    assert "00_foo" in reordered["properties"]
+    assert "99_action" not in reordered["properties"]
+    assert "00_foo" in reordered["required"]
+    assert "99_action" in reordered["required"]
+    assert "foo" not in reordered["required"]
+    assert "action" not in reordered["required"]
+
+
+def test_reorder_schema_properties_empty() -> None:
+    schema: dict[str, Any] = {}
+    assert reorder_schema_properties(schema, "action") == {}
+
+
+def test_remove_ordering_prefix_basic() -> None:
+    assert remove_ordering_prefix("00_foo", is_key=True) == "foo"
+    assert remove_ordering_prefix("foo", is_key=True) == "foo"
+    assert remove_ordering_prefix("00_foo", is_key=False) == "00_foo"
+
+
+def test_remove_ordering_prefix_recursive() -> None:
+    obj = {
+        "00_foo": "01_bar",
+        "02_baz": ["03_qux", {"04_nested": "05_val"}],
+        "simple": 123,
+    }
+    expected = {
+        "foo": "01_bar",
+        "baz": ["03_qux", {"nested": "05_val"}],
+        "simple": 123,
+    }
+    assert remove_ordering_prefix(obj) == expected
+
+
+def test_remove_ordering_prefix_other_types() -> None:
+    assert remove_ordering_prefix(123) == 123
+    assert remove_ordering_prefix(None) is None
+    assert remove_ordering_prefix(3.14) == 3.14

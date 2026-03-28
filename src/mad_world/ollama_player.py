@@ -2,7 +2,6 @@
 
 import gzip
 import json
-import re
 import textwrap
 from pathlib import Path
 from typing import Any, override
@@ -33,7 +32,13 @@ from mad_world.core import (
     logging,
 )
 from mad_world.rules import GameRules
-from mad_world.util import escalation_budget, pareto_optimal_bid, wrap_text
+from mad_world.util import (
+    escalation_budget,
+    pareto_optimal_bid,
+    remove_ordering_prefix,
+    reorder_schema_properties,
+    wrap_text,
+)
 
 
 class ActionResponse(BaseModel):
@@ -51,66 +56,14 @@ class ActionResponse(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def unprefix_keys(cls, data: Any) -> Any:
-        """Strip off digit prefixes added by reorder_schema."""
-
-        def clean(d: Any) -> Any:
-            if isinstance(d, dict):
-                return {
-                    re.sub(r"^\d\d_", "", str(k)): clean(v)
-                    for k, v in d.items()
-                }
-            if isinstance(d, list):
-                return [clean(v) for v in d]
-            return d
-
-        return clean(data)
-
-    @staticmethod
-    def reorder_schema(schema: dict[str, Any]) -> dict[str, Any]:
-        """Given the JSON Schema for the action, reorder the properties
-        so that the `action` field always comes last. We also prefix the
-        property keys with numbers (e.g. 00_, 01_) because the underlying
-        llama.cpp grammar engine forcefully alphabetizes schema properties.
-        These prefixes are stripped off by `unprefix_keys` before the caller
-        ultimately sees them.
-        """
-
-        def process_obj(obj: dict[str, Any]) -> None:
-            if "properties" not in obj:
-                return
-
-            old_props = obj["properties"]
-            action = old_props.pop("action", None)
-            required = obj.get("required", [])
-            new_props = {}
-
-            for i, field in enumerate(old_props.keys()):
-                field_obj = old_props[field]
-                new_key = f"{i:02d}_{field}"
-
-                new_props[new_key] = field_obj
-                if field in required:
-                    required.remove(field)
-                    required.append(new_key)
-
-            if action is not None:
-                new_props["99_action"] = action
-
-            if "action" in required:
-                required.remove("action")
-                required.append("99_action")
-
-            obj["properties"] = new_props
-
-        process_obj(schema)
-        for def_schema in schema.get("$defs", {}).values():
-            process_obj(def_schema)
-
-        return schema
+        """Strip off digit prefixes added by reorder_schema_properties."""
+        return remove_ordering_prefix(data)
 
     @classmethod
     def format_schema(cls) -> dict[str, Any]:
-        return cls.reorder_schema(cls.model_json_schema())
+        return reorder_schema_properties(
+            cls.model_json_schema(), last_key="action"
+        )
 
     @classmethod
     def prompt_schema(cls) -> str:
