@@ -37,6 +37,7 @@ output-format = "concise"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
+ignore = ["N818"]
 
 [tool.mypy]
 strict = true

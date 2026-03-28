@@ -1,11 +1,11 @@
 """Ollama chat script for Mad World."""
 
-import asyncio
 import copy
 import gzip
 import json
 import shlex
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -25,6 +25,11 @@ style = Style.from_dict(
 )
 
 
+@dataclass
+class QuitProgram(Exception):
+    rc: int
+
+
 @click.group()
 def slash_commands() -> None:
     pass
@@ -34,7 +39,7 @@ def slash_commands() -> None:
     name="quit", help="Exit the application.", add_help_option=False
 )
 def exit_loop() -> None:
-    raise StopIteration()
+    raise QuitProgram(0)
 
 
 @slash_commands.command(
@@ -74,7 +79,70 @@ def load_image(image: BinaryIO) -> None:
     pending_images += (image.read(),)
 
 
-async def run_chat(log_file: Path, model: str) -> int:
+def process_slash_command(user_input: str) -> bool:
+    if not user_input.startswith("/"):
+        return False
+
+    args = shlex.split(user_input[1:])
+    try:
+        slash_commands.main(args=args, standalone_mode=False)
+
+    except click.ClickException as e:
+        click.secho(f"Error: {e.format_message()}", fg="red")
+
+    return True
+
+
+def prompt_loop(
+    session: PromptSession[str],
+    client: ollama.Client,
+    model: str,
+    messages: list[dict[str, Any]],
+) -> None:
+    user_input = session.prompt(
+        [("class:user", "User > ")],
+        style=style,
+        completer=WordCompleter(list(slash_commands.commands.keys())),
+        complete_while_typing=False,
+        enable_history_search=True,
+    ).strip()
+
+    if not user_input or process_slash_command(user_input):
+        return
+
+    messages.append(
+        {
+            "role": "user",
+            "content": user_input,
+            "images": copy.deepcopy(pending_images),
+        }
+    )
+    pending_images.clear()
+
+    click.secho("Assistant > ", fg="green", bold=True, nl=False)
+
+    full_response = ""
+    try:
+        for part in client.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+        ):
+            content = part["message"]["content"]
+            click.echo(content, nl=False)
+            full_response += content
+        click.echo("\n")
+
+    except Exception as e:
+        click.secho(
+            f"\nError communicating with Ollama: {e}", fg="red", err=True
+        )
+        return
+
+    messages.append({"role": "assistant", "content": full_response})
+
+
+def run_chat(log_file: Path, model: str) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
@@ -95,7 +163,7 @@ async def run_chat(log_file: Path, model: str) -> int:
     click.secho(f"Using model: {model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
-    client = ollama.AsyncClient()
+    client = ollama.Client()
 
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
@@ -104,65 +172,7 @@ async def run_chat(log_file: Path, model: str) -> int:
     )
 
     while True:
-        try:
-            # Using prompt_toolkit to get user input
-            user_input = await session.prompt_async(
-                [("class:user", "User > ")],
-                style=style,
-                completer=WordCompleter(list(slash_commands.commands.keys())),
-                complete_while_typing=False,
-                enable_history_search=True,
-            )
-        except (EOFError, KeyboardInterrupt):
-            return 0
-
-        user_input = user_input.strip()
-        if not user_input:
-            continue
-
-        if user_input.startswith("/"):
-            args = shlex.split(user_input[1:])
-
-            try:
-                slash_commands.main(args=args, standalone_mode=False)
-
-            except click.ClickException as e:
-                click.secho(f"Error: {e.format_message()}", fg="red")
-
-            except StopIteration:
-                return 0
-
-            continue
-
-        messages.append(
-            {
-                "role": "user",
-                "content": user_input,
-                "images": copy.deepcopy(pending_images),
-            }
-        )
-        pending_images.clear()
-
-        click.secho("Assistant > ", fg="green", bold=True, nl=False)
-
-        full_response = ""
-        try:
-            async for part in await client.chat(
-                model=model,
-                messages=messages,
-                stream=True,
-            ):
-                content = part["message"]["content"]
-                click.echo(content, nl=False)
-                full_response += content
-            click.echo("\n")
-        except Exception as e:
-            click.secho(
-                f"\nError communicating with Ollama: {e}", fg="red", err=True
-            )
-            continue
-
-        messages.append({"role": "assistant", "content": full_response})
+        prompt_loop(session, client, model, messages)
 
 
 @click.command()
@@ -180,7 +190,13 @@ def main(log_file: Path, model: str) -> None:
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
-    sys.exit(asyncio.run(run_chat(log_file, model)))
+    try:
+        sys.exit(run_chat(log_file, model))
+    except QuitProgram as qp:
+        sys.exit(qp.rc)
+    except (KeyboardInterrupt, EOFError):
+        click.echo()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

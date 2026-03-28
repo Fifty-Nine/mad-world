@@ -1,15 +1,25 @@
 id: python-excessive-nesting
 language: Python
+message: "Logical control flow and nested functions exceed 3 levels."
+severity: warning
+utils:
+  logical-statement:
+    any:
+      - kind: function_definition
+      - kind: if_statement
+      - kind: for_statement
+      - kind: while_statement
+      - kind: try_statement
+      - kind: with_statement
+      - kind: match_statement
 rule:
-  kind: block
+  matches: logical-statement
   inside:
-    kind: block
+    matches: logical-statement
     stopBy: end
     inside:
-      kind: block
+      matches: logical-statement
       stopBy: end
       inside:
-        kind: block
+        matches: logical-statement
         stopBy: end
-message: "Code exceeds 3 levels of nesting."
-severity: warning

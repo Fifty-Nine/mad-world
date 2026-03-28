@@ -485,26 +485,25 @@ async def resolve_operations(
     i = RANDOM.choice([0, 1])
 
     while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
-        if i == 0 and len(alpha_action.operations) > 0:
-            new_game.apply_event(
-                resolve_operation(
-                    new_game,
-                    alpha_name,
-                    omega_name,
-                    alpha_action.operations.pop(0),
-                )
-            )
-        elif i == 1 and len(omega_action.operations) > 0:
-            new_game.apply_event(
-                resolve_operation(
-                    new_game,
-                    omega_name,
-                    alpha_name,
-                    omega_action.operations.pop(0),
-                )
-            )
+        active_name = alpha_name if i == 0 else omega_name
+        target_name = omega_name if i == 0 else alpha_name
+        active_ops = (
+            alpha_action.operations if i == 0 else omega_action.operations
+        )
 
         i = (i + 1) % 2
+
+        if not active_ops:
+            continue
+
+        new_game.apply_event(
+            resolve_operation(
+                new_game,
+                active_name,
+                target_name,
+                active_ops.pop(0),
+            )
+        )
 
     new_game.advance_phase()
 
