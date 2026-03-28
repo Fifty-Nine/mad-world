@@ -1,7 +1,7 @@
 id: python-excessive-nesting
 language: Python
 message: "Logical control flow and nested functions exceed 3 levels."
-severity: warning
+severity: error
 utils:
   logical-statement:
     any:

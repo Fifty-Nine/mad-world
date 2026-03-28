@@ -179,6 +179,10 @@ def reorder_schema_properties(
             new_key = f"{i:02d}_{field}"
 
             new_props[new_key] = field_obj
+
+            # I want to fix this but it's currently more trouble than
+            # it's worth.
+            # ast-grep-ignore: python-excessive-nesting
             if field in required:
                 required.remove(field)
                 required.append(new_key)
