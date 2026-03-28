@@ -4,6 +4,8 @@ import re
 import textwrap
 from typing import Any
 
+from more_itertools import partition
+
 
 def wrap_text(text: str, indent: str = "", width: int = 80) -> str:
     """
@@ -113,3 +115,39 @@ def get_attr_by_type[T](
     ):
         return attr
     return None
+
+
+def get_doomsday_bids(
+    clock: int, limit: int, zero_bid_impact: int, bids: list[int]
+) -> tuple[list[tuple[int, int]], list[int]]:
+    """Compute bids that are risky or deadly given the current clock.
+
+    Args:
+        clock: The current doomsday clock value.
+        limit: The maximum doomsday clock value.
+        zero_bid_impact: The net effect of a zero bid.
+        bids: The allowed bids.
+
+    Returns:
+        A tuple of (risky_bids, deadly_bids).
+        risky_bids is a list of (bid, obid) where bid + obid >= limit.
+        deadly_bids is a list of bids that unilaterally >= limit.
+    """
+    max_bid = max(bids)
+
+    def bid_impact(bid: int) -> int:
+        return bid or zero_bid_impact
+
+    def bids_trigger_mad(bid: int, obid: int) -> bool:
+        return clock + bid_impact(bid) + bid_impact(obid) >= limit
+
+    if not bids_trigger_mad(max_bid, max_bid):
+        return [], []
+
+    non_deadly, deadly = partition(lambda b: bids_trigger_mad(b, 0), bids)
+    risky = [
+        (bid, min(obid for obid in bids if bids_trigger_mad(bid, obid)))
+        for bid in non_deadly
+        if bids_trigger_mad(bid, max_bid)
+    ]
+    return risky, list(deadly)
