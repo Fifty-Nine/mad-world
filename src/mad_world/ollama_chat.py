@@ -191,10 +191,11 @@ def main(log_file: Path, model: str) -> None:
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        run_chat(log_file, model)
+        sys.exit(run_chat(log_file, model))
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):
+        click.echo()
         sys.exit(0)
 
 
