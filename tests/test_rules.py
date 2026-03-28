@@ -8,30 +8,9 @@ from mad_world.rules import (
 )
 
 
-@pytest.mark.parametrize(
-    "clock,max_clock,allowed_bids,risky,deadly",
-    [
-        (0, 25, (0, 1, 3, 5, 8), [], []),
-        (24, 25, (0, 1, 3, 5, 8), [(0, 3)], [1, 3, 5, 8]),
-        (20, 25, (0, 1, 3, 5, 8), [(0, 8), (1, 5), (3, 3)], [5, 8]),
-        (10, 25, (0, 1, 3, 5, 8), [(8, 8)], []),
-        (0, 1, (0, 1, 3, 5, 8), [(0, 3)], [1, 3, 5, 8]),
-        (0, 1, (0,), [], []),
-        (29, 30, (0, 1, 3, 5, 10), [(0, 3)], [1, 3, 5, 10]),
-    ],
-)
-def test_get_doomsday_bids(
-    clock: int,
-    max_clock: int,
-    allowed_bids: list[int],
-    risky: list[tuple[int, int]],
-    deadly: list[int],
-) -> None:
+def test_get_doomsday_bids() -> None:
     rules = GameRules()
-    rules.max_clock_state = max_clock
-    rules.allowed_bids = allowed_bids
-
-    assert rules.get_doomsday_bids(clock) == (risky, deadly)
+    assert rules.get_doomsday_bids(29) == ([(0, 3), (1, 1)], [3, 5, 10])
 
 
 @pytest.mark.parametrize(

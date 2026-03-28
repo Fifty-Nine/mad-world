@@ -5,6 +5,8 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
+from mad_world.util import get_doomsday_bids
+
 
 def increase_or_decrease(val: int) -> str:
     return "increase" if val >= 0 else "decrease"
@@ -197,36 +199,12 @@ class GameRules(BaseModel):
             risky_bids is a list of (bid, obid) where bid + obid >= limit.
             deadly_bids is a list of bids that unilaterally >= limit.
         """
-        limit = self.max_clock_state
-        bids = self.allowed_bids
-        max_bid = max(bids)
-
-        def bid_impact(bid: int) -> int:
-            if bid == 0:
-                return self.de_escalate_impact
-
-            return bid
-
-        if clock + 2 * max_bid < limit:
-            return [], []
-
-        risky: list[tuple[int, int]] = []
-        deadly: list[int] = []
-
-        for bid in bids:
-            if clock + bid_impact(bid) >= limit:
-                deadly.append(bid)
-                continue
-
-            if clock + bid_impact(bid) + bid_impact(max_bid) < limit:
-                continue
-
-            for obid in bids:
-                if clock + bid_impact(bid) + bid_impact(obid) >= limit:
-                    risky.append((bid, obid))
-                    break
-
-        return risky, deadly
+        return get_doomsday_bids(
+            clock,
+            self.max_clock_state,
+            self.de_escalate_impact,
+            self.allowed_bids,
+        )
 
 
 DEFAULT_RULES: GameRules = GameRules()

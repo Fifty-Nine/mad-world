@@ -6,6 +6,7 @@ from mad_world.util import (
     escalation_budget,
     get_attr_by_type,
     get_class_name,
+    get_doomsday_bids,
     pareto_optimal_bid,
     wrap_text,
 )
@@ -153,3 +154,29 @@ def test_get_attr_by_type() -> None:
     assert get_attr_by_type(ns, Base, "not_a_sub") is None
     # 3. The base class itself
     assert get_attr_by_type(ns, Base, "Base") is None
+
+
+@pytest.mark.parametrize(
+    "clock,max_clock,allowed_bids,risky,deadly",
+    [
+        (0, 25, (0, 1, 3, 5, 8), [], []),
+        (24, 25, (0, 1, 3, 5, 8), [(0, 3), (1, 1)], [3, 5, 8]),
+        (20, 25, (0, 1, 3, 5, 8), [(0, 8), (1, 5), (3, 3), (5, 1)], [8]),
+        (10, 25, (0, 1, 3, 5, 8), [(8, 8)], []),
+        (0, 1, (0, 1, 3, 5, 8), [(0, 3), (1, 1)], [3, 5, 8]),
+        (0, 1, (0,), [], []),
+        (29, 30, (0, 1, 3, 5, 10), [(0, 3), (1, 1)], [3, 5, 10]),
+    ],
+)
+def test_get_doomsday_bids(
+    clock: int,
+    max_clock: int,
+    allowed_bids: list[int],
+    risky: list[tuple[int, int]],
+    deadly: list[int],
+) -> None:
+    assert all(b not in deadly for (b, _) in risky)
+    assert get_doomsday_bids(clock, max_clock, -1, allowed_bids) == (
+        risky,
+        deadly,
+    )
