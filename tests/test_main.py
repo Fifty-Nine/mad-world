@@ -58,9 +58,8 @@ def test_setup_logging(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    setup_logging(logging.INFO, log_dir)
+    logger = setup_logging(logging.INFO, log_dir)
 
-    logger = logging.getLogger()
     # Check if handlers were added
     handler_types = [type(h) for h in logger.handlers]
     assert logging.FileHandler in handler_types

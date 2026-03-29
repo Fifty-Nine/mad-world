@@ -271,9 +271,9 @@ def main(
     )
 
 
-def setup_logging(verbosity: int, log_dir: Path) -> None:
+def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     """Configures logging for the game session."""
-    logger = logging.getLogger()
+    logger = logging.getLogger("mad_world")
     logger.setLevel(logging.DEBUG)
 
     # Clear existing handlers if any
@@ -299,6 +299,8 @@ def setup_logging(verbosity: int, log_dir: Path) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+
+    return logger
 
 
 def create_log_session_dir(
@@ -360,9 +362,9 @@ async def amain(
         omega_model,
     )
 
-    setup_logging(verbosity, log_dir)
+    logger = setup_logging(verbosity, log_dir)
 
-    logging.info(
+    logger.info(
         "Game starting\n"
         f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
         f"Player 2: {omega_name}, {omega_persona} ({omega_model})",
@@ -392,7 +394,7 @@ async def amain(
     ]
     try:
         winner, reason, state = await game_loop(GameRules(), players)
-        logging.info(wrap_text(format_results(winner, reason, state)))
+        logger.info(wrap_text(format_results(winner, reason, state)))
     except (KeyboardInterrupt, EOFError):
         if log_dir.exists() and log_dir.is_dir():
             shutil.rmtree(log_dir)

@@ -114,7 +114,7 @@ class GameState(BaseModel):
         event.current_phase = self.current_phase
 
         self.event_log.append(event)
-        logging.info(event.description)
+        logging.getLogger("mad_world").info(event.description)
 
     def log_message(
         self,
@@ -130,7 +130,7 @@ class GameState(BaseModel):
                 actor=PlayerActor(name=self_player),
                 description=(
                     f"{self_player} sent a message to "
-                    + f"{opponent_player}:\n"
+                    f"{opponent_player}:\n"
                     + wrap_text(
                         action.message_to_opponent,
                         width=80,
@@ -448,8 +448,9 @@ async def game_loop(
         game = await iterate_game(game, players)
 
     winner, reason = game.determine_victor()
-    logging.debug(f"Victor: {winner or 'no one'}")
-    logging.debug(f"Reason: {reason.name}")
+    logger = logging.getLogger("mad_world")
+    logger.debug(f"Victor: {winner or 'no one'}")
+    logger.debug(f"Reason: {reason.name}")
 
     game.apply_event(
         GameEvent(
