@@ -46,8 +46,18 @@ class BaseCrisis(BaseModel, ABC):
         players: list[GamePlayer],
     ) -> list[GameEvent]: ...
 
+    @abstractmethod
+    def get_action_type(self) -> type[BaseAction]:
+        """Get the BaseAction subclass used by this crisis."""
+
 
 class GenericCrisis[T: BaseAction](BaseCrisis):
+    @abstractmethod
+    @override
+    def get_action_type(self) -> type[T]:
+        """Get the action type."""
+        ...
+
     @abstractmethod
     def resolve(
         self,
@@ -116,6 +126,10 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         f"losses of {abs(STANDOFF_LOSER_GDP_EFFECT)} GDP and "
         f"{abs(STANDOFF_LOSER_INF_EFFECT)} Influence."
     )
+
+    @override
+    def get_action_type(self) -> type[StandoffAction]:
+        return StandoffAction
 
     @override
     def get_default_action(self, aggressive: bool) -> StandoffAction:

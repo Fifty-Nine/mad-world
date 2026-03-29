@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import Field
 
 from mad_world.actions import (
+    BaseAction,
     BiddingAction,
     InitialMessageAction,
 )
+from mad_world.crises import GenericCrisis, StandoffCrisis
+from mad_world.enums import StandoffPosture
 from mad_world.human_player import HumanPlayer
 
 if TYPE_CHECKING:
@@ -122,3 +126,72 @@ async def test_human_player_prompt_user_invalid_semantics(
         )
 
     assert action.bid == 2
+
+
+@pytest.mark.asyncio
+async def test_human_player_crisis(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+
+    crisis = StandoffCrisis()
+
+    # Test with valid integer string input
+    with mock_human_input(player, side_effect=["1"]):
+        action = await player.crisis(basic_game, crisis)
+
+    assert action.posture == StandoffPosture.BACK_DOWN
+
+    # Test with valid enum name input (case-insensitive)
+    with mock_human_input(player, side_effect=["sTaNd_fIrM"]):
+        action = await player.crisis(basic_game, crisis)
+
+    assert action.posture == StandoffPosture.STAND_FIRM
+
+    # Test with invalid input then valid input
+    with mock_human_input(player, side_effect=["", "invalid", "1"]):
+        action = await player.crisis(basic_game, crisis)
+
+    assert action.posture == StandoffPosture.BACK_DOWN
+
+    # Test EOFError propagates
+    with (
+        mock_human_input(player, side_effect=EOFError),
+        pytest.raises(EOFError),
+    ):
+        await player.crisis(basic_game, crisis)
+
+
+@pytest.mark.asyncio
+async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+
+    class DummyAction(BaseAction):
+        text_field: str
+        list_field: list[int] = Field(default_factory=list)
+
+    class DummyCrisis(GenericCrisis[DummyAction]):
+        title: str = "Dummy"
+        description: str = "Dummy"
+        mechanics: str = "Dummy"
+
+        @override
+        def get_action_type(self) -> type[DummyAction]:
+            return DummyAction
+
+        @override
+        def resolve(
+            self, game: GameState, actions: dict[str, DummyAction]
+        ) -> list[Any]:
+            return []
+
+        @override
+        def get_default_action(self, *, aggressive: bool) -> DummyAction:
+            return DummyAction(text_field="default")
+
+    crisis = DummyCrisis()
+
+    # Test non-enum string field and list field
+    with mock_human_input(player, side_effect=["hello", ""]):
+        action = await player.crisis(basic_game, crisis)
+
+    assert action.text_field == "hello"
+    assert action.list_field == []

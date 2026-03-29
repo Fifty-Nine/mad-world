@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, override
+import inspect
+from enum import Enum
+from typing import TYPE_CHECKING, Any, override
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
+from pydantic import ValidationError
 
 from mad_world.actions import (
     BaseAction,
@@ -20,6 +23,8 @@ from mad_world.players import GamePlayer
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from pydantic.fields import FieldInfo
 
     from mad_world.core import GameState
     from mad_world.crises import GenericCrisis
@@ -143,11 +148,95 @@ class HumanPlayer(GamePlayer):
 
         return OperationsAction(operations=ops)
 
+    def _parse_crisis_input(
+        self, user_input: str, *, is_enum: bool, annotation: Any
+    ) -> Any:
+        user_input = user_input.strip()
+
+        if not user_input:
+            return None
+
+        if not is_enum:
+            return user_input
+
+        if user_input.isdigit():
+            return int(user_input)
+
+        enum_member = getattr(
+            annotation, user_input.replace(" ", "_").upper(), None
+        )
+        if enum_member is not None:
+            return enum_member.value
+
+        return user_input
+
+    async def _prompt_crisis_field(
+        self, field_name: str, field_info: FieldInfo
+    ) -> Any:
+        prompt_text = f"Enter value for '{field_name}'"
+        if field_info.description:
+            prompt_text += f" ({field_info.description})"
+
+        annotation = field_info.annotation
+        args = getattr(annotation, "__args__", [])
+        if getattr(annotation, "__origin__", None) is not None and args:
+            annotation = args[0]
+
+        is_enum = False
+        completer = None
+        if inspect.isclass(annotation) and issubclass(annotation, Enum):
+            is_enum = True
+            valid_values = [f"{e.name} ({e.value})" for e in annotation]
+            prompt_text += f"\n[Valid values: {', '.join(valid_values)}]"
+            completer = WordCompleter(
+                [e.name for e in annotation]
+                + [str(e.value) for e in annotation],
+                ignore_case=True,
+            )
+
+        prompt_text += ": "
+
+        with patch_stdout():
+            user_input = await self.session.prompt_async(
+                prompt_text, completer=completer
+            )
+
+        return self._parse_crisis_input(
+            user_input, is_enum=is_enum, annotation=annotation
+        )
+
+    async def _prompt_crisis_action(
+        self, action_class: type[BaseAction]
+    ) -> dict[str, Any]:
+        field_values: dict[str, Any] = {}
+        for field_name, field_info in action_class.model_fields.items():
+            if (
+                val := await self._prompt_crisis_field(field_name, field_info)
+            ) is not None:
+                field_values[field_name] = val
+        return field_values
+
     @override
     async def crisis[T: BaseAction](
         self,
         game: GameState,
         crisis: GenericCrisis[T],
     ) -> T:
-        # FIXME
-        return crisis.get_default_action(aggressive=True)  # pragma: no cover
+        print(f"\n{game.describe_state()}")
+        print(f"\n[{self.name}] Crisis Alert: {crisis.title}")
+        print(crisis.description)
+        print(f"Mechanics: {crisis.mechanics}")
+
+        action_class = crisis.get_action_type()
+
+        while True:
+            field_values = await self._prompt_crisis_action(action_class)
+
+            try:
+                action = action_class.model_validate(field_values)
+                action.validate_semantics(game, self.name)
+            except (ValidationError, InvalidActionError) as e:
+                print(f"Invalid input: {e}")
+                print("Please try again.")
+            else:
+                return action
