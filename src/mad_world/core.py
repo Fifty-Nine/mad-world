@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from mad_world.enums import GameOverReason, GamePhase
 from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
@@ -24,21 +25,6 @@ class InvalidActionError(Exception):
     """
 
     pass
-
-
-class GamePhase(Enum):
-    OPENING = 1
-    BIDDING_MESSAGING = 2
-    BIDDING = 3
-    OPERATIONS_MESSAGING = 4
-    OPERATIONS = 5
-    END = 6
-
-
-class GameOverReason(Enum):
-    WORLD_DESTROYED = 1
-    ECONOMIC_VICTORY = 2
-    STALEMATE = 3
 
 
 RANDOM = random.Random()

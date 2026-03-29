@@ -19,8 +19,6 @@ from mad_world.core import (
     BaseAction,
     BiddingAction,
     GameEvent,
-    GameOverReason,
-    GamePhase,
     GamePlayer,
     GameState,
     InitialMessageAction,
@@ -31,6 +29,7 @@ from mad_world.core import (
     format_results,
     logging,
 )
+from mad_world.enums import GameOverReason, GamePhase
 from mad_world.rules import GameRules
 from mad_world.util import (
     escalation_budget,

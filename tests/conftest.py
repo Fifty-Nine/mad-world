@@ -2,7 +2,8 @@
 
 import pytest
 
-from mad_world.core import GamePhase, GameState, PlayerState
+from mad_world.core import GameState, PlayerState
+from mad_world.enums import GamePhase
 from mad_world.rules import GameRules
 
 
