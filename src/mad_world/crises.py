@@ -55,7 +55,7 @@ class GenericCrisis[T: BaseAction](BaseCrisis):
         ...
 
     @abstractmethod
-    def get_default_action(self, aggressive: bool) -> T:
+    def get_default_action(self, *, aggressive: bool) -> T:
         """Returns a 'cautious' or 'aggressive' default action for this crisis
         depending on the value of the aggressive flag."""
         ...

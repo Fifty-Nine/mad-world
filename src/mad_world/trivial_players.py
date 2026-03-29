@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class TrivialPlayer(GamePlayer):
-    def __init__(self, name: str, aggressive: bool) -> None:
+    def __init__(self, name: str, *, aggressive: bool) -> None:
         super().__init__(name)
         self.aggressive = aggressive
 
@@ -29,7 +29,7 @@ class TrivialPlayer(GamePlayer):
     async def crisis[T: BaseAction](
         self, game: GameState, crisis: GenericCrisis[T]
     ) -> T:
-        return crisis.get_default_action(self.aggressive)
+        return crisis.get_default_action(aggressive=self.aggressive)
 
 
 def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:

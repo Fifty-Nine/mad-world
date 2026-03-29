@@ -43,7 +43,7 @@ class OperationDefinition(BaseModel):
 
         return f"  {field} {desc_fn(val)}: {abs(val)}\n"
 
-    def format(self, verbose: bool, indent: str = "") -> str:
+    def format(self, *, verbose: bool, indent: str = "") -> str:
         result = f"{self.name}:\n"
 
         if verbose:

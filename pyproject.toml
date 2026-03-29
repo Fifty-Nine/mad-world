@@ -55,6 +55,7 @@ select = [
     "ANN",
     "ASYNC",
     "BLE",
+    "FBT"
 ]
 ignore = ["N818", "ANN401"]
 extend-safe-fixes = ["TC001", "TC002", "TC003", "TC004"]

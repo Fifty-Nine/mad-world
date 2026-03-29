@@ -759,7 +759,7 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
-    def my_strategy(self, for_compression: bool = False) -> str:
+    def my_strategy(self, *, for_compression: bool = False) -> str:
         if self.grand_strategy is None:
             return ""
 
@@ -908,7 +908,7 @@ class OllamaPlayer(GamePlayer):
         self, game: GameState, crisis: GenericCrisis[T]
     ) -> T:
         # FIXME
-        return crisis.get_default_action(True)
+        return crisis.get_default_action(aggressive=True)
 
     @override
     async def game_over(

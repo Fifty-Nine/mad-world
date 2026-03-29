@@ -229,17 +229,17 @@ ORDERING_PREFIX_RE = re.compile(r"^\d\d_")
 
 
 @singledispatch
-def remove_ordering_prefix(obj: Any, is_key: bool = False) -> Any:
+def remove_ordering_prefix(obj: Any, *, is_key: bool = False) -> Any:
     return obj
 
 
 @remove_ordering_prefix.register
-def _(obj: str, is_key: bool = False) -> str:
+def _(obj: str, *, is_key: bool = False) -> str:
     return ORDERING_PREFIX_RE.sub("", obj) if is_key else obj
 
 
 @remove_ordering_prefix.register(dict)
-def _(obj: dict[Any, Any], is_key: bool = False) -> dict[Any, Any]:
+def _(obj: dict[Any, Any], *, is_key: bool = False) -> dict[Any, Any]:
     return {
         remove_ordering_prefix(k, is_key=True): remove_ordering_prefix(
             v, is_key=False
@@ -249,5 +249,5 @@ def _(obj: dict[Any, Any], is_key: bool = False) -> dict[Any, Any]:
 
 
 @remove_ordering_prefix.register(list)
-def _(obj: list[Any], is_key: bool = False) -> list[Any]:
+def _(obj: list[Any], *, is_key: bool = False) -> list[Any]:
     return [remove_ordering_prefix(o, is_key=False) for o in obj]

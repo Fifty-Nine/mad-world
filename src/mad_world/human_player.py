@@ -146,4 +146,4 @@ class HumanPlayer(GamePlayer):
         self, game: GameState, crisis: GenericCrisis[T]
     ) -> T:
         # FIXME
-        return crisis.get_default_action(True)  # pragma: no cover
+        return crisis.get_default_action(aggressive=True)  # pragma: no cover
