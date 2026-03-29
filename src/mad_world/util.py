@@ -10,6 +10,14 @@ from typing import Any
 from more_itertools import partition
 
 
+def increase_or_decrease(val: int) -> str:
+    return "increase" if val >= 0 else "decrease"
+
+
+def cost_or_gain(val: int) -> str:
+    return "gain" if val >= 0 else "cost"
+
+
 def wrap_text(text: str, indent: str = "", width: int = 80) -> str:
     """
     Wraps text while preserving existing newlines.

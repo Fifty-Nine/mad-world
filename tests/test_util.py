@@ -7,10 +7,12 @@ from typing import Any
 import pytest
 
 from mad_world.util import (
+    cost_or_gain,
     escalation_budget,
     get_attr_by_type,
     get_class_name,
     get_doomsday_bids,
+    increase_or_decrease,
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
@@ -275,3 +277,18 @@ def test_remove_ordering_prefix_other_types() -> None:
     assert remove_ordering_prefix(123) == 123
     assert remove_ordering_prefix(None) is None
     assert remove_ordering_prefix(3.14) == 3.14
+
+
+@pytest.mark.parametrize(
+    "value,inc_dec,cost_gain",
+    [
+        (100, "increase", "gain"),
+        (-100, "decrease", "cost"),
+        (0, "increase", "gain"),
+        (-1, "decrease", "cost"),
+        (1, "increase", "gain"),
+    ],
+)
+def test_increase_or_decrease(value: int, inc_dec: str, cost_gain: str) -> None:
+    assert increase_or_decrease(value) == inc_dec
+    assert cost_or_gain(value) == cost_gain
