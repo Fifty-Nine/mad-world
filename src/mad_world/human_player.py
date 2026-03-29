@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from mad_world.core import GameState
+    from mad_world.crises import GenericCrisis
     from mad_world.rules import GameRules
 
 
@@ -139,3 +140,10 @@ class HumanPlayer(GamePlayer):
                 break
 
         return OperationsAction(operations=ops)
+
+    @override
+    async def crisis[T: BaseAction](
+        self, game: GameState, crisis: GenericCrisis[T]
+    ) -> T:
+        # FIXME
+        return crisis.get_default_action(True)  # pragma: no cover

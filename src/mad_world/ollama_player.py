@@ -43,6 +43,7 @@ from mad_world.util import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from mad_world.crises import GenericCrisis
     from mad_world.events import GameEvent
     from mad_world.rules import GameRules
 
@@ -901,6 +902,13 @@ class OllamaPlayer(GamePlayer):
         )
         result = await self.retry_prompt(OperationsResponse, game)
         return result.action if result else OperationsAction(operations=[])
+
+    @override
+    async def crisis[T: BaseAction](
+        self, game: GameState, crisis: GenericCrisis[T]
+    ) -> T:
+        # FIXME
+        return crisis.get_default_action(True)
 
     @override
     async def game_over(

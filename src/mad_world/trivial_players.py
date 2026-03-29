@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, override
 
 from mad_world.actions import (
+    BaseAction,
     BiddingAction,
     InitialMessageAction,
     MessagingAction,
@@ -16,16 +17,29 @@ from mad_world.util import get_subclass_by_name
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
+    from mad_world.crises import GenericCrisis
 
 
-def get_trivial_player(kind: str, name: str) -> GamePlayer | None:
-    """Finds a trivial player class by name."""
-    return get_subclass_by_name(__name__, kind, GamePlayer, name)
-
-
-class CrazyIvan(GamePlayer):
-    def __init__(self, name: str) -> None:
+class TrivialPlayer(GamePlayer):
+    def __init__(self, name: str, aggressive: bool):
         super().__init__(name)
+        self.aggressive = aggressive
+
+    @override
+    async def crisis[T: BaseAction](
+        self, game: GameState, crisis: GenericCrisis[T]
+    ) -> T:
+        return crisis.get_default_action(self.aggressive)
+
+
+def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:
+    """Finds a trivial player class by name."""
+    return get_subclass_by_name(__name__, kind, TrivialPlayer, name)
+
+
+class CrazyIvan(TrivialPlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, aggressive=True)
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
@@ -50,9 +64,9 @@ class CrazyIvan(GamePlayer):
         )
 
 
-class Pacifist(GamePlayer):
+class Pacifist(TrivialPlayer):
     def __init__(self, name: str) -> None:
-        super().__init__(name)
+        super().__init__(name, aggressive=False)
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
@@ -85,9 +99,9 @@ class Pacifist(GamePlayer):
         )
 
 
-class Capitalist(GamePlayer):
+class Capitalist(TrivialPlayer):
     def __init__(self, name: str) -> None:
-        super().__init__(name)
+        super().__init__(name, aggressive=True)
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
@@ -120,9 +134,9 @@ class Capitalist(GamePlayer):
         )
 
 
-class Saboteur(GamePlayer):
+class Saboteur(TrivialPlayer):
     def __init__(self, name: str) -> None:
-        super().__init__(name)
+        super().__init__(name, aggressive=True)
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
@@ -175,9 +189,9 @@ class Saboteur(GamePlayer):
             )
 
 
-class Diplomat(GamePlayer):
+class Diplomat(TrivialPlayer):
     def __init__(self, name: str) -> None:
-        super().__init__(name)
+        super().__init__(name, aggressive=False)
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:

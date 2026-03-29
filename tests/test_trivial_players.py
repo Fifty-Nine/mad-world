@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 
 from mad_world.core import init_game
-from mad_world.enums import GamePhase
+from mad_world.crises import StandoffAction, StandoffCrisis
+from mad_world.enums import GamePhase, StandoffPosture
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
@@ -13,6 +14,7 @@ from mad_world.trivial_players import (
     Diplomat,
     Pacifist,
     Saboteur,
+    get_trivial_player,
 )
 
 
@@ -314,3 +316,28 @@ async def test_diplomat_message() -> None:
     assert (
         action.message_to_opponent == "We must continue our diplomatic efforts."
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "name,posture",
+    [
+        ("CrazyIvan", StandoffPosture.STAND_FIRM),
+        ("Pacifist", StandoffPosture.BACK_DOWN),
+        ("Capitalist", StandoffPosture.STAND_FIRM),
+        ("Saboteur", StandoffPosture.STAND_FIRM),
+        ("Diplomat", StandoffPosture.BACK_DOWN),
+    ],
+)
+async def test_generic_crisis_resolution(
+    name: str, posture: StandoffPosture
+) -> None:
+    player = get_trivial_player(name, name)
+
+    assert player is not None
+
+    game = init_game([player])
+    crisis = StandoffCrisis()
+    action = await player.crisis(game, crisis)
+
+    assert action == StandoffAction(posture=posture)
