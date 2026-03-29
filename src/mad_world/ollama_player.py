@@ -25,7 +25,6 @@ from mad_world.actions import (
     OperationsAction,
 )
 from mad_world.core import (
-    GameEvent,
     GameState,
     PlayerState,
     format_results,
@@ -44,6 +43,7 @@ from mad_world.util import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from mad_world.events import GameEvent
     from mad_world.rules import GameRules
 
 

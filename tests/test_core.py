@@ -14,11 +14,7 @@ from mad_world.actions import (
     OperationsAction,
 )
 from mad_world.core import (
-    ActorKind,
-    GameEvent,
     GameState,
-    PlayerActor,
-    SystemActor,
     format_results,
     game_loop,
     iterate_game,
@@ -26,6 +22,12 @@ from mad_world.core import (
     resolve_operation,
 )
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.events import (
+    ActorKind,
+    GameEvent,
+    PlayerActor,
+    SystemActor,
+)
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
