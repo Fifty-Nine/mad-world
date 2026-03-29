@@ -185,10 +185,10 @@ class Saboteur(TrivialPlayer):
             return OperationsAction(
                 operations=["proxy-subversion"],
             )
-        else:
-            return OperationsAction(
-                operations=[],
-            )
+
+        return OperationsAction(
+            operations=[],
+        )
 
 
 class Diplomat(TrivialPlayer):
@@ -243,7 +243,7 @@ class Diplomat(TrivialPlayer):
             return OperationsAction(
                 operations=["unilateral-drawdown"],
             )
-        else:
-            return OperationsAction(
-                operations=[],
-            )
+
+        return OperationsAction(
+            operations=[],
+        )
