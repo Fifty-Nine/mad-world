@@ -28,7 +28,6 @@ from mad_world.core import (
     GameState,
     PlayerState,
     format_results,
-    logging,
 )
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.players import GamePlayer
@@ -41,6 +40,7 @@ from mad_world.util import (
 )
 
 if TYPE_CHECKING:
+    import logging
     from pathlib import Path
 
     from mad_world.crises import GenericCrisis
@@ -56,7 +56,7 @@ class ActionResponse(BaseModel):
             "their words? Did you make any mistakes? What are you "
             "going to do now? Limit to 10-20 brief thoughts, one "
             "thought per list item."
-        )
+        ),
     )
     action: BaseAction
 
@@ -69,7 +69,8 @@ class ActionResponse(BaseModel):
     @classmethod
     def format_schema(cls) -> dict[str, Any]:
         return reorder_schema_properties(
-            cls.model_json_schema(), last_key="action"
+            cls.model_json_schema(),
+            last_key="action",
         )
 
     @classmethod
@@ -181,11 +182,11 @@ class InitialMessageResponse(ActionResponse):
             "must align with your persona--e.g. you cannot claim to be highly "
             "risk-averse while also including first-strike in your contingency "
             "plans."
-        )
+        ),
     )
 
     action: InitialMessageAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -200,7 +201,7 @@ class MessagingResponse(ActionResponse):
         ],
     )
     action: MessagingAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -223,7 +224,7 @@ class BiddingResponse(ActionResponse):
             "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
-        )
+        ),
     )
     tactical_plan: str = Field(
         description=(
@@ -232,10 +233,10 @@ class BiddingResponse(ActionResponse):
             "If your intended bid is greater than the pareto-optimal bid "
             "OR is one of the listed bids that may trigger MAD, you MUST "
             "justify why the risk is worth the reward."
-        )
+        ),
     )
     action: BiddingAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -258,7 +259,7 @@ class OperationsResponse(ActionResponse):
             "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
-        )
+        ),
     )
     resource_audit: str = Field(
         description=(
@@ -282,10 +283,10 @@ class OperationsResponse(ActionResponse):
             "If your intended operations will increase the clock greater "
             "than your escalation budget OR if they might trigger MAD, you "
             "MUST justify why the risk is worth the reward."
-        )
+        ),
     )
     action: OperationsAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -301,6 +302,8 @@ class OllamaPlayer(GamePlayer):
         persona: str | None = None,
         log_dir: Path | None = None,
         compression_threshold: float = 0.95,
+        *,
+        logger: logging.Logger,
     ) -> None:
         super().__init__(name)
         self.opponent_name = opponent_name
@@ -322,6 +325,7 @@ class OllamaPlayer(GamePlayer):
             log_dir / f"{self.name}" if log_dir is not None else None
         )
         self.compression_threshold = compression_threshold
+        self.logger = logger
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -366,7 +370,9 @@ class OllamaPlayer(GamePlayer):
             "choose to undertake:\n"
         )
         prompt += self.format_allowed_ops(
-            avail_inf=None, rules=rules, indent="        "
+            avail_inf=None,
+            rules=rules,
+            indent="        ",
         )
         prompt += (
             "\nYou will receive a prompt detailing the current Phase and Game "
@@ -403,17 +409,18 @@ class OllamaPlayer(GamePlayer):
                 "Act accordingly.\n"
             )
         self.messages.append({"role": "system", "content": prompt})
-        logging.debug(
-            f"==== {self.name} system prompt ====\n"
-            + wrap_text(prompt, width=80)
-            + "\n"
+
+        self.logger.debug(
+            "==== %s system prompt ====\n%s\n",
+            self.name,
+            wrap_text(prompt, width=80),
         )
 
         if self.log_base is None:
             return
 
         settings_path = self.log_base.with_suffix(".model-settings.json")
-        with open(settings_path, "w", encoding="utf-8") as f:
+        with settings_path.open("w", encoding="utf-8") as f:
             json.dump(
                 {"model": self.model, "options": self.prompt_options},
                 indent=2,
@@ -437,7 +444,9 @@ class OllamaPlayer(GamePlayer):
 
     @staticmethod
     def format_allowed_ops(
-        avail_inf: int | None, rules: GameRules, indent: str = ""
+        avail_inf: int | None,
+        rules: GameRules,
+        indent: str = "",
     ) -> str:
         ops = (
             op
@@ -469,10 +478,11 @@ class OllamaPlayer(GamePlayer):
             f"Phase: {game.current_phase.name}\n"
             f"Doomsday clock: {game.doomsday_clock}/"
             f"{game.rules.max_clock_state}"
-            f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
+            f"{' (CRITICAL)' if game.clock_is_critical() else ''}\n"
         )
         budget = escalation_budget(
-            game.doomsday_clock, game.rules.max_clock_state
+            game.doomsday_clock,
+            game.rules.max_clock_state,
         )
         result += f"Escalation budget: {budget}\nPlayers:\n"
 
@@ -543,11 +553,11 @@ class OllamaPlayer(GamePlayer):
             try:
                 response = adapter.validate_json(result or "")
             except ValidationError as e:
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
                         f"{log_header}Failed: {e}\nModel Response: {result}\n"
-                        f"Model done reason: {result_obj.done_reason}\n"
-                    )
+                        f"Model done reason: {result_obj.done_reason}\n",
+                    ),
                 )
                 self.messages.append(
                     {
@@ -560,34 +570,34 @@ class OllamaPlayer(GamePlayer):
                         "Please ensure you limit your internal "
                         "monologue to a few paragraphs and follow "
                         "the provided schema exactly.",
-                    }
+                    },
                 )
                 continue
 
             action = response.action
             formatted_response = textwrap.indent(
-                self.dump_model_response(response), prefix="  "
+                self.dump_model_response(response),
+                prefix="  ",
             )
             try:
                 action.validate_semantics(game, self.name)
                 self.messages.append(
-                    {"role": "assistant", "content": result or ""}
+                    {"role": "assistant", "content": result or ""},
                 )
 
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
-                        f"{log_header}Model Response:\n{formatted_response}\n"
-                    )
+                        f"{log_header}Model Response:\n{formatted_response}\n",
+                    ),
                 )
                 await self._check_and_compress(result_obj, game)
-                return response
 
             except InvalidActionError as e:
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
                         f"{log_header}Semantic Error: {e}\n"
-                        f"Model Response:\n{formatted_response}\n"
-                    )
+                        f"Model Response:\n{formatted_response}\n",
+                    ),
                 )
                 self.messages.append(
                     {
@@ -599,15 +609,18 @@ class OllamaPlayer(GamePlayer):
                         "But it resulted in the following error:\n"
                         f"{e}\n"
                         "Please correct your mistake and try again.",
-                    }
+                    },
                 )
 
-        logging.debug(f"{log_header}Failed after {retries} retries.")
+            else:
+                return response
+
+        self.logger.debug("%sFailed after %s retries.", log_header, retries)
         return None
 
     async def _compress_context(self, game: GameState) -> None:
-        logging.debug(
-            f"[{self.name}] Context usage exceeded 95%. Compressing context..."
+        self.logger.debug(
+            "[%s] Context usage exceeded 95%. Compressing context...", self.name
         )
         compression_prompt = (
             "System Directive: Internal Memory Update\n"
@@ -641,8 +654,8 @@ class OllamaPlayer(GamePlayer):
             "strategic intent.\n"
         )
 
-        logging.debug(
-            f"[{self.name}] Compression prompt:\n{compression_prompt}\n"
+        self.logger.debug(
+            "[%s] Compression prompt:\n%s\n", self.name, compression_prompt
         )
 
         temp_messages = [
@@ -659,8 +672,9 @@ class OllamaPlayer(GamePlayer):
         summary = summary_response.message.content or ""
 
         if not summary:
-            logging.warning(
-                f"[{self.name}] Compression failed; continuing without context!"
+            self.logger.warning(
+                "[%s] Compression failed; continuing without context!",
+                self.name,
             )
             summary = (
                 "Oops! Unfortunately, an error occurred while summarizing your "
@@ -683,25 +697,31 @@ class OllamaPlayer(GamePlayer):
                 + textwrap.indent(summary, prefix="  ")
             ),
         }
-        logging.debug(
-            f"[{self.name}] Compressed context:\n"
-            f"{compression_system_message['content']}\n"
+        self.logger.debug(
+            "[%s] Compressed context:\n%s\n",
+            self.name,
+            compression_system_message["content"],
         )
 
         self.messages = [original_system_prompt, compression_system_message]
-        logging.debug(f"[{self.name}] Context successfully compressed.")
+        self.logger.debug("[%s] Context successfully compressed.", self.name)
 
     async def _check_and_compress(
-        self, response_obj: Any, game: GameState
+        self,
+        response_obj: Any,
+        game: GameState,
     ) -> None:
         prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
         eval_count = getattr(response_obj, "eval_count", 0) or 0
         total_tokens = prompt_eval_count + eval_count
 
         usage = total_tokens / self.context_size
-        logging.debug(
-            f"[{self.name}] Context usage: {total_tokens}/"
-            f"{self.context_size} ({usage:.1%})"
+        self.logger.debug(
+            "[%s] Context usage: %s/%s (%s)",
+            self.name,
+            total_tokens,
+            self.context_size,
+            f"{usage:.1%}",
         )
         if usage > self.compression_threshold:
             await self._compress_context(game)
@@ -759,7 +779,7 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
-    def my_strategy(self, for_compression: bool = False) -> str:
+    def my_strategy(self, *, for_compression: bool = False) -> str:
         if self.grand_strategy is None:
             return ""
 
@@ -787,7 +807,10 @@ class OllamaPlayer(GamePlayer):
         return game.players[self.name].influence
 
     def add_prompt(
-        self, prompt: str, phase: GamePhase, schema: str | None = None
+        self,
+        prompt: str,
+        phase: GamePhase,
+        schema: str | None = None,
     ) -> None:
         if schema is not None:
             prompt += (
@@ -795,13 +818,15 @@ class OllamaPlayer(GamePlayer):
                 "Schema:\n"
             )
 
-        logging.debug(
-            f"==== {self.name} {phase.name} prompt ====\n"
-            f"{wrap_text(prompt)}"
-            f"{'[...]' if schema else ''}\n"
+        self.logger.debug(
+            "==== %s %s prompt ====\n%s%s\n",
+            self.name,
+            phase.name,
+            wrap_text(prompt),
+            "[...]" if schema else "",
         )
         self.messages.append(
-            {"role": "user", "content": prompt + (schema or "")}
+            {"role": "user", "content": prompt + (schema or "")},
         )
 
     @override
@@ -905,14 +930,19 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
         # FIXME
-        return crisis.get_default_action(True)
+        return crisis.get_default_action(aggressive=True)
 
     @override
     async def game_over(
-        self, game: GameState, winner: str | None, reason: GameOverReason
+        self,
+        game: GameState,
+        winner: str | None,
+        reason: GameOverReason,
     ) -> None:
         prompt = format_results(winner, reason, game)
         prompt += self.format_event_log(game.recent_events())
@@ -956,11 +986,11 @@ class OllamaPlayer(GamePlayer):
             options=self.prompt_options,
         )
         self.messages.append(
-            {"role": "assistant", "content": result.message.content or ""}
+            {"role": "assistant", "content": result.message.content or ""},
         )
 
-        logging.debug(
-            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
+        self.logger.debug(
+            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
         )
 
         if self.log_base is None:

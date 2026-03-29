@@ -21,15 +21,17 @@ if TYPE_CHECKING:
 
 
 class TrivialPlayer(GamePlayer):
-    def __init__(self, name: str, aggressive: bool):
+    def __init__(self, name: str, *, aggressive: bool) -> None:
         super().__init__(name)
         self.aggressive = aggressive
 
     @override
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
-        return crisis.get_default_action(self.aggressive)
+        return crisis.get_default_action(aggressive=self.aggressive)
 
 
 def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:
@@ -80,10 +82,10 @@ class Pacifist(TrivialPlayer):
             return MessagingAction(
                 message_to_opponent=(
                     "Let us de-escalate tensions and work together."
-                )
+                ),
             )
         return MessagingAction(
-            message_to_opponent="I offer you the hand of friendship."
+            message_to_opponent="I offer you the hand of friendship.",
         )
 
     @override
@@ -115,10 +117,10 @@ class Capitalist(TrivialPlayer):
     async def message(self, game: GameState) -> MessagingAction:
         if game.current_phase == GamePhase.BIDDING_MESSAGING:
             return MessagingAction(
-                message_to_opponent="A rising tide lifts all boats."
+                message_to_opponent="A rising tide lifts all boats.",
             )
         return MessagingAction(
-            message_to_opponent="Building a better tomorrow."
+            message_to_opponent="Building a better tomorrow.",
         )
 
     @override
@@ -153,7 +155,7 @@ class Saboteur(TrivialPlayer):
             return MessagingAction(
                 message_to_opponent=(
                     "Just moving some paperwork around. Administrative things."
-                )
+                ),
             )
 
         my_state = game.players[self.name]
@@ -183,10 +185,10 @@ class Saboteur(TrivialPlayer):
             return OperationsAction(
                 operations=["proxy-subversion"],
             )
-        else:
-            return OperationsAction(
-                operations=[],
-            )
+
+        return OperationsAction(
+            operations=[],
+        )
 
 
 class Diplomat(TrivialPlayer):
@@ -207,7 +209,7 @@ class Diplomat(TrivialPlayer):
             return MessagingAction(
                 message_to_opponent=(
                     "Let us keep the channels of communication open."
-                )
+                ),
             )
 
         my_state = game.players[self.name]
@@ -241,7 +243,7 @@ class Diplomat(TrivialPlayer):
             return OperationsAction(
                 operations=["unilateral-drawdown"],
             )
-        else:
-            return OperationsAction(
-                operations=[],
-            )
+
+        return OperationsAction(
+            operations=[],
+        )

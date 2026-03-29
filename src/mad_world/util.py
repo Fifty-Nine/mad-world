@@ -71,7 +71,9 @@ def escalation_budget(clock: int, max_clock: int) -> int:
 
 
 def pareto_optimal_bid(
-    clock: int, max_clock: int, allowed_bids: list[int]
+    clock: int,
+    max_clock: int,
+    allowed_bids: list[int],
 ) -> int:
     """Similar to the above but specific to the bidding phase. This returns
     the highest allowed bid within the escalation budget. Because bid values are
@@ -141,7 +143,10 @@ def get_subclass_by_name[T: ABC](
 
 
 def get_doomsday_bids(
-    clock: int, limit: int, zero_bid_impact: int, bids: list[int]
+    clock: int,
+    limit: int,
+    zero_bid_impact: int,
+    bids: list[int],
 ) -> tuple[list[tuple[int, int]], list[int]]:
     """Compute bids that are risky or deadly given the current clock.
 
@@ -177,7 +182,8 @@ def get_doomsday_bids(
 
 
 def reorder_schema_properties(
-    schema: dict[str, Any], last_key: str
+    schema: dict[str, Any],
+    last_key: str,
 ) -> dict[str, Any]:
     """Given the JSON Schema for a model, reorder the properties
     so that the `last_key` field always comes last. We also prefix the
@@ -229,25 +235,26 @@ ORDERING_PREFIX_RE = re.compile(r"^\d\d_")
 
 
 @singledispatch
-def remove_ordering_prefix(obj: Any, is_key: bool = False) -> Any:
+def remove_ordering_prefix(obj: Any, *, is_key: bool = False) -> Any:
     return obj
 
 
 @remove_ordering_prefix.register
-def _(obj: str, is_key: bool = False) -> str:
+def _(obj: str, *, is_key: bool = False) -> str:
     return ORDERING_PREFIX_RE.sub("", obj) if is_key else obj
 
 
 @remove_ordering_prefix.register(dict)
-def _(obj: dict[Any, Any], is_key: bool = False) -> dict[Any, Any]:
+def _(obj: dict[Any, Any], *, is_key: bool = False) -> dict[Any, Any]:
     return {
         remove_ordering_prefix(k, is_key=True): remove_ordering_prefix(
-            v, is_key=False
+            v,
+            is_key=False,
         )
         for k, v in obj.items()
     }
 
 
 @remove_ordering_prefix.register(list)
-def _(obj: list[Any], is_key: bool = False) -> list[Any]:
+def _(obj: list[Any], *, is_key: bool = False) -> list[Any]:
     return [remove_ordering_prefix(o, is_key=False) for o in obj]

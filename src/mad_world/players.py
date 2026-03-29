@@ -22,43 +22,40 @@ if TYPE_CHECKING:
 
 
 class GamePlayer(ABC):
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     def start_game(self, game: GameRules) -> None:  # noqa: B027
         """Called with the rules for the current game
         at the start of the game.
         """
-        pass
 
     @abstractmethod
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         """Get the initial message for your opponent. This will be provided
         to them in the bidding phase of round 1.
         """
-        pass  # pragma: no cover
 
     @abstractmethod
     async def message(self, game: GameState) -> MessagingAction:
         """Get a message for your opponent before an action phase."""
-        pass  # pragma: no cover
 
     @abstractmethod
     async def bid(self, game: GameState) -> BiddingAction:
         """Get the player's input for the bidding phase, given the current
         game state."""
-        pass  # pragma: no cover
 
     @abstractmethod
     async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
-        pass  # pragma: no cover
 
     @abstractmethod
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
-        pass  # pragma: no cover
+        """Get the player's input for a pending crisis."""
 
     async def game_over(  # noqa: B027
         self,
@@ -67,4 +64,3 @@ class GamePlayer(ABC):
         reason: GameOverReason,
     ) -> None:
         """Called when the game is over."""
-        pass

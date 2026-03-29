@@ -37,8 +37,60 @@ target-version = "py312"
 output-format = "concise"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "N", "UP", "B", "A", "C4", "SIM", "RUF", "TCH"]
-ignore = ["N818"]
+select = [
+    "A",
+    "ANN",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "C90",
+    "COM",
+    "E",
+    "ERA",
+    "EXE",
+    "F",
+    "FA",
+    "FBT",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ICN",
+    "ISC",
+    "LOG",
+    "N",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PLC",
+    "PLE",
+    "PLW",
+    "PT",
+    "PTH",
+    "Q",
+    "RSE",
+    "RET",
+    "RUF",
+    "SLF",
+    "SIM",
+    "T10",
+    "TC",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+]
+ignore = [
+    # error-suffix-on-exception-name; poorly implemented dogmatic rule
+    "N818",
+
+    # any-type; principled but impractical
+    "ANN401",
+
+    # missing-trailing-comma; incompatible with formatter
+    "COM812"
+]
 extend-safe-fixes = ["TC001", "TC002", "TC003", "TC004"]
 
 [tool.ruff.lint.isort]
@@ -61,7 +113,6 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 omit = [
-	"src/mad_world/ollama_chat.py",
 	"src/mad_world/ollama_player.py"
 ]
 

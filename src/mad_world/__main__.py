@@ -145,9 +145,12 @@ def get_player(
     context: int,
     tokens: int,
     log_dir: Path,
+    logger: logging.Logger | None = None,
 ) -> GamePlayer:
     if model == "human":
         return HumanPlayer(name)
+
+    logger = logger or logging.getLogger("mad_world")
 
     if trivial_player := trivial_players.get_trivial_player(model, name):
         return trivial_player
@@ -161,6 +164,7 @@ def get_player(
         token_limit=tokens,
         temperature=temperature,
         log_dir=log_dir,
+        logger=logger,
     )
 
 
@@ -177,7 +181,9 @@ def get_player(
     help="Persona prompt for player 1.",
 )
 @click.option(
-    "--alpha-temperature", default=0.0, help="Temperature for player 1 model."
+    "--alpha-temperature",
+    default=0.0,
+    help="Temperature for player 1 model.",
 )
 @click.option(
     "--alpha-context",
@@ -190,7 +196,9 @@ def get_player(
     help="Output token budget for player 1 model.",
 )
 @click.option(
-    "--omega-name", default="Southern Imperium", help="Name of player 2."
+    "--omega-name",
+    default="Southern Imperium",
+    help="Name of player 2.",
 )
 @click.option(
     "--omega-model",
@@ -203,7 +211,9 @@ def get_player(
     help="Persona prompt for player 2.",
 )
 @click.option(
-    "--omega-temperature", default=0.0, help="Temperature for player 2 model."
+    "--omega-temperature",
+    default=0.0,
+    help="Temperature for player 2 model.",
 )
 @click.option(
     "--omega-context",
@@ -261,13 +271,13 @@ def main(
             omega_tokens,
             verbosity,
             log_dir_base=log_dir,
-        )
+        ),
     )
 
 
-def setup_logging(verbosity: int, log_dir: Path) -> None:
+def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     """Configures logging for the game session."""
-    logger = logging.getLogger()
+    logger = logging.getLogger("mad_world")
     logger.setLevel(logging.DEBUG)
 
     # Clear existing handlers if any
@@ -293,6 +303,8 @@ def setup_logging(verbosity: int, log_dir: Path) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+
+    return logger
 
 
 def create_log_session_dir(
@@ -354,12 +366,16 @@ async def amain(
         omega_model,
     )
 
-    setup_logging(verbosity, log_dir)
+    logger = setup_logging(verbosity, log_dir)
 
-    logging.info(
-        "Game starting\n"
-        f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
-        f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
+    logger.info(
+        "Game starting\nPlayer 1: %s %s (%s)\nPlayer 2: %s %s (%s)",
+        alpha_name,
+        alpha_persona,
+        alpha_model,
+        omega_name,
+        omega_persona,
+        omega_model,
     )
 
     players = [
@@ -372,6 +388,7 @@ async def amain(
             alpha_context,
             alpha_tokens,
             log_dir,
+            logger,
         ),
         get_player(
             omega_name,
@@ -382,12 +399,13 @@ async def amain(
             omega_context,
             omega_tokens,
             log_dir,
+            logger,
         ),
     ]
     try:
         winner, reason, state = await game_loop(GameRules(), players)
-        logging.info(wrap_text(format_results(winner, reason, state)))
-    except KeyboardInterrupt:
+        logger.info(wrap_text(format_results(winner, reason, state)))
+    except (KeyboardInterrupt, EOFError):
         if log_dir.exists() and log_dir.is_dir():
             shutil.rmtree(log_dir)
 

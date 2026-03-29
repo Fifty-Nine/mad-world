@@ -16,7 +16,7 @@ def test_get_doomsday_bids() -> None:
 
 
 def test_operation_effect_formatting() -> None:
-    assert OperationDefinition.format_one(0, "foo", lambda i: "") == ""
+    assert OperationDefinition.format_one(0, "foo", lambda _: "") == ""
     assert (
         OperationDefinition.format_one(1, "bar", increase_or_decrease)
         == "  bar increase: 1\n"
@@ -73,7 +73,9 @@ def test_operation_formatting() -> None:
     )
 
     test_op = OperationDefinition(
-        name="do-nothing", description="?", influence_cost=0
+        name="do-nothing",
+        description="?",
+        influence_cost=0,
     )
     assert test_op.format(verbose=False, indent="y") == ("ydo-nothing:\n")
     assert test_op.format(verbose=True) == (

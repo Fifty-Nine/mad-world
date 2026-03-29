@@ -28,10 +28,10 @@ STANDOFF_TIE_CLOCK_EFFECT = -15
 class BaseCrisis(BaseModel, ABC):
     title: str = Field(description="The title of the crisis event.")
     description: str = Field(
-        description="A narrative description of the crisis event."
+        description="A narrative description of the crisis event.",
     )
     mechanics: str = Field(
-        description="A plain-language explanation of the crisis mechanics."
+        description="A plain-language explanation of the crisis mechanics.",
     )
     additional_prompt: str | None = Field(
         description="Additional instructions for LLM-based players. "
@@ -41,27 +41,33 @@ class BaseCrisis(BaseModel, ABC):
 
     @abstractmethod
     async def run(
-        self, game: GameState, players: list[GamePlayer]
+        self,
+        game: GameState,
+        players: list[GamePlayer],
     ) -> list[GameEvent]: ...
 
 
 class GenericCrisis[T: BaseAction](BaseCrisis):
     @abstractmethod
     def resolve(
-        self, game: GameState, actions: dict[str, T]
+        self,
+        game: GameState,
+        actions: dict[str, T],
     ) -> list[GameEvent]:
         """Determines the outcome of the crisis based on the crisis, the game
         state and the player's responses."""
         ...
 
     @abstractmethod
-    def get_default_action(self, aggressive: bool) -> T:
+    def get_default_action(self, *, aggressive: bool) -> T:
         """Returns a 'cautious' or 'aggressive' default action for this crisis
         depending on the value of the aggressive flag."""
         ...
 
     async def run(
-        self, game: GameState, players: list[GamePlayer]
+        self,
+        game: GameState,
+        players: list[GamePlayer],
     ) -> list[GameEvent]:
         results = await asyncio.gather(*[p.crisis(game, self) for p in players])
 
@@ -77,7 +83,7 @@ class GenericCrisis[T: BaseAction](BaseCrisis):
 class StandoffAction(BaseAction):
     posture: StandoffPosture = Field(
         description="Your posture in response to this crisis. You must either "
-        "back down or stand firm. What will you do?"
+        "back down or stand firm. What will you do?",
     )
 
 
@@ -116,7 +122,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
             if aggressive
-            else StandoffPosture.BACK_DOWN
+            else StandoffPosture.BACK_DOWN,
         )
 
     def _doomsday(self, players: list[str]) -> GameEvent:
@@ -152,7 +158,9 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
 
     @override
     def resolve(
-        self, game: GameState, actions: dict[str, StandoffAction]
+        self,
+        game: GameState,
+        actions: dict[str, StandoffAction],
     ) -> list[GameEvent]:
         postures = [act.posture for act in actions.values()]
         if all(p == StandoffPosture.STAND_FIRM for p in postures):

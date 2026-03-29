@@ -23,7 +23,7 @@ style = Style.from_dict(
     {
         "user": "#ansicyan bold",
         "assistant": "#ansigreen bold",
-    }
+    },
 )
 
 
@@ -33,12 +33,13 @@ class QuitProgram(Exception):
 
 
 @click.group()
-def slash_commands() -> None:
-    pass
+def slash_commands() -> None: ...
 
 
 @slash_commands.command(
-    name="quit", help="Exit the application.", add_help_option=False
+    name="quit",
+    help="Exit the application.",
+    add_help_option=False,
 )
 def exit_loop() -> None:
     raise QuitProgram(0)
@@ -77,7 +78,7 @@ pending_images: list[bytes] = []
 )
 @click.argument("image", type=click.File("rb"))
 def load_image(image: BinaryIO) -> None:
-    global pending_images
+    global pending_images  # noqa: PLW0603
     pending_images += (image.read(),)
 
 
@@ -117,7 +118,7 @@ def prompt_loop(
             "role": "user",
             "content": user_input,
             "images": copy.deepcopy(pending_images),
-        }
+        },
     )
     pending_images.clear()
 
@@ -133,23 +134,24 @@ def prompt_loop(
             content = part["message"]["content"]
             click.echo(content, nl=False)
             full_response += content
-        click.echo("\n")
 
-    except Exception as e:
+    except ollama.ResponseError as e:
         click.secho(
-            f"\nError communicating with Ollama: {e}", fg="red", err=True
+            f"Failed to communicate with ollama: {e}", fg="red", err=True
         )
-        return
 
-    messages.append({"role": "assistant", "content": full_response})
+    else:
+        messages.append({"role": "assistant", "content": full_response})
+
+    click.echo("\n")
 
 
-def run_chat(log_file: Path, model: str) -> int:
+def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
             messages: list[dict[str, Any]] = json.load(f)
-    except Exception as e:
+    except (OSError, ValueError, gzip.BadGzipFile) as e:
         click.secho(f"Error loading log file: {e}", fg="red", err=True)
         return 1
 
@@ -165,12 +167,12 @@ def run_chat(log_file: Path, model: str) -> int:
     click.secho(f"Using model: {model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
-    client = ollama.Client()
+    client = ollama.Client(host=host)
 
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
     session: PromptSession[str] = PromptSession(
-        history=FileHistory(str(history_path))
+        history=FileHistory(str(history_path)),
     )
 
     while True:
@@ -179,21 +181,28 @@ def run_chat(log_file: Path, model: str) -> int:
 
 @click.command()
 @click.argument(
-    "log_file", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+    "log_file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
 @click.option(
     "--model",
     default="gemma3:12b",
     help="The name of the Ollama model to use.",
 )
-def main(log_file: Path, model: str) -> None:
+@click.option(
+    "-h",
+    "--ollama-host",
+    default=None,
+    help="The URL for the ollama instance.",
+)
+def main(log_file: Path, model: str, ollama_host: str | None = None) -> None:
     """
     Chat with an Ollama model using history from a gzipped JSON log file.
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        sys.exit(run_chat(log_file, model))
+        sys.exit(run_chat(log_file, model, host=ollama_host))
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):
@@ -202,4 +211,4 @@ def main(log_file: Path, model: str) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover

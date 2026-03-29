@@ -28,14 +28,17 @@ class GameEvent(BaseModel):
     """Represents a discrete state change in the game."""
 
     actor: Annotated[
-        SystemActor | PlayerActor, Field(discriminator="actor_kind")
+        SystemActor | PlayerActor,
+        Field(discriminator="actor_kind"),
     ]
     description: str = Field(description="A brief description of the event.")
     clock_delta: int = Field(
-        default=0, description="The change in the doomsday clock."
+        default=0,
+        description="The change in the doomsday clock.",
     )
     gdp_delta: dict[str, int] = Field(
-        default_factory=dict, description="The change in GDP for each player."
+        default_factory=dict,
+        description="The change in GDP for each player.",
     )
     influence_delta: dict[str, int] = Field(
         default_factory=dict,
@@ -48,8 +51,10 @@ class GameEvent(BaseModel):
         ),
     )
     current_round: int | None = Field(
-        default=None, description=("The round in which this event occurred.")
+        default=None,
+        description=("The round in which this event occurred."),
     )
     current_phase: GamePhase | None = Field(
-        default=None, description=("The phase in which this event occurred.")
+        default=None,
+        description=("The phase in which this event occurred."),
     )
