@@ -365,9 +365,13 @@ async def amain(
     logger = setup_logging(verbosity, log_dir)
 
     logger.info(
-        "Game starting\n"
-        f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
-        f"Player 2: {omega_name}, {omega_persona} ({omega_model})",
+        "Game starting\nPlayer 1: %s %s (%s)\nPlayer 2: %s %s (%s)",
+        alpha_name,
+        alpha_persona,
+        alpha_model,
+        omega_name,
+        omega_persona,
+        omega_model,
     )
 
     players = [

@@ -449,8 +449,8 @@ async def game_loop(
 
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")
-    logger.debug(f"Victor: {winner or 'no one'}")
-    logger.debug(f"Reason: {reason.name}")
+    logger.debug("Victor: %s", winner or "no one")
+    logger.debug("Reason: %s", reason.name)
 
     game.apply_event(
         GameEvent(
