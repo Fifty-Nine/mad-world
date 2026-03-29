@@ -158,9 +158,6 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "triggering MAD and ending the game."
         ),
         influence_cost=0,
-        clock_effect=50,
-        friendly_gdp_effect=-1000,
-        enemy_gdp_effect=-1000,
     ),
 }
 

@@ -18,10 +18,16 @@ class ActorKind(Enum):
 class SystemActor(BaseModel):
     actor_kind: Literal[ActorKind.SYSTEM] = Field(default=ActorKind.SYSTEM)
 
+    def player(self) -> str | None:
+        return None
+
 
 class PlayerActor(BaseModel):
     actor_kind: Literal[ActorKind.PLAYER] = Field(default=ActorKind.PLAYER)
     name: str
+
+    def player(self) -> str | None:
+        return self.name
 
 
 class GameEvent(BaseModel):
@@ -57,4 +63,7 @@ class GameEvent(BaseModel):
     current_phase: GamePhase | None = Field(
         default=None,
         description=("The phase in which this event occurred."),
+    )
+    world_ending: bool = Field(
+        default=False, description="True if this event ends the world."
     )

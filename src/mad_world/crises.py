@@ -131,8 +131,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
             description="Both players have chosen to stand firm and "
             "as a result, the conflict has spiraled out of control, "
             "leading to a total nuclear exchange.",
-            gdp_delta=dict.fromkeys(players, -1000),
-            clock_delta=50,
+            world_ending=True,
         )
 
     def _tie(self, players: list[str]) -> GameEvent:
@@ -176,4 +175,4 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         return [self._winner(winner, loser)]
 
 
-CRISIS_DECK = [StandoffCrisis()]
+CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]

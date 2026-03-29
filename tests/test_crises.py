@@ -90,9 +90,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         event = events[0]
         assert isinstance(event.actor, SystemActor)
         assert "nuclear exchange" in event.description
-        assert event.clock_delta == 50
-        assert event.gdp_delta["Player1"] == -1000
-        assert event.gdp_delta["Player2"] == -1000
+        assert event.world_ending
 
     def test_resolve_tie(
         self,
