@@ -5,10 +5,13 @@ from __future__ import annotations
 import gzip
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
+import ollama
 import pytest
 from click.testing import CliRunner
+from prompt_toolkit import PromptSession
 
 from mad_world import ollama_chat
 from mad_world.ollama_chat import (
@@ -221,7 +224,7 @@ def test_main_success(tmp_path: Path) -> None:
     with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
         result = runner.invoke(main, [str(log_file), "--model", "mymodel"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(log_file, "mymodel")
+        mock_run.assert_called_once_with(log_file, "mymodel", host=None)
 
 
 def test_main_quit_program(tmp_path: Path) -> None:
@@ -258,3 +261,37 @@ def test_main_eof_error(tmp_path: Path) -> None:
     with patch("mad_world.ollama_chat.run_chat", side_effect=EOFError):
         result = runner.invoke(main, [str(log_file)])
         assert result.exit_code == 0
+
+
+def test_prompt_loop_response_error(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test prompt_loop when ollama.ResponseError is raised."""
+    session_mock = MagicMock(spec=PromptSession)
+    session_mock.prompt.return_value = "Hello"
+    client_mock = MagicMock(spec=ollama.Client)
+
+    # Case 1: Exception raised immediately
+    client_mock.chat.side_effect = ollama.ResponseError("err1")
+    messages: list[dict[str, Any]] = []
+
+    prompt_loop(session_mock, client_mock, "model", messages)
+
+    captured = capsys.readouterr()
+    assert "Failed to communicate with ollama: err1" in captured.err
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+
+    # Case 2: Exception raised after partial success
+    def chat_generator_partial_success(*args: Any, **kwargs: Any) -> Any:
+        yield {"message": {"content": "Partial "}}
+        raise ollama.ResponseError("err2")
+
+    client_mock.chat.side_effect = chat_generator_partial_success
+    messages.clear()
+
+    prompt_loop(session_mock, client_mock, "model", messages)
+
+    captured = capsys.readouterr()
+    assert "Partial " in captured.out
+    assert "Failed to communicate with ollama: err2" in captured.err
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"

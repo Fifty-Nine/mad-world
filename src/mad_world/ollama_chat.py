@@ -125,19 +125,28 @@ def prompt_loop(
     click.secho("Assistant > ", fg="green", bold=True, nl=False)
 
     full_response = ""
-    for part in client.chat(
-        model=model,
-        messages=messages,
-        stream=True,
-    ):
-        content = part["message"]["content"]
-        click.echo(content, nl=False)
-        full_response += content
+    try:
+        for part in client.chat(
+            model=model,
+            messages=messages,
+            stream=True,
+        ):
+            content = part["message"]["content"]
+            click.echo(content, nl=False)
+            full_response += content
+
+    except ollama.ResponseError as e:
+        click.secho(
+            f"Failed to communicate with ollama: {e}", fg="red", err=True
+        )
+
+    else:
+        messages.append({"role": "assistant", "content": full_response})
+
     click.echo("\n")
-    messages.append({"role": "assistant", "content": full_response})
 
 
-def run_chat(log_file: Path, model: str) -> int:
+def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
@@ -158,7 +167,7 @@ def run_chat(log_file: Path, model: str) -> int:
     click.secho(f"Using model: {model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
-    client = ollama.Client()
+    client = ollama.Client(host=host)
 
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
@@ -180,14 +189,20 @@ def run_chat(log_file: Path, model: str) -> int:
     default="gemma3:12b",
     help="The name of the Ollama model to use.",
 )
-def main(log_file: Path, model: str) -> None:
+@click.option(
+    "-h",
+    "--ollama-host",
+    default=None,
+    help="The URL for the ollama instance.",
+)
+def main(log_file: Path, model: str, ollama_host: str | None = None) -> None:
     """
     Chat with an Ollama model using history from a gzipped JSON log file.
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        sys.exit(run_chat(log_file, model))
+        sys.exit(run_chat(log_file, model, host=ollama_host))
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):
