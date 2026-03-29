@@ -84,7 +84,7 @@ def test_wrap_empty() -> None:
 
 
 @pytest.mark.parametrize(
-    "clock,max_clock,bid",
+    ("clock", "max_clock", "bid"),
     [
         (0, 25, 12),
         (24, 25, 0),
@@ -102,7 +102,7 @@ def test_escalation_budget(clock: int, max_clock: int, bid: int) -> None:
 
 
 @pytest.mark.parametrize(
-    "clock,max_clock,allowed_bids,bid",
+    ("clock", "max_clock", "allowed_bids", "bid"),
     [
         (0, 30, [0, 10], 10),
         (0, 25, [0, 1, 2, 3], 3),
@@ -194,7 +194,7 @@ def test_get_subclass_by_name() -> None:
 
 
 @pytest.mark.parametrize(
-    "clock,max_clock,allowed_bids,risky,deadly",
+    ("clock", "max_clock", "allowed_bids", "risky", "deadly"),
     [
         (0, 25, (0, 1, 3, 5, 8), [], []),
         (24, 25, (0, 1, 3, 5, 8), [(0, 3), (1, 1)], [3, 5, 8]),
@@ -309,7 +309,7 @@ def test_remove_ordering_prefix_other_types() -> None:
 
 
 @pytest.mark.parametrize(
-    "value,inc_dec,cost_gain",
+    ("value", "inc_dec", "cost_gain"),
     [
         (100, "increase", "gain"),
         (-100, "decrease", "cost"),

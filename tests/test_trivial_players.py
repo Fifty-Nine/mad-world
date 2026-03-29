@@ -318,9 +318,8 @@ async def test_diplomat_message() -> None:
     )
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "name,posture",
+    ("name", "posture"),
     [
         ("CrazyIvan", StandoffPosture.STAND_FIRM),
         ("Pacifist", StandoffPosture.BACK_DOWN),
@@ -329,6 +328,7 @@ async def test_diplomat_message() -> None:
         ("Diplomat", StandoffPosture.BACK_DOWN),
     ],
 )
+@pytest.mark.asyncio
 async def test_generic_crisis_resolution(
     name: str,
     posture: StandoffPosture,
