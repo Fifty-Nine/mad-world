@@ -14,8 +14,6 @@ class InvalidActionError(Exception):
     rules.
     """
 
-    pass
-
 
 class BaseAction(BaseModel):
     def validate_semantics(self, game: GameState, player_name: str) -> None:

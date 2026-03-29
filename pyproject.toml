@@ -57,6 +57,7 @@ select = [
     "ISC",
     "LOG",
     "N",
+    "PIE",
     "RUF",
     "SIM",
     "T10",

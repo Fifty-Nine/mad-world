@@ -29,8 +29,6 @@ if TYPE_CHECKING:
 class FinishInput(Exception):
     """Raised to indicate that the user has finished entering input."""
 
-    pass
-
 
 class HumanPlayer(GamePlayer):
     def __init__(self, name: str) -> None:
