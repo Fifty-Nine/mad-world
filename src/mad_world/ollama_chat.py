@@ -124,23 +124,15 @@ def prompt_loop(
     click.secho("Assistant > ", fg="green", bold=True, nl=False)
 
     full_response = ""
-    try:
-        for part in client.chat(
-            model=model,
-            messages=messages,
-            stream=True,
-        ):
-            content = part["message"]["content"]
-            click.echo(content, nl=False)
-            full_response += content
-        click.echo("\n")
-
-    except Exception as e:
-        click.secho(
-            f"\nError communicating with Ollama: {e}", fg="red", err=True
-        )
-        return
-
+    for part in client.chat(
+        model=model,
+        messages=messages,
+        stream=True,
+    ):
+        content = part["message"]["content"]
+        click.echo(content, nl=False)
+        full_response += content
+    click.echo("\n")
     messages.append({"role": "assistant", "content": full_response})
 
 
@@ -149,7 +141,7 @@ def run_chat(log_file: Path, model: str) -> int:
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
             messages: list[dict[str, Any]] = json.load(f)
-    except Exception as e:
+    except OSError as e:
         click.secho(f"Error loading log file: {e}", fg="red", err=True)
         return 1
 

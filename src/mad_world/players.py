@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class GamePlayer(ABC):
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     def start_game(self, game: GameRules) -> None:  # noqa: B027

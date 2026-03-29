@@ -387,7 +387,7 @@ async def amain(
     try:
         winner, reason, state = await game_loop(GameRules(), players)
         logging.info(wrap_text(format_results(winner, reason, state)))
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         if log_dir.exists() and log_dir.is_dir():
             shutil.rmtree(log_dir)
 

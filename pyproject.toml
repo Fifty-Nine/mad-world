@@ -37,8 +37,26 @@ target-version = "py312"
 output-format = "concise"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "N", "UP", "B", "A", "C4", "SIM", "RUF", "TCH"]
-ignore = ["N818"]
+select = [
+    "E",
+    "F",
+    "I",
+    "W",
+    "N",
+    "UP",
+    "B",
+    "A",
+    "C4",
+    "SIM",
+    "RUF",
+    "TCH",
+    "UP",
+    "ERA",
+    "ANN",
+    "ASYNC",
+    "BLE",
+]
+ignore = ["N818", "ANN401"]
 extend-safe-fixes = ["TC001", "TC002", "TC003", "TC004"]
 
 [tool.ruff.lint.isort]

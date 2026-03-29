@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class TrivialPlayer(GamePlayer):
-    def __init__(self, name: str, aggressive: bool):
+    def __init__(self, name: str, aggressive: bool) -> None:
         super().__init__(name)
         self.aggressive = aggressive
 
