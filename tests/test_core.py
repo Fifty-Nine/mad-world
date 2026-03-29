@@ -7,14 +7,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from mad_world.core import (
-    ActorKind,
+from mad_world.actions import (
     BaseAction,
     BiddingAction,
-    GameEvent,
-    GameState,
     InvalidActionError,
     OperationsAction,
+)
+from mad_world.core import (
+    ActorKind,
+    GameEvent,
+    GameState,
     PlayerActor,
     SystemActor,
     format_results,

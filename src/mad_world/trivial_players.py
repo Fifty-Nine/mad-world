@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import sys
-from typing import override
+from typing import TYPE_CHECKING, override
 
-from mad_world.core import (
+from mad_world.actions import (
     BiddingAction,
-    GameState,
     InitialMessageAction,
     MessagingAction,
     OperationsAction,
@@ -15,6 +14,9 @@ from mad_world.core import (
 from mad_world.enums import GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import get_attr_by_type
+
+if TYPE_CHECKING:
+    from mad_world.core import GameState
 
 
 def get_trivial_player_class(name: str) -> type[GamePlayer] | None:

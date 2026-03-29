@@ -8,10 +8,9 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from mad_world.core import (
+from mad_world.actions import (
     BaseAction,
     BiddingAction,
-    GameState,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
@@ -22,6 +21,7 @@ from mad_world.players import GamePlayer
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from mad_world.core import GameState
     from mad_world.rules import GameRules
 
 
