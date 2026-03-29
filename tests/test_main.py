@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import logging
 import re
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -19,6 +21,9 @@ from mad_world.enums import GameOverReason
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.trivial_players import CrazyIvan, Pacifist
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_random_persona() -> None:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from mad_world.rules import (

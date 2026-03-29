@@ -1,23 +1,28 @@
 """Human player implementation for Mad World."""
 
-from collections.abc import Callable
-from typing import override
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, override
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from mad_world.core import (
+from mad_world.actions import (
     BaseAction,
     BiddingAction,
-    GamePlayer,
-    GameState,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
     OperationsAction,
 )
-from mad_world.rules import GameRules
+from mad_world.players import GamePlayer
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from mad_world.core import GameState
+    from mad_world.rules import GameRules
 
 
 class FinishInput(Exception):

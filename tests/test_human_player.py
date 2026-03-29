@@ -1,18 +1,23 @@
 """Tests for the human_player module."""
 
+from __future__ import annotations
+
 import contextlib
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mad_world.core import (
+from mad_world.actions import (
     BiddingAction,
-    GameState,
     InitialMessageAction,
 )
 from mad_world.human_player import HumanPlayer
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from mad_world.core import GameState
 
 
 @contextlib.contextmanager

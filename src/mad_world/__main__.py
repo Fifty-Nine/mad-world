@@ -1,18 +1,26 @@
+"""Entry point for Mad World."""
+
+from __future__ import annotations
+
 import asyncio
 import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 from click_loglevel import LogLevel
 
 from mad_world import trivial_players
-from mad_world.core import RANDOM, GamePlayer, format_results, game_loop
+from mad_world.core import RANDOM, format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
+
+if TYPE_CHECKING:
+    from mad_world.players import GamePlayer
 
 PERSONA_ADJECTIVES = (
     "Amateurish",

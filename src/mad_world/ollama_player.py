@@ -1,10 +1,11 @@
 """Ollama player implementation for Mad World."""
 
+from __future__ import annotations
+
 import gzip
 import json
 import textwrap
-from pathlib import Path
-from typing import Any, override
+from typing import TYPE_CHECKING, Any, override
 
 import ollama
 from pydantic import (
@@ -15,22 +16,23 @@ from pydantic import (
     model_validator,
 )
 
-from mad_world.core import (
+from mad_world.actions import (
     BaseAction,
     BiddingAction,
-    GameEvent,
-    GamePlayer,
-    GameState,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
     OperationsAction,
+)
+from mad_world.core import (
+    GameEvent,
+    GameState,
     PlayerState,
     format_results,
     logging,
 )
 from mad_world.enums import GameOverReason, GamePhase
-from mad_world.rules import GameRules
+from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
     pareto_optimal_bid,
@@ -38,6 +40,11 @@ from mad_world.util import (
     reorder_schema_properties,
     wrap_text,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from mad_world.rules import GameRules
 
 
 class ActionResponse(BaseModel):

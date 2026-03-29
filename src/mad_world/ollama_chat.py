@@ -1,5 +1,7 @@
 """Ollama chat script for Mad World."""
 
+from __future__ import annotations
+
 import copy
 import gzip
 import json

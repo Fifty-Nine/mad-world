@@ -1,5 +1,7 @@
 """Tests for the trivial player implementations."""
 
+from __future__ import annotations
+
 import pytest
 
 from mad_world.core import init_game

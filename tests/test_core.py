@@ -1,19 +1,22 @@
 """Tests for the core module."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pytest
 
-from mad_world.core import (
-    ActorKind,
+from mad_world.actions import (
     BaseAction,
     BiddingAction,
-    GameEvent,
-    GamePlayer,
-    GameState,
     InvalidActionError,
     OperationsAction,
+)
+from mad_world.core import (
+    ActorKind,
+    GameEvent,
+    GameState,
     PlayerActor,
     SystemActor,
     format_results,
@@ -31,6 +34,11 @@ from mad_world.trivial_players import (
     Pacifist,
     Saboteur,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from mad_world.players import GamePlayer
 
 
 @dataclass

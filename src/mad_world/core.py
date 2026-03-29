@@ -1,15 +1,21 @@
 """Core mechanics for the game."""
 
+from __future__ import annotations
+
 import asyncio
 import copy
 import logging as logging
 import random
-from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from mad_world.actions import (
+    BiddingAction,
+    InvalidActionError,
+    MessagingAction,
+)
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.rules import (
     DEFAULT_RULES,
@@ -17,14 +23,8 @@ from mad_world.rules import (
 )
 from mad_world.util import wrap_text
 
-
-class InvalidActionError(Exception):
-    """Raised during Action validation when an action
-    is not allowed under the current game state or
-    rules.
-    """
-
-    pass
+if TYPE_CHECKING:
+    from mad_world.players import GamePlayer
 
 
 RANDOM = random.Random()
@@ -82,20 +82,6 @@ class GameEvent(BaseModel):
     )
     current_phase: GamePhase | None = Field(
         default=None, description=("The phase in which this event occurred.")
-    )
-
-
-class BaseAction(BaseModel):
-    def validate_semantics(self, game: "GameState", player_name: str) -> None:
-        pass
-
-
-class MessagingAction(BaseAction):
-    message_to_opponent: str | None = Field(
-        default=None,
-        description="A message that will be passed to your opponent. You can "
-        "use this to conduct diplomacy, respond to inquiries, "
-        "issue threats, etc.",
     )
 
 
@@ -260,97 +246,6 @@ class GameState(BaseModel):
             return (omega.name, GameOverReason.ECONOMIC_VICTORY)
 
         return (None, GameOverReason.STALEMATE)
-
-
-class InitialMessageAction(MessagingAction):
-    pass
-
-
-class BiddingAction(BaseAction):
-    """Indicates a player's actions during the bidding phase."""
-
-    bid: int = Field(
-        description="Your influence bid for this phase. This value will be "
-        "added directly to your current influence. This bid also increases "
-        "the doomsday clock by the same amount. The bid must be one of the "
-        "values allowed by the rules (see the 'allowed_bids' field in the "
-        "rules) or you will automatically bid the maximum possible amount. "
-        "A bid of 0 is de-escalatory and reduces the doomsday clock by 1."
-    )
-
-    def validate_semantics(self, game: GameState, player_name: str) -> None:
-        if self.bid not in game.rules.allowed_bids:
-            raise InvalidActionError(
-                f"INVALID BID: Your bid of {self.bid} is not allowed. "
-                f"Allowed bids are {game.rules.allowed_bids}."
-            )
-
-
-class OperationsAction(BaseAction):
-    operations: list[str] = Field(
-        description="The set of operations to conduct this turn. Each string "
-        "must be a valid operation allowed by the rules. You must "
-        "have sufficient influence to conduct the operation."
-    )
-
-    def validate_semantics(self, game: GameState, player_name: str) -> None:
-        for op_name in self.operations:
-            game.validate_operation(op_name, player_name)
-
-        total_cost = sum(
-            game.rules.allowed_operations[op].influence_cost
-            for op in self.operations
-        )
-        player_state = game.players[player_name]
-        if total_cost > player_state.influence:
-            raise InvalidActionError(
-                "INSUFFICIENT INFLUENCE: The submitted operations require "
-                f"a total of {total_cost} influence, but you only have "
-                f"{player_state.influence} available."
-            )
-
-
-class GamePlayer(ABC):
-    def __init__(self, name: str):
-        self.name = name
-
-    def start_game(self, game: GameRules) -> None:  # noqa: B027
-        """Called with the rules for the current game
-        at the start of the game.
-        """
-        pass
-
-    @abstractmethod
-    async def initial_message(self, game: GameState) -> InitialMessageAction:
-        """Get the initial message for your opponent. This will be provided
-        to them in the bidding phase of round 1.
-        """
-        pass  # pragma: no cover
-
-    @abstractmethod
-    async def message(self, game: GameState) -> MessagingAction:
-        """Get a message for your opponent before an action phase."""
-        pass  # pragma: no cover
-
-    @abstractmethod
-    async def bid(self, game: GameState) -> BiddingAction:
-        """Get the player's input for the bidding phase, given the current
-        game state."""
-        pass  # pragma: no cover
-
-    @abstractmethod
-    async def operations(self, game: GameState) -> OperationsAction:
-        """Get the player's input for the operations phase."""
-        pass  # pragma: no cover
-
-    async def game_over(  # noqa: B027
-        self,
-        game: GameState,
-        winner: str | None,
-        reason: GameOverReason,
-    ) -> None:
-        """Called when the game is over."""
-        pass
 
 
 def init_game(
