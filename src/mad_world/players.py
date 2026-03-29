@@ -14,7 +14,7 @@ if TYPE_CHECKING:
         OperationsAction,
     )
     from mad_world.core import GameState
-    from mad_world.crises import GenericCrisis
+    from mad_world.crises import BaseCrisis, GenericCrisis
     from mad_world.enums import GameOverReason
     from mad_world.rules import (
         GameRules,
@@ -39,6 +39,14 @@ class GamePlayer(ABC):
     @abstractmethod
     async def message(self, game: GameState) -> MessagingAction:
         """Get a message for your opponent before an action phase."""
+
+    async def crisis_message(
+        self,
+        game: GameState,
+        crisis: BaseCrisis,
+    ) -> MessagingAction:
+        """Get a message for your opponent before a crisis phase."""
+        return await self.message(game)
 
     @abstractmethod
     async def bid(self, game: GameState) -> BiddingAction:

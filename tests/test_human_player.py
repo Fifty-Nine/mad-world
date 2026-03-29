@@ -197,3 +197,19 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
     assert action.text_field == "hello"
     assert action.list_field == []
     assert action.opt_enum == StandoffPosture.BACK_DOWN
+
+
+@pytest.mark.asyncio
+async def test_human_player_crisis_message(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+    crisis = StandoffCrisis()
+
+    with mock_human_input(player, return_value="A message to my opponent"):
+        action = await player.crisis_message(basic_game, crisis)
+
+    assert action.message_to_opponent == "A message to my opponent"
+
+    with mock_human_input(player, return_value=""):
+        action = await player.crisis_message(basic_game, crisis)
+
+    assert action.message_to_opponent is None

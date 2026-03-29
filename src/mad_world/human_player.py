@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from pydantic.fields import FieldInfo
 
     from mad_world.core import GameState
-    from mad_world.crises import GenericCrisis
+    from mad_world.crises import BaseCrisis, GenericCrisis
     from mad_world.rules import GameRules
 
 
@@ -223,15 +223,33 @@ class HumanPlayer(GamePlayer):
         return field_values
 
     @override
+    async def crisis_message(
+        self,
+        game: GameState,
+        crisis: BaseCrisis,
+    ) -> MessagingAction:
+        print(f"\n{game.describe_state()}")
+        print(f"\n[{self.name}] Crisis Alert: {crisis.title}")
+        print(crisis.description)
+        print(f"Mechanics: {crisis.mechanics}")
+
+        print(f"\n[{self.name}] Crisis Messaging Phase")
+        return await self.retry_prompt(
+            game,
+            "Enter a message to your opponent (or press Enter to skip): ",
+            lambda m: MessagingAction(
+                message_to_opponent=m.strip() or None,
+            ),
+        )
+
+    @override
     async def crisis[T: BaseAction](
         self,
         game: GameState,
         crisis: GenericCrisis[T],
     ) -> T:
         print(f"\n{game.describe_state()}")
-        print(f"\n[{self.name}] Crisis Alert: {crisis.title}")
-        print(crisis.description)
-        print(f"Mechanics: {crisis.mechanics}")
+        print(f"\n[{self.name}] Crisis Phase: {crisis.title}")
 
         action_class = crisis.get_action_type()
 

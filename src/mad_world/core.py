@@ -444,9 +444,15 @@ async def resolve_messaging(
     players: list[GamePlayer],
 ) -> GameState:
     alpha_name, omega_name = game.player_names()
+
+    async def callback(player: GamePlayer) -> MessagingAction:
+        if game.current_phase.is_crisis():
+            return await player.crisis_message(game, game.pending_crises[-1])
+
+        return await player.message(game)
+
     alpha_msg, omega_msg = await asyncio.gather(
-        players[0].message(game),
-        players[1].message(game),
+        callback(players[0]), callback(players[1])
     )
 
     new_game = copy.deepcopy(game)
