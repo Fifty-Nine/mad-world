@@ -148,27 +148,55 @@ class HumanPlayer(GamePlayer):
 
         return OperationsAction(operations=ops)
 
-    def _parse_crisis_input(
-        self, user_input: str, *, is_enum: bool, annotation: Any
-    ) -> Any:
-        user_input = user_input.strip()
+    def _extract_enum_type(self, annotation: Any) -> type[Enum] | None:
+        """Extract an Enum class from a type annotation."""
+        if inspect.isclass(annotation) and issubclass(annotation, Enum):
+            return annotation
 
+        for arg in getattr(annotation, "__args__", []):
+            if inspect.isclass(arg) and issubclass(arg, Enum):
+                return arg
+
+        return None
+
+    async def _prompt_enum_field(
+        self, prompt_text: str, enum_type: type[Enum]
+    ) -> Any:
+        valid_values = [f"{e.name} ({e.value})" for e in enum_type]
+        prompt_text += f"\n[Valid values: {', '.join(valid_values)}]: "
+
+        completer = WordCompleter(
+            [e.name for e in enum_type] + [str(e.value) for e in enum_type],
+            ignore_case=True,
+        )
+
+        with patch_stdout():
+            user_input = await self.session.prompt_async(
+                prompt_text, completer=completer
+            )
+
+        user_input = user_input.strip()
         if not user_input:
             return None
-
-        if not is_enum:
-            return user_input
 
         if user_input.isdigit():
             return int(user_input)
 
         enum_member = getattr(
-            annotation, user_input.replace(" ", "_").upper(), None
+            enum_type, user_input.replace(" ", "_").upper(), None
         )
         if enum_member is not None:
             return enum_member.value
 
         return user_input
+
+    async def _prompt_standard_field(self, prompt_text: str) -> Any:
+        prompt_text += ": "
+
+        with patch_stdout():
+            user_input = await self.session.prompt_async(prompt_text)
+
+        return user_input.strip() or None
 
     async def _prompt_crisis_field(
         self, field_name: str, field_info: FieldInfo
@@ -177,33 +205,11 @@ class HumanPlayer(GamePlayer):
         if field_info.description:
             prompt_text += f" ({field_info.description})"
 
-        annotation = field_info.annotation
-        args = getattr(annotation, "__args__", [])
-        if getattr(annotation, "__origin__", None) is not None and args:
-            annotation = args[0]
+        enum_type = self._extract_enum_type(field_info.annotation)
+        if enum_type is not None:
+            return await self._prompt_enum_field(prompt_text, enum_type)
 
-        is_enum = False
-        completer = None
-        if inspect.isclass(annotation) and issubclass(annotation, Enum):
-            is_enum = True
-            valid_values = [f"{e.name} ({e.value})" for e in annotation]
-            prompt_text += f"\n[Valid values: {', '.join(valid_values)}]"
-            completer = WordCompleter(
-                [e.name for e in annotation]
-                + [str(e.value) for e in annotation],
-                ignore_case=True,
-            )
-
-        prompt_text += ": "
-
-        with patch_stdout():
-            user_input = await self.session.prompt_async(
-                prompt_text, completer=completer
-            )
-
-        return self._parse_crisis_input(
-            user_input, is_enum=is_enum, annotation=annotation
-        )
+        return await self._prompt_standard_field(prompt_text)
 
     async def _prompt_crisis_action(
         self, action_class: type[BaseAction]

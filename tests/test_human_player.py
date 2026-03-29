@@ -167,6 +167,7 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
     class DummyAction(BaseAction):
         text_field: str
         list_field: list[int] = Field(default_factory=list)
+        opt_enum: StandoffPosture | None = None
 
     class DummyCrisis(GenericCrisis[DummyAction]):
         title: str = "Dummy"
@@ -190,8 +191,9 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
     crisis = DummyCrisis()
 
     # Test non-enum string field and list field
-    with mock_human_input(player, side_effect=["hello", ""]):
+    with mock_human_input(player, side_effect=["hello", "", "1"]):
         action = await player.crisis(basic_game, crisis)
 
     assert action.text_field == "hello"
     assert action.list_field == []
+    assert action.opt_enum == StandoffPosture.BACK_DOWN
