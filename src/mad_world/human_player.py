@@ -123,7 +123,7 @@ class HumanPlayer(GamePlayer):
 
         def parse_op(text: str) -> OperationsAction:
             if not text.strip():
-                raise FinishInput()
+                raise FinishInput
 
             return OperationsAction(operations=[text.strip()])
 
