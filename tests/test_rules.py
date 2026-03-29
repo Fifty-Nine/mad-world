@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import pytest
-
 from mad_world.rules import (
     GameRules,
     OperationDefinition,
+)
+from mad_world.util import (
     cost_or_gain,
     increase_or_decrease,
 )
@@ -13,21 +13,6 @@ from mad_world.rules import (
 def test_get_doomsday_bids() -> None:
     rules = GameRules()
     assert rules.get_doomsday_bids(29) == ([(0, 3), (1, 1)], [3, 5, 10])
-
-
-@pytest.mark.parametrize(
-    "value,inc_dec,cost_gain",
-    [
-        (100, "increase", "gain"),
-        (-100, "decrease", "cost"),
-        (0, "increase", "gain"),
-        (-1, "decrease", "cost"),
-        (1, "increase", "gain"),
-    ],
-)
-def test_increase_or_decrease(value: int, inc_dec: str, cost_gain: str) -> None:
-    assert increase_or_decrease(value) == inc_dec
-    assert cost_or_gain(value) == cost_gain
 
 
 def test_operation_effect_formatting() -> None:

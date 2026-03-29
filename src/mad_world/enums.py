@@ -18,3 +18,8 @@ class GameOverReason(Enum):
     WORLD_DESTROYED = 1
     ECONOMIC_VICTORY = 2
     STALEMATE = 3
+
+
+class StandoffPosture(Enum):
+    BACK_DOWN = 1
+    STAND_FIRM = 2

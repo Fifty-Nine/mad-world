@@ -7,18 +7,10 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from mad_world.util import get_doomsday_bids
+from mad_world.util import cost_or_gain, get_doomsday_bids, increase_or_decrease
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-
-def increase_or_decrease(val: int) -> str:
-    return "increase" if val >= 0 else "decrease"
-
-
-def cost_or_gain(val: int) -> str:
-    return "gain" if val >= 0 else "cost"
 
 
 class OperationDefinition(BaseModel):

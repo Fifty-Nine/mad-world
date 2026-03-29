@@ -44,6 +44,9 @@ extend-safe-fixes = ["TC001", "TC002", "TC003", "TC004"]
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
 
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [tool.mypy]
 strict = true
 warn_return_any = true

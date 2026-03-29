@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from mad_world.actions import (
+        BaseAction,
         BiddingAction,
         InitialMessageAction,
         MessagingAction,
         OperationsAction,
     )
     from mad_world.core import GameState
+    from mad_world.crises import GenericCrisis
     from mad_world.enums import GameOverReason
     from mad_world.rules import (
         GameRules,
@@ -50,6 +52,12 @@ class GamePlayer(ABC):
     @abstractmethod
     async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
+        pass  # pragma: no cover
+
+    @abstractmethod
+    async def crisis[T: BaseAction](
+        self, game: GameState, crisis: GenericCrisis[T]
+    ) -> T:
         pass  # pragma: no cover
 
     async def game_over(  # noqa: B027
