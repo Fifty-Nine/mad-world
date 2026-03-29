@@ -7,13 +7,13 @@ from typing import override
 
 from mad_world.core import (
     BiddingAction,
-    GamePlayer,
     GameState,
     InitialMessageAction,
     MessagingAction,
     OperationsAction,
 )
 from mad_world.enums import GamePhase
+from mad_world.players import GamePlayer
 from mad_world.util import get_attr_by_type
 
 

@@ -20,7 +20,6 @@ from mad_world.core import (
     BaseAction,
     BiddingAction,
     GameEvent,
-    GamePlayer,
     GameState,
     InitialMessageAction,
     InvalidActionError,
@@ -31,6 +30,7 @@ from mad_world.core import (
     logging,
 )
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
     pareto_optimal_bid,

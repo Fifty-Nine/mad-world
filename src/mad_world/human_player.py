@@ -11,13 +11,13 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from mad_world.core import (
     BaseAction,
     BiddingAction,
-    GamePlayer,
     GameState,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
     OperationsAction,
 )
+from mad_world.players import GamePlayer
 
 if TYPE_CHECKING:
     from collections.abc import Callable

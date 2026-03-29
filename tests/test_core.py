@@ -12,7 +12,6 @@ from mad_world.core import (
     BaseAction,
     BiddingAction,
     GameEvent,
-    GamePlayer,
     GameState,
     InvalidActionError,
     OperationsAction,
@@ -36,6 +35,8 @@ from mad_world.trivial_players import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from mad_world.players import GamePlayer
 
 
 @dataclass
