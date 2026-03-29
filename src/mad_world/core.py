@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import logging as logging
+import logging
 import random
 from typing import TYPE_CHECKING
 
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 
 RANDOM = random.Random()
+CLOCK_WARNING_THRESHOLD = 0.8
 
 
 class PlayerState(BaseModel):
@@ -140,13 +141,20 @@ class GameState(BaseModel):
             ),
         )
 
+    def clock_is_critical(self) -> bool:
+        """Check if the clock has reached a "critical" state."""
+        return (
+            self.doomsday_clock
+            >= CLOCK_WARNING_THRESHOLD * self.rules.max_clock_state
+        )
+
     def describe_state(self) -> str:
         result = (
             f"The current round is now {self.current_round}, "
             f"{self.current_phase.name} phase.\n"
             f"  Clock: {self.doomsday_clock}/"
             f"{self.rules.max_clock_state}"
-            f"{' (CRITICAL)' if self.doomsday_clock >= 20 else ''}\n"
+            f"{' (CRITICAL)' if self.clock_is_critical() else ''}\n"
             "  Players:\n"
         )
         for player in self.players.values():

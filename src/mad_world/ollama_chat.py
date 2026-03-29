@@ -78,7 +78,7 @@ pending_images: list[bytes] = []
 )
 @click.argument("image", type=click.File("rb"))
 def load_image(image: BinaryIO) -> None:
-    global pending_images
+    global pending_images  # noqa: PLW0603
     pending_images += (image.read(),)
 
 

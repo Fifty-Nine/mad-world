@@ -145,9 +145,12 @@ def get_player(
     context: int,
     tokens: int,
     log_dir: Path,
+    logger: logging.Logger | None = None,
 ) -> GamePlayer:
     if model == "human":
         return HumanPlayer(name)
+
+    logger = logger or logging.getLogger("mad_world")
 
     if trivial_player := trivial_players.get_trivial_player(model, name):
         return trivial_player
@@ -161,6 +164,7 @@ def get_player(
         token_limit=tokens,
         temperature=temperature,
         log_dir=log_dir,
+        logger=logger,
     )
 
 
@@ -384,6 +388,7 @@ async def amain(
             alpha_context,
             alpha_tokens,
             log_dir,
+            logger,
         ),
         get_player(
             omega_name,
@@ -394,6 +399,7 @@ async def amain(
             omega_context,
             omega_tokens,
             log_dir,
+            logger,
         ),
     ]
     try:

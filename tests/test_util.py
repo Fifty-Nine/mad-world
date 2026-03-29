@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from typing import Any
 
 import pytest
@@ -130,8 +131,6 @@ def test_get_class_name() -> None:
 
 
 def test_get_subclass_by_name() -> None:
-    from abc import ABC, abstractmethod
-
     class Base(ABC):
         def __init__(self, name: str, value: int = 0) -> None:
             self.name = name

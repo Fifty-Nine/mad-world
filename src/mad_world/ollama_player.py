@@ -28,7 +28,6 @@ from mad_world.core import (
     GameState,
     PlayerState,
     format_results,
-    logging,
 )
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.players import GamePlayer
@@ -41,6 +40,7 @@ from mad_world.util import (
 )
 
 if TYPE_CHECKING:
+    import logging
     from pathlib import Path
 
     from mad_world.crises import GenericCrisis
@@ -302,6 +302,8 @@ class OllamaPlayer(GamePlayer):
         persona: str | None = None,
         log_dir: Path | None = None,
         compression_threshold: float = 0.95,
+        *,
+        logger: logging.Logger,
     ) -> None:
         super().__init__(name)
         self.opponent_name = opponent_name
@@ -323,6 +325,7 @@ class OllamaPlayer(GamePlayer):
             log_dir / f"{self.name}" if log_dir is not None else None
         )
         self.compression_threshold = compression_threshold
+        self.logger = logger
 
     def start_game(self, rules: GameRules) -> None:
         prompt = (
@@ -406,17 +409,18 @@ class OllamaPlayer(GamePlayer):
                 "Act accordingly.\n"
             )
         self.messages.append({"role": "system", "content": prompt})
-        logging.debug(
-            f"==== {self.name} system prompt ====\n"
-            + wrap_text(prompt, width=80)
-            + "\n",
+
+        self.logger.debug(
+            "==== %s system prompt ====\n%s\n",
+            self.name,
+            wrap_text(prompt, width=80),
         )
 
         if self.log_base is None:
             return
 
         settings_path = self.log_base.with_suffix(".model-settings.json")
-        with open(settings_path, "w", encoding="utf-8") as f:
+        with settings_path.open("w", encoding="utf-8") as f:
             json.dump(
                 {"model": self.model, "options": self.prompt_options},
                 indent=2,
@@ -474,7 +478,7 @@ class OllamaPlayer(GamePlayer):
             f"Phase: {game.current_phase.name}\n"
             f"Doomsday clock: {game.doomsday_clock}/"
             f"{game.rules.max_clock_state}"
-            f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
+            f"{' (CRITICAL)' if game.clock_is_critical() else ''}\n"
         )
         budget = escalation_budget(
             game.doomsday_clock,
@@ -549,7 +553,7 @@ class OllamaPlayer(GamePlayer):
             try:
                 response = adapter.validate_json(result or "")
             except ValidationError as e:
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
                         f"{log_header}Failed: {e}\nModel Response: {result}\n"
                         f"Model done reason: {result_obj.done_reason}\n",
@@ -581,7 +585,7 @@ class OllamaPlayer(GamePlayer):
                     {"role": "assistant", "content": result or ""},
                 )
 
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
                         f"{log_header}Model Response:\n{formatted_response}\n",
                     ),
@@ -590,7 +594,7 @@ class OllamaPlayer(GamePlayer):
                 return response
 
             except InvalidActionError as e:
-                logging.debug(
+                self.logger.debug(
                     wrap_text(
                         f"{log_header}Semantic Error: {e}\n"
                         f"Model Response:\n{formatted_response}\n",
@@ -609,12 +613,12 @@ class OllamaPlayer(GamePlayer):
                     },
                 )
 
-        logging.debug(f"{log_header}Failed after {retries} retries.")
+        self.logger.debug("%sFailed after %s retries.", log_header, retries)
         return None
 
     async def _compress_context(self, game: GameState) -> None:
-        logging.debug(
-            f"[{self.name}] Context usage exceeded 95%. Compressing context...",
+        self.logger.debug(
+            "[%s] Context usage exceeded 95%. Compressing context...", self.name
         )
         compression_prompt = (
             "System Directive: Internal Memory Update\n"
@@ -648,8 +652,8 @@ class OllamaPlayer(GamePlayer):
             "strategic intent.\n"
         )
 
-        logging.debug(
-            f"[{self.name}] Compression prompt:\n{compression_prompt}\n",
+        self.logger.debug(
+            "[%s] Compression prompt:\n%s\n", self.name, compression_prompt
         )
 
         temp_messages = [
@@ -666,9 +670,9 @@ class OllamaPlayer(GamePlayer):
         summary = summary_response.message.content or ""
 
         if not summary:
-            logging.warning(
-                f"[{self.name}] Compression failed; "
-                "continuing without context!",
+            self.logger.warning(
+                "[%s] Compression failed; continuing without context!",
+                self.name,
             )
             summary = (
                 "Oops! Unfortunately, an error occurred while summarizing your "
@@ -691,13 +695,14 @@ class OllamaPlayer(GamePlayer):
                 + textwrap.indent(summary, prefix="  ")
             ),
         }
-        logging.debug(
-            f"[{self.name}] Compressed context:\n"
-            f"{compression_system_message['content']}\n",
+        self.logger.debug(
+            "[%s] Compressed context:\n%s\n",
+            self.name,
+            compression_system_message["content"],
         )
 
         self.messages = [original_system_prompt, compression_system_message]
-        logging.debug(f"[{self.name}] Context successfully compressed.")
+        self.logger.debug("[%s] Context successfully compressed.", self.name)
 
     async def _check_and_compress(
         self,
@@ -709,9 +714,12 @@ class OllamaPlayer(GamePlayer):
         total_tokens = prompt_eval_count + eval_count
 
         usage = total_tokens / self.context_size
-        logging.debug(
-            f"[{self.name}] Context usage: {total_tokens}/"
-            f"{self.context_size} ({usage:.1%})",
+        self.logger.debug(
+            "[%s] Context usage: %s/%s (%s)",
+            self.name,
+            total_tokens,
+            self.context_size,
+            f"{usage:.1%}",
         )
         if usage > self.compression_threshold:
             await self._compress_context(game)
@@ -808,10 +816,12 @@ class OllamaPlayer(GamePlayer):
                 "Schema:\n"
             )
 
-        logging.debug(
-            f"==== {self.name} {phase.name} prompt ====\n"
-            f"{wrap_text(prompt)}"
-            f"{'[...]' if schema else ''}\n",
+        self.logger.debug(
+            "==== %s %s prompt ====\n%s%s\n",
+            self.name,
+            phase.name,
+            wrap_text(prompt),
+            "[...]" if schema else "",
         )
         self.messages.append(
             {"role": "user", "content": prompt + (schema or "")},
@@ -977,7 +987,7 @@ class OllamaPlayer(GamePlayer):
             {"role": "assistant", "content": result.message.content or ""},
         )
 
-        logging.debug(
+        self.logger.debug(
             wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
         )
 

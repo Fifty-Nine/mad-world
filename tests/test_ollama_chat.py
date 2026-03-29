@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-import mad_world.ollama_chat as ollama_chat
+from mad_world import ollama_chat
 from mad_world.ollama_chat import (
     QuitProgram,
     exit_loop,
