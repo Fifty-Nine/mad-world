@@ -33,8 +33,7 @@ class QuitProgram(Exception):
 
 
 @click.group()
-def slash_commands() -> None:
-    pass
+def slash_commands() -> None: ...
 
 
 @slash_commands.command(
@@ -143,7 +142,7 @@ def run_chat(log_file: Path, model: str) -> int:
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
             messages: list[dict[str, Any]] = json.load(f)
-    except OSError as e:
+    except (OSError, ValueError, gzip.BadGzipFile) as e:
         click.secho(f"Error loading log file: {e}", fg="red", err=True)
         return 1
 
@@ -197,4 +196,4 @@ def main(log_file: Path, model: str) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main()  # pragma: no cover
