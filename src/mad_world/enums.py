@@ -21,5 +21,5 @@ class GameOverReason(Enum):
 
 
 class StandoffPosture(Enum):
-    BACK_DOWN = (1,)
+    BACK_DOWN = 1
     STAND_FIRM = 2

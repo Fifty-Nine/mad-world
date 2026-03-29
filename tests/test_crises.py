@@ -10,6 +10,7 @@ import pytest
 from mad_world.actions import BaseAction
 from mad_world.crises import (
     STANDOFF_LOSER_GDP_EFFECT,
+    STANDOFF_LOSER_INF_EFFECT,
     STANDOFF_TIE_CLOCK_EFFECT,
     STANDOFF_TIE_GDP_EFFECT,
     STANDOFF_TIE_INF_EFFECT,
@@ -127,7 +128,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.actor.name == "Player1"
         assert event.clock_delta == STANDOFF_WINNER_CLOCK_EFFECT
         assert event.gdp_delta["Player2"] == STANDOFF_LOSER_GDP_EFFECT
-        assert event.influence_delta["Player2"] == STANDOFF_LOSER_GDP_EFFECT
+        assert event.influence_delta["Player2"] == STANDOFF_LOSER_INF_EFFECT
 
     def test_resolve_winner_p2(
         self, crisis: StandoffCrisis, mock_game_state: MagicMock
@@ -146,4 +147,4 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.actor.name == "Player2"
         assert event.clock_delta == STANDOFF_WINNER_CLOCK_EFFECT
         assert event.gdp_delta["Player1"] == STANDOFF_LOSER_GDP_EFFECT
-        assert event.influence_delta["Player1"] == STANDOFF_LOSER_GDP_EFFECT
+        assert event.influence_delta["Player1"] == STANDOFF_LOSER_INF_EFFECT

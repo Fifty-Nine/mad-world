@@ -143,10 +143,10 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         return GameEvent(
             actor=PlayerActor(name=winner),
             description=f"{winner} looked death in the eyes and didn't blink. "
-            "As a result, {loser} has suffered significant losses and is "
+            f"As a result, {loser} has suffered significant losses and is "
             "forced into a costly withdrawal.",
             gdp_delta={loser: STANDOFF_LOSER_GDP_EFFECT},
-            influence_delta={loser: STANDOFF_LOSER_GDP_EFFECT},
+            influence_delta={loser: STANDOFF_LOSER_INF_EFFECT},
             clock_delta=STANDOFF_WINNER_CLOCK_EFFECT,
         )
 
