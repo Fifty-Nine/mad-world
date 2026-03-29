@@ -79,7 +79,6 @@ select = [
     "TID",
     "TRY",
     "UP",
-    "UP",
     "W",
 ]
 ignore = [
