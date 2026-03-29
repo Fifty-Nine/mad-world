@@ -1,5 +1,7 @@
 """Shared pytest fixtures."""
 
+from __future__ import annotations
+
 import pytest
 
 from mad_world.core import GameState, PlayerState

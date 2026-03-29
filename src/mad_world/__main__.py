@@ -1,3 +1,7 @@
+"""Entry point for Mad World."""
+
+from __future__ import annotations
+
 import asyncio
 import logging
 import shutil

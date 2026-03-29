@@ -1,5 +1,7 @@
 """Tests for the utility module."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import pytest

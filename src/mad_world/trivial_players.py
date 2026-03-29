@@ -1,5 +1,7 @@
 """Trivial player implementations for Mad World."""
 
+from __future__ import annotations
+
 import sys
 from typing import override
 

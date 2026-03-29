@@ -1,5 +1,7 @@
 """Utility functions for Mad World."""
 
+from __future__ import annotations
+
 import re
 import textwrap
 from functools import singledispatch

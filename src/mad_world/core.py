@@ -1,5 +1,7 @@
 """Core mechanics for the game."""
 
+from __future__ import annotations
+
 import asyncio
 import copy
 import logging as logging
@@ -86,7 +88,7 @@ class GameEvent(BaseModel):
 
 
 class BaseAction(BaseModel):
-    def validate_semantics(self, game: "GameState", player_name: str) -> None:
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
         pass
 
 

@@ -1,7 +1,9 @@
 """Tests for the core module."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -31,6 +33,9 @@ from mad_world.trivial_players import (
     Pacifist,
     Saboteur,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass

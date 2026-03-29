@@ -1,11 +1,16 @@
 """Rules and static definitions for the game."""
 
+from __future__ import annotations
+
 import textwrap
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
 from mad_world.util import get_doomsday_bids
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def increase_or_decrease(val: int) -> str:
