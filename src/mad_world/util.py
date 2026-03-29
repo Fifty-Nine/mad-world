@@ -157,12 +157,12 @@ def get_doomsday_bids(
 def reorder_schema_properties(
     schema: dict[str, Any], last_key: str
 ) -> dict[str, Any]:
-    """Given the JSON Schema for the action, reorder the properties
-    so that the `action` field always comes last. We also prefix the
+    """Given the JSON Schema for a model, reorder the properties
+    so that the `last_key` field always comes last. We also prefix the
     property keys with numbers (e.g. 00_, 01_) because the underlying
     llama.cpp grammar engine forcefully alphabetizes schema properties.
-    These prefixes are stripped off by `unprefix_keys` before the caller
-    ultimately sees them.
+    Use remove_ordering_prefix to convert an instance matching this schema
+    into one matching the original schema.
     """
 
     def process_obj(obj: dict[str, Any]) -> None:
@@ -170,7 +170,7 @@ def reorder_schema_properties(
             return
 
         old_props = obj["properties"]
-        action = old_props.pop("action", None)
+        last_obj = old_props.pop(last_key, None)
         required = obj.get("required", [])
         new_props = {}
 
@@ -187,12 +187,12 @@ def reorder_schema_properties(
                 required.remove(field)
                 required.append(new_key)
 
-        if action is not None:
-            new_props["99_action"] = action
+        if last_obj is not None:
+            new_props[f"99_{last_key}"] = last_obj
 
-        if "action" in required:
-            required.remove("action")
-            required.append("99_action")
+        if last_key in required:
+            required.remove(last_key)
+            required.append(f"99_{last_key}")
 
         obj["properties"] = new_props
 

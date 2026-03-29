@@ -205,27 +205,27 @@ def test_reorder_schema_properties() -> None:
         },
     }
 
-    reordered = reorder_schema_properties(schema, "action")
+    reordered = reorder_schema_properties(schema, "foo")
 
     # Check main properties
-    assert "00_foo" in reordered["properties"]
+    assert "99_foo" in reordered["properties"]
     assert "01_bar" in reordered["properties"]
-    assert "99_action" in reordered["properties"]
+    assert "00_action" in reordered["properties"]
     assert "foo" not in reordered["properties"]
     assert "bar" not in reordered["properties"]
     assert "action" not in reordered["properties"]
 
     # Check required
-    assert "00_foo" in reordered["required"]
-    assert "99_action" in reordered["required"]
+    assert "99_foo" in reordered["required"]
+    assert "00_action" in reordered["required"]
     assert "foo" not in reordered["required"]
     assert "action" not in reordered["required"]
 
     # Check $defs
     sub = reordered["$defs"]["sub"]
     assert "00_baz" in sub["properties"]
-    assert "99_action" in sub["properties"]
-    assert "99_action" in sub["required"]
+    assert "01_action" in sub["properties"]
+    assert "01_action" in sub["required"]
 
 
 def test_reorder_schema_properties_no_action() -> None:
