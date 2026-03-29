@@ -36,7 +36,9 @@ class PlayerState(BaseModel):
     name: str = Field(description="The name of the player.")
     gdp: int = Field(default=50, description="The player's current GDP.", ge=0)
     influence: int = Field(
-        default=5, description="The player's current influence.", ge=0
+        default=5,
+        description="The player's current influence.",
+        ge=0,
     )
 
 
@@ -44,23 +46,28 @@ class GameState(BaseModel):
     """Tracks the overall state of the game."""
 
     players: dict[str, PlayerState] = Field(
-        description="The state of each player, keyed by their name."
+        description="The state of each player, keyed by their name.",
     )
     doomsday_clock: int = Field(
-        default=0, description="The current value of the doomsday clock.", ge=0
+        default=0,
+        description="The current value of the doomsday clock.",
+        ge=0,
     )
     current_round: int = Field(
-        default=1, description="The current round number."
+        default=1,
+        description="The current round number.",
     )
     current_phase: GamePhase = Field(
         default=GamePhase.OPENING,
         description="The current phase of the game.",
     )
     last_round: int = Field(
-        default=0, description="The number of the previously resolved round."
+        default=0,
+        description="The number of the previously resolved round.",
     )
     last_phase: GamePhase | None = Field(
-        default=None, description="The previously resolved game phase."
+        default=None,
+        description="The previously resolved game phase.",
     )
     rules: GameRules = Field(description="The rules governing this game.")
     event_log: list[GameEvent] = Field(
@@ -85,14 +92,14 @@ class GameState(BaseModel):
             raise InvalidActionError(
                 f"INVALID OPERATION: '{operation_name}' is not a valid "
                 "operation. Allowed operations are: "
-                f"{list(self.rules.allowed_operations.keys())}"
+                f"{list(self.rules.allowed_operations.keys())}",
             )
 
         if player_state.influence < op_def.influence_cost:
             raise InvalidActionError(
                 f"INSUFFICIENT INFLUENCE: '{operation_name}' costs "
                 f"{op_def.influence_cost} influence, but you only "
-                f"have {player_state.influence}."
+                f"have {player_state.influence}.",
             )
 
     def apply_event(self, event: GameEvent) -> None:
@@ -110,7 +117,10 @@ class GameState(BaseModel):
         logging.info(event.description)
 
     def log_message(
-        self, self_player: str, opponent_player: str, action: MessagingAction
+        self,
+        self_player: str,
+        opponent_player: str,
+        action: MessagingAction,
     ) -> None:
         if action.message_to_opponent is None:
             return
@@ -127,7 +137,7 @@ class GameState(BaseModel):
                         indent="  ",
                     )
                 ),
-            )
+            ),
         )
 
     def describe_state(self) -> str:
@@ -175,7 +185,7 @@ class GameState(BaseModel):
                 # get the game state so this is redundant. However,
                 # it's important to have this in the after-game log.
                 secret=True,
-            )
+            ),
         )
 
     def recent_events(self) -> list[GameEvent]:
@@ -204,7 +214,8 @@ class GameState(BaseModel):
 
 
 def init_game(
-    players: list[GamePlayer], rules: GameRules = DEFAULT_RULES
+    players: list[GamePlayer],
+    rules: GameRules = DEFAULT_RULES,
 ) -> GameState:
     return GameState(
         players={
@@ -249,12 +260,13 @@ def process_bid(game: GameState, player_name: str, bid: int) -> None:
             description=desc,
             clock_delta=clock_impact,
             influence_delta={player_name: bid},
-        )
+        ),
     )
 
 
 async def resolve_bidding(
-    game: GameState, players: list[GamePlayer]
+    game: GameState,
+    players: list[GamePlayer],
 ) -> GameState:
     """Resolve the bidding phase of the game."""
 
@@ -262,7 +274,8 @@ async def resolve_bidding(
     omega_name = players[1].name
 
     alpha_action, omega_action = await asyncio.gather(
-        players[0].bid(game), players[1].bid(game)
+        players[0].bid(game),
+        players[1].bid(game),
     )
 
     new_game = copy.deepcopy(game)
@@ -275,7 +288,10 @@ async def resolve_bidding(
 
 
 def resolve_operation(
-    game: GameState, player_name: str, opponent_name: str, operation_name: str
+    game: GameState,
+    player_name: str,
+    opponent_name: str,
+    operation_name: str,
 ) -> GameEvent:
     try:
         game.validate_operation(operation_name, player_name)
@@ -308,13 +324,15 @@ def resolve_operation(
 
 
 async def resolve_operations(
-    game: GameState, players: list[GamePlayer]
+    game: GameState,
+    players: list[GamePlayer],
 ) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
     alpha_action, omega_action = await asyncio.gather(
-        players[0].operations(game), players[1].operations(game)
+        players[0].operations(game),
+        players[1].operations(game),
     )
 
     new_game = copy.deepcopy(game)
@@ -338,7 +356,7 @@ async def resolve_operations(
                 active_name,
                 target_name,
                 active_ops.pop(0),
-            )
+            ),
         )
 
     new_game.advance_phase()
@@ -347,13 +365,15 @@ async def resolve_operations(
 
 
 async def resolve_messaging(
-    game: GameState, players: list[GamePlayer]
+    game: GameState,
+    players: list[GamePlayer],
 ) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
     alpha_msg, omega_msg = await asyncio.gather(
-        players[0].message(game), players[1].message(game)
+        players[0].message(game),
+        players[1].message(game),
     )
 
     new_game = copy.deepcopy(game)
@@ -367,13 +387,15 @@ async def resolve_messaging(
 
 
 async def resolve_opening(
-    game: GameState, players: list[GamePlayer]
+    game: GameState,
+    players: list[GamePlayer],
 ) -> GameState:
     alpha_name = players[0].name
     omega_name = players[1].name
 
     alpha_msg, omega_msg = await asyncio.gather(
-        players[0].initial_message(game), players[1].initial_message(game)
+        players[0].initial_message(game),
+        players[1].initial_message(game),
     )
 
     new_game = copy.deepcopy(game)
@@ -414,7 +436,8 @@ def check_game_over(game: GameState) -> bool:
 
 
 async def game_loop(
-    rules: GameRules, players: list[GamePlayer]
+    rules: GameRules,
+    players: list[GamePlayer],
 ) -> tuple[str | None, GameOverReason, GameState]:
     game = init_game(players, rules)
 
@@ -434,7 +457,7 @@ async def game_loop(
             description=(
                 f"Game over! {winner or 'No one'} won due to {reason.name}."
             ),
-        )
+        ),
     )
 
     for player in players:
@@ -444,7 +467,9 @@ async def game_loop(
 
 
 def format_results(
-    winner: str | None, reason: GameOverReason, game: GameState
+    winner: str | None,
+    reason: GameOverReason,
+    game: GameState,
 ) -> str:
     result = (
         "==== GAME OVER ====\n"

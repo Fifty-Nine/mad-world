@@ -330,7 +330,8 @@ async def test_diplomat_message() -> None:
     ],
 )
 async def test_generic_crisis_resolution(
-    name: str, posture: StandoffPosture
+    name: str,
+    posture: StandoffPosture,
 ) -> None:
     player = get_trivial_player(name, name)
 

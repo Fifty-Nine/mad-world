@@ -18,22 +18,26 @@ class OperationDefinition(BaseModel):
 
     name: str = Field(description="The name of the operation.")
     description: str = Field(
-        description="A brief description of the operation."
+        description="A brief description of the operation.",
     )
     influence_cost: int = Field(
-        description="The influence cost of the operation."
+        description="The influence cost of the operation.",
     )
     enemy_influence_effect: int = Field(
-        description="The effect on the opposing player's influence.", default=0
+        description="The effect on the opposing player's influence.",
+        default=0,
     )
     clock_effect: int = Field(
-        description="The clock impact of the operation.", default=0
+        description="The clock impact of the operation.",
+        default=0,
     )
     friendly_gdp_effect: int = Field(
-        description="The GDP impact on the acting player.", default=0
+        description="The GDP impact on the acting player.",
+        default=0,
     )
     enemy_gdp_effect: int = Field(
-        description="The GDP impact on the opposing player.", default=0
+        description="The GDP impact on the opposing player.",
+        default=0,
     )
 
     @staticmethod
@@ -57,13 +61,19 @@ class OperationDefinition(BaseModel):
                 increase_or_decrease,
             )
             result += self.format_one(
-                self.clock_effect, "Clock", increase_or_decrease
+                self.clock_effect,
+                "Clock",
+                increase_or_decrease,
             )
             result += self.format_one(
-                self.friendly_gdp_effect, "GDP", increase_or_decrease
+                self.friendly_gdp_effect,
+                "GDP",
+                increase_or_decrease,
             )
             result += self.format_one(
-                self.enemy_gdp_effect, "Opponent GDP", increase_or_decrease
+                self.enemy_gdp_effect,
+                "Opponent GDP",
+                increase_or_decrease,
             )
         else:
             result += "  Cost: everything\n"
@@ -160,19 +170,24 @@ class GameRules(BaseModel):
 
     initial_gdp: int = Field(default=50, description="Initial GDP value.")
     initial_influence: int = Field(
-        default=5, description="Initial influence value."
+        default=5,
+        description="Initial influence value.",
     )
     initial_clock_state: int = Field(
-        default=0, description="Initial doomsday clock value."
+        default=0,
+        description="Initial doomsday clock value.",
     )
     max_clock_state: int = Field(
-        default=30, description="Maximum doomsday clock value."
+        default=30,
+        description="Maximum doomsday clock value.",
     )
     round_count: int = Field(
-        default=10, description="Maximum number of rounds."
+        default=10,
+        description="Maximum number of rounds.",
     )
     de_escalate_impact: int = Field(
-        default=-1, description="The clock impact of a de-escalatory bid."
+        default=-1,
+        description="The clock impact of a de-escalatory bid.",
     )
     allowed_operations: dict[str, OperationDefinition] = Field(
         default=DEFAULT_OPERATIONS,
@@ -184,7 +199,8 @@ class GameRules(BaseModel):
     )
 
     def get_doomsday_bids(
-        self, clock: int
+        self,
+        clock: int,
     ) -> tuple[list[tuple[int, int]], list[int]]:
         """Compute bids that are risky or deadly given the current clock.
 

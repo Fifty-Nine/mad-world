@@ -177,7 +177,9 @@ def get_player(
     help="Persona prompt for player 1.",
 )
 @click.option(
-    "--alpha-temperature", default=0.0, help="Temperature for player 1 model."
+    "--alpha-temperature",
+    default=0.0,
+    help="Temperature for player 1 model.",
 )
 @click.option(
     "--alpha-context",
@@ -190,7 +192,9 @@ def get_player(
     help="Output token budget for player 1 model.",
 )
 @click.option(
-    "--omega-name", default="Southern Imperium", help="Name of player 2."
+    "--omega-name",
+    default="Southern Imperium",
+    help="Name of player 2.",
 )
 @click.option(
     "--omega-model",
@@ -203,7 +207,9 @@ def get_player(
     help="Persona prompt for player 2.",
 )
 @click.option(
-    "--omega-temperature", default=0.0, help="Temperature for player 2 model."
+    "--omega-temperature",
+    default=0.0,
+    help="Temperature for player 2 model.",
 )
 @click.option(
     "--omega-context",
@@ -261,7 +267,7 @@ def main(
             omega_tokens,
             verbosity,
             log_dir_base=log_dir,
-        )
+        ),
     )
 
 
@@ -359,7 +365,7 @@ async def amain(
     logging.info(
         "Game starting\n"
         f"Player 1: {alpha_name}, {alpha_persona} ({alpha_model})\n"
-        f"Player 2: {omega_name}, {omega_persona} ({omega_model})"
+        f"Player 2: {omega_name}, {omega_persona} ({omega_model})",
     )
 
     players = [

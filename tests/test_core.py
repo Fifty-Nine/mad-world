@@ -78,7 +78,8 @@ TEST_CASES = [
 )
 async def test_game_outcomes(scenario: Scenario) -> None:
     winner, reason, _event_log = await game_loop(
-        GameRules(), [scenario.alpha("Alpha"), scenario.omega("Omega")]
+        GameRules(),
+        [scenario.alpha("Alpha"), scenario.omega("Omega")],
     )
 
     assert winner == scenario.winner
@@ -117,7 +118,7 @@ def test_operations_action_validate_semantics_insufficient_influence(
         "domestic-investment"
     ].influence_cost = 3
     action = OperationsAction(
-        operations=["domestic-investment", "domestic-investment"]
+        operations=["domestic-investment", "domestic-investment"],
     )
     with pytest.raises(InvalidActionError, match="INSUFFICIENT INFLUENCE"):
         action.validate_semantics(basic_game, "Alpha")
@@ -200,7 +201,7 @@ def test_recent_events(basic_game: GameState) -> None:
             description="other",
             current_round=1,
             current_phase=GamePhase.OPERATIONS,
-        )
+        ),
     )
 
     recent = basic_game.recent_events()

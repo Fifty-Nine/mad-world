@@ -23,7 +23,7 @@ style = Style.from_dict(
     {
         "user": "#ansicyan bold",
         "assistant": "#ansigreen bold",
-    }
+    },
 )
 
 
@@ -38,7 +38,9 @@ def slash_commands() -> None:
 
 
 @slash_commands.command(
-    name="quit", help="Exit the application.", add_help_option=False
+    name="quit",
+    help="Exit the application.",
+    add_help_option=False,
 )
 def exit_loop() -> None:
     raise QuitProgram(0)
@@ -117,7 +119,7 @@ def prompt_loop(
             "role": "user",
             "content": user_input,
             "images": copy.deepcopy(pending_images),
-        }
+        },
     )
     pending_images.clear()
 
@@ -162,7 +164,7 @@ def run_chat(log_file: Path, model: str) -> int:
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
     session: PromptSession[str] = PromptSession(
-        history=FileHistory(str(history_path))
+        history=FileHistory(str(history_path)),
     )
 
     while True:
@@ -171,7 +173,8 @@ def run_chat(log_file: Path, model: str) -> int:
 
 @click.command()
 @click.argument(
-    "log_file", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+    "log_file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
 @click.option(
     "--model",

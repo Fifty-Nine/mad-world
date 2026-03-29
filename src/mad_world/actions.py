@@ -44,14 +44,14 @@ class BiddingAction(BaseAction):
         "the doomsday clock by the same amount. The bid must be one of the "
         "values allowed by the rules (see the 'allowed_bids' field in the "
         "rules) or you will automatically bid the maximum possible amount. "
-        "A bid of 0 is de-escalatory and reduces the doomsday clock by 1."
+        "A bid of 0 is de-escalatory and reduces the doomsday clock by 1.",
     )
 
     def validate_semantics(self, game: GameState, player_name: str) -> None:
         if self.bid not in game.rules.allowed_bids:
             raise InvalidActionError(
                 f"INVALID BID: Your bid of {self.bid} is not allowed. "
-                f"Allowed bids are {game.rules.allowed_bids}."
+                f"Allowed bids are {game.rules.allowed_bids}.",
             )
 
 
@@ -59,7 +59,7 @@ class OperationsAction(BaseAction):
     operations: list[str] = Field(
         description="The set of operations to conduct this turn. Each string "
         "must be a valid operation allowed by the rules. You must "
-        "have sufficient influence to conduct the operation."
+        "have sufficient influence to conduct the operation.",
     )
 
     def validate_semantics(self, game: GameState, player_name: str) -> None:
@@ -75,5 +75,5 @@ class OperationsAction(BaseAction):
             raise InvalidActionError(
                 "INSUFFICIENT INFLUENCE: The submitted operations require "
                 f"a total of {total_cost} influence, but you only have "
-                f"{player_state.influence} available."
+                f"{player_state.influence} available.",
             )

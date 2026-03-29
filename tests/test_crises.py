@@ -36,7 +36,9 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
 
     @pytest.mark.asyncio
     async def test_run_generic(
-        self, crisis: C, mock_game_state: MagicMock
+        self,
+        crisis: C,
+        mock_game_state: MagicMock,
     ) -> None:
         """Test the run method which gathers player actions."""
         p1 = MagicMock()
@@ -72,7 +74,9 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert cautious.posture == StandoffPosture.BACK_DOWN
 
     def test_resolve_doomsday(
-        self, crisis: StandoffCrisis, mock_game_state: MagicMock
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
     ) -> None:
         """Test resolution when both players stand firm."""
         actions = {
@@ -91,7 +95,9 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.gdp_delta["Player2"] == -1000
 
     def test_resolve_tie(
-        self, crisis: StandoffCrisis, mock_game_state: MagicMock
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
     ) -> None:
         """Test resolution when both players back down."""
         actions = {
@@ -112,7 +118,9 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.influence_delta["Player2"] == STANDOFF_TIE_INF_EFFECT
 
     def test_resolve_winner_p1(
-        self, crisis: StandoffCrisis, mock_game_state: MagicMock
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
     ) -> None:
         """Test resolution when Player1 stands firm and Player2 backs down."""
         actions = {
@@ -131,7 +139,9 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.influence_delta["Player2"] == STANDOFF_LOSER_INF_EFFECT
 
     def test_resolve_winner_p2(
-        self, crisis: StandoffCrisis, mock_game_state: MagicMock
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
     ) -> None:
         """Test resolution when Player2 stands firm and Player1 backs down."""
         actions = {

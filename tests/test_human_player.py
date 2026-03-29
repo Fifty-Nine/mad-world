@@ -22,7 +22,9 @@ if TYPE_CHECKING:
 
 @contextlib.contextmanager
 def mock_human_input(
-    player: HumanPlayer, return_value: Any = None, side_effect: Any = None
+    player: HumanPlayer,
+    return_value: Any = None,
+    side_effect: Any = None,
 ) -> Generator[AsyncMock, None, None]:
     """Context manager to mock human player input."""
     mock_prompt = AsyncMock(return_value=return_value, side_effect=side_effect)
@@ -95,7 +97,9 @@ async def test_human_player_prompt_user_invalid_then_valid(
     side_effect = ["error", "valid"]
     with mock_human_input(player, side_effect=side_effect):
         action = await player.retry_prompt(
-            basic_game, "Prompt: ", parse_with_error
+            basic_game,
+            "Prompt: ",
+            parse_with_error,
         )
 
     assert action.message_to_opponent == "valid"
@@ -112,7 +116,9 @@ async def test_human_player_prompt_user_invalid_semantics(
     side_effect = ["10", "2"]
     with mock_human_input(player, side_effect=side_effect):
         action = await player.retry_prompt(
-            basic_game, "Bid: ", lambda t: BiddingAction(bid=int(t))
+            basic_game,
+            "Bid: ",
+            lambda t: BiddingAction(bid=int(t)),
         )
 
     assert action.bid == 2

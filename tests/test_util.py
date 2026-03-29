@@ -113,7 +113,10 @@ def test_escalation_budget(clock: int, max_clock: int, bid: int) -> None:
     ],
 )
 def test_pareto_optimal_bid(
-    clock: int, max_clock: int, allowed_bids: list[int], bid: int
+    clock: int,
+    max_clock: int,
+    allowed_bids: list[int],
+    bid: int,
 ) -> None:
     assert pareto_optimal_bid(clock, max_clock, allowed_bids) == bid
 
@@ -231,7 +234,7 @@ def test_reorder_schema_properties() -> None:
                     "action": {"type": "string"},
                 },
                 "required": ["action"],
-            }
+            },
         },
     }
 

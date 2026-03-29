@@ -38,26 +38,36 @@ output-format = "concise"
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
-    "W",
-    "N",
-    "UP",
-    "B",
     "A",
-    "C4",
-    "SIM",
-    "RUF",
-    "TCH",
-    "UP",
-    "ERA",
     "ANN",
     "ASYNC",
+    "B",
     "BLE",
-    "FBT"
+    "C4",
+    "COM",
+    "E",
+    "ERA",
+    "F",
+    "FBT",
+    "I",
+    "N",
+    "RUF",
+    "SIM",
+    "TCH",
+    "UP",
+    "UP",
+    "W",
 ]
-ignore = ["N818", "ANN401"]
+ignore = [
+    # error-suffix-on-exception-name; poorly implemented dogmatic rule
+    "N818",
+
+    # any-type; principled but impractical
+    "ANN401",
+
+    # missing-trailing-comma; incompatible with formatter
+    "COM812"
+]
 extend-safe-fixes = ["TC001", "TC002", "TC003", "TC004"]
 
 [tool.ruff.lint.isort]

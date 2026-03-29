@@ -56,7 +56,9 @@ class GamePlayer(ABC):
 
     @abstractmethod
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
         pass  # pragma: no cover
 

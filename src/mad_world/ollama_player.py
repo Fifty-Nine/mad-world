@@ -56,7 +56,7 @@ class ActionResponse(BaseModel):
             "their words? Did you make any mistakes? What are you "
             "going to do now? Limit to 10-20 brief thoughts, one "
             "thought per list item."
-        )
+        ),
     )
     action: BaseAction
 
@@ -69,7 +69,8 @@ class ActionResponse(BaseModel):
     @classmethod
     def format_schema(cls) -> dict[str, Any]:
         return reorder_schema_properties(
-            cls.model_json_schema(), last_key="action"
+            cls.model_json_schema(),
+            last_key="action",
         )
 
     @classmethod
@@ -181,11 +182,11 @@ class InitialMessageResponse(ActionResponse):
             "must align with your persona--e.g. you cannot claim to be highly "
             "risk-averse while also including first-strike in your contingency "
             "plans."
-        )
+        ),
     )
 
     action: InitialMessageAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -200,7 +201,7 @@ class MessagingResponse(ActionResponse):
         ],
     )
     action: MessagingAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -223,7 +224,7 @@ class BiddingResponse(ActionResponse):
             "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
-        )
+        ),
     )
     tactical_plan: str = Field(
         description=(
@@ -232,10 +233,10 @@ class BiddingResponse(ActionResponse):
             "If your intended bid is greater than the pareto-optimal bid "
             "OR is one of the listed bids that may trigger MAD, you MUST "
             "justify why the risk is worth the reward."
-        )
+        ),
     )
     action: BiddingAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -258,7 +259,7 @@ class OperationsResponse(ActionResponse):
             "State your assigned persona and briefly explain "
             "how this persona would approach the current GDP "
             "difference and escalation budget."
-        )
+        ),
     )
     resource_audit: str = Field(
         description=(
@@ -282,10 +283,10 @@ class OperationsResponse(ActionResponse):
             "If your intended operations will increase the clock greater "
             "than your escalation budget OR if they might trigger MAD, you "
             "MUST justify why the risk is worth the reward."
-        )
+        ),
     )
     action: OperationsAction = Field(
-        description="Your finalized action for this phase."
+        description="Your finalized action for this phase.",
     )
 
 
@@ -366,7 +367,9 @@ class OllamaPlayer(GamePlayer):
             "choose to undertake:\n"
         )
         prompt += self.format_allowed_ops(
-            avail_inf=None, rules=rules, indent="        "
+            avail_inf=None,
+            rules=rules,
+            indent="        ",
         )
         prompt += (
             "\nYou will receive a prompt detailing the current Phase and Game "
@@ -406,7 +409,7 @@ class OllamaPlayer(GamePlayer):
         logging.debug(
             f"==== {self.name} system prompt ====\n"
             + wrap_text(prompt, width=80)
-            + "\n"
+            + "\n",
         )
 
         if self.log_base is None:
@@ -437,7 +440,9 @@ class OllamaPlayer(GamePlayer):
 
     @staticmethod
     def format_allowed_ops(
-        avail_inf: int | None, rules: GameRules, indent: str = ""
+        avail_inf: int | None,
+        rules: GameRules,
+        indent: str = "",
     ) -> str:
         ops = (
             op
@@ -472,7 +477,8 @@ class OllamaPlayer(GamePlayer):
             f"{' (CRITICAL)' if game.doomsday_clock >= 20 else ''}\n"
         )
         budget = escalation_budget(
-            game.doomsday_clock, game.rules.max_clock_state
+            game.doomsday_clock,
+            game.rules.max_clock_state,
         )
         result += f"Escalation budget: {budget}\nPlayers:\n"
 
@@ -546,8 +552,8 @@ class OllamaPlayer(GamePlayer):
                 logging.debug(
                     wrap_text(
                         f"{log_header}Failed: {e}\nModel Response: {result}\n"
-                        f"Model done reason: {result_obj.done_reason}\n"
-                    )
+                        f"Model done reason: {result_obj.done_reason}\n",
+                    ),
                 )
                 self.messages.append(
                     {
@@ -560,24 +566,25 @@ class OllamaPlayer(GamePlayer):
                         "Please ensure you limit your internal "
                         "monologue to a few paragraphs and follow "
                         "the provided schema exactly.",
-                    }
+                    },
                 )
                 continue
 
             action = response.action
             formatted_response = textwrap.indent(
-                self.dump_model_response(response), prefix="  "
+                self.dump_model_response(response),
+                prefix="  ",
             )
             try:
                 action.validate_semantics(game, self.name)
                 self.messages.append(
-                    {"role": "assistant", "content": result or ""}
+                    {"role": "assistant", "content": result or ""},
                 )
 
                 logging.debug(
                     wrap_text(
-                        f"{log_header}Model Response:\n{formatted_response}\n"
-                    )
+                        f"{log_header}Model Response:\n{formatted_response}\n",
+                    ),
                 )
                 await self._check_and_compress(result_obj, game)
                 return response
@@ -586,8 +593,8 @@ class OllamaPlayer(GamePlayer):
                 logging.debug(
                     wrap_text(
                         f"{log_header}Semantic Error: {e}\n"
-                        f"Model Response:\n{formatted_response}\n"
-                    )
+                        f"Model Response:\n{formatted_response}\n",
+                    ),
                 )
                 self.messages.append(
                     {
@@ -599,7 +606,7 @@ class OllamaPlayer(GamePlayer):
                         "But it resulted in the following error:\n"
                         f"{e}\n"
                         "Please correct your mistake and try again.",
-                    }
+                    },
                 )
 
         logging.debug(f"{log_header}Failed after {retries} retries.")
@@ -607,7 +614,7 @@ class OllamaPlayer(GamePlayer):
 
     async def _compress_context(self, game: GameState) -> None:
         logging.debug(
-            f"[{self.name}] Context usage exceeded 95%. Compressing context..."
+            f"[{self.name}] Context usage exceeded 95%. Compressing context...",
         )
         compression_prompt = (
             "System Directive: Internal Memory Update\n"
@@ -642,7 +649,7 @@ class OllamaPlayer(GamePlayer):
         )
 
         logging.debug(
-            f"[{self.name}] Compression prompt:\n{compression_prompt}\n"
+            f"[{self.name}] Compression prompt:\n{compression_prompt}\n",
         )
 
         temp_messages = [
@@ -660,7 +667,8 @@ class OllamaPlayer(GamePlayer):
 
         if not summary:
             logging.warning(
-                f"[{self.name}] Compression failed; continuing without context!"
+                f"[{self.name}] Compression failed; "
+                "continuing without context!",
             )
             summary = (
                 "Oops! Unfortunately, an error occurred while summarizing your "
@@ -685,14 +693,16 @@ class OllamaPlayer(GamePlayer):
         }
         logging.debug(
             f"[{self.name}] Compressed context:\n"
-            f"{compression_system_message['content']}\n"
+            f"{compression_system_message['content']}\n",
         )
 
         self.messages = [original_system_prompt, compression_system_message]
         logging.debug(f"[{self.name}] Context successfully compressed.")
 
     async def _check_and_compress(
-        self, response_obj: Any, game: GameState
+        self,
+        response_obj: Any,
+        game: GameState,
     ) -> None:
         prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
         eval_count = getattr(response_obj, "eval_count", 0) or 0
@@ -701,7 +711,7 @@ class OllamaPlayer(GamePlayer):
         usage = total_tokens / self.context_size
         logging.debug(
             f"[{self.name}] Context usage: {total_tokens}/"
-            f"{self.context_size} ({usage:.1%})"
+            f"{self.context_size} ({usage:.1%})",
         )
         if usage > self.compression_threshold:
             await self._compress_context(game)
@@ -787,7 +797,10 @@ class OllamaPlayer(GamePlayer):
         return game.players[self.name].influence
 
     def add_prompt(
-        self, prompt: str, phase: GamePhase, schema: str | None = None
+        self,
+        prompt: str,
+        phase: GamePhase,
+        schema: str | None = None,
     ) -> None:
         if schema is not None:
             prompt += (
@@ -798,10 +811,10 @@ class OllamaPlayer(GamePlayer):
         logging.debug(
             f"==== {self.name} {phase.name} prompt ====\n"
             f"{wrap_text(prompt)}"
-            f"{'[...]' if schema else ''}\n"
+            f"{'[...]' if schema else ''}\n",
         )
         self.messages.append(
-            {"role": "user", "content": prompt + (schema or "")}
+            {"role": "user", "content": prompt + (schema or "")},
         )
 
     @override
@@ -905,14 +918,19 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
         # FIXME
         return crisis.get_default_action(aggressive=True)
 
     @override
     async def game_over(
-        self, game: GameState, winner: str | None, reason: GameOverReason
+        self,
+        game: GameState,
+        winner: str | None,
+        reason: GameOverReason,
     ) -> None:
         prompt = format_results(winner, reason, game)
         prompt += self.format_event_log(game.recent_events())
@@ -956,11 +974,11 @@ class OllamaPlayer(GamePlayer):
             options=self.prompt_options,
         )
         self.messages.append(
-            {"role": "assistant", "content": result.message.content or ""}
+            {"role": "assistant", "content": result.message.content or ""},
         )
 
         logging.debug(
-            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}")
+            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
         )
 
         if self.log_base is None:

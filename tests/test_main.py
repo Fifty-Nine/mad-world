@@ -77,37 +77,79 @@ def test_get_player(tmp_path: Path) -> None:
     log_dir.mkdir()
 
     player_human = get_player(
-        "Alpha", "Omega", "human", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "human",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
     assert isinstance(player_human, HumanPlayer)
 
     # Test trivial players
     player_crazy = get_player(
-        "Alpha", "Omega", "CrazyIvan", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "CrazyIvan",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
 
     assert isinstance(player_crazy, CrazyIvan)
     assert player_crazy.name == "Alpha"
 
     player_crazy_snake = get_player(
-        "Alpha", "Omega", "crazy_ivan", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "crazy_ivan",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
     assert isinstance(player_crazy_snake, CrazyIvan)
     assert player_crazy_snake.name == "Alpha"
 
     player_crazy_kebab = get_player(
-        "Alpha", "Omega", "crazy-ivan", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "crazy-ivan",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
     assert isinstance(player_crazy_kebab, CrazyIvan)
 
     player_pacifist = get_player(
-        "Alpha", "Omega", "pacifist", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "pacifist",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
 
     assert isinstance(player_pacifist, Pacifist)
 
     player_ollama = get_player(
-        "Alpha", "Omega", "gemma3:12b", "Persona", 0.0, 1, 1, log_dir
+        "Alpha",
+        "Omega",
+        "gemma3:12b",
+        "Persona",
+        0.0,
+        1,
+        1,
+        log_dir,
     )
     assert isinstance(player_ollama, OllamaPlayer)
     assert player_ollama.model == "gemma3:12b"
@@ -150,7 +192,9 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
 @patch("mad_world.__main__.game_loop", new_callable=AsyncMock)
 @patch("mad_world.__main__.shutil.rmtree")
 async def test_amain_keyboard_interrupt(
-    mock_rmtree: MagicMock, mock_game_loop: AsyncMock, tmp_path: Path
+    mock_rmtree: MagicMock,
+    mock_game_loop: AsyncMock,
+    tmp_path: Path,
 ) -> None:
     mock_game_loop.side_effect = KeyboardInterrupt()
 

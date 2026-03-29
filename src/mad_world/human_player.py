@@ -40,7 +40,7 @@ class HumanPlayer(GamePlayer):
 
     def start_game(self, game: GameRules) -> None:
         self.operations_completer = WordCompleter(
-            list(game.allowed_operations.keys())
+            list(game.allowed_operations.keys()),
         )
 
     async def prompt_user[T: BaseAction](
@@ -53,7 +53,8 @@ class HumanPlayer(GamePlayer):
         try:
             with patch_stdout():
                 user_input = await self.session.prompt_async(
-                    prompt, completer=completer
+                    prompt,
+                    completer=completer,
                 )
 
             action = parse(user_input)
@@ -99,7 +100,7 @@ class HumanPlayer(GamePlayer):
             game,
             "Enter a message to your opponent (or press Enter to skip): ",
             lambda m: MessagingAction(
-                message_to_opponent=m.strip() if m.strip() else None
+                message_to_opponent=m.strip() if m.strip() else None,
             ),
         )
 
@@ -109,7 +110,9 @@ class HumanPlayer(GamePlayer):
         print(f"\n[{self.name}] Bidding Phase")
         print(f"Allowed bids: {game.rules.allowed_bids}")
         return await self.retry_prompt(
-            game, "Enter your bid: ", lambda text: BiddingAction(bid=int(text))
+            game,
+            "Enter your bid: ",
+            lambda text: BiddingAction(bid=int(text)),
         )
 
     @override
@@ -143,7 +146,9 @@ class HumanPlayer(GamePlayer):
 
     @override
     async def crisis[T: BaseAction](
-        self, game: GameState, crisis: GenericCrisis[T]
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
     ) -> T:
         # FIXME
         return crisis.get_default_action(aggressive=True)  # pragma: no cover
