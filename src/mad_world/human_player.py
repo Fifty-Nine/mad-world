@@ -58,13 +58,14 @@ class HumanPlayer(GamePlayer):
             action = parse(user_input)
             action.validate_semantics(game, self.name)
 
-            return action
-
         except ValueError:
             print("Invalid entry. Please enter a valid response.")
 
         except InvalidActionError as e:
             print(e)
+
+        else:
+            return action
 
         return None
 
@@ -98,7 +99,7 @@ class HumanPlayer(GamePlayer):
             game,
             "Enter a message to your opponent (or press Enter to skip): ",
             lambda m: MessagingAction(
-                message_to_opponent=m.strip() if m.strip() else None,
+                message_to_opponent=m.strip() or None,
             ),
         )
 

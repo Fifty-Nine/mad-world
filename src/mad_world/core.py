@@ -12,7 +12,9 @@ from pydantic import BaseModel, Field
 
 from mad_world.actions import (
     BiddingAction,
+    InsufficientInfluenceError,
     InvalidActionError,
+    InvalidOperationError,
     MessagingAction,
 )
 from mad_world.enums import GameOverReason, GamePhase
@@ -90,17 +92,16 @@ class GameState(BaseModel):
         player_state = self.players[player_name]
         op_def = self.rules.allowed_operations.get(operation_name)
         if op_def is None:
-            raise InvalidActionError(
-                f"INVALID OPERATION: '{operation_name}' is not a valid "
-                "operation. Allowed operations are: "
-                f"{list(self.rules.allowed_operations.keys())}",
+            raise InvalidOperationError(
+                operation=operation_name,
+                allowed=list(self.rules.allowed_operations.keys()),
             )
 
         if player_state.influence < op_def.influence_cost:
-            raise InvalidActionError(
-                f"INSUFFICIENT INFLUENCE: '{operation_name}' costs "
-                f"{op_def.influence_cost} influence, but you only "
-                f"have {player_state.influence}.",
+            raise InsufficientInfluenceError(
+                cost=op_def.influence_cost,
+                available=player_state.influence,
+                operation=operation_name,
             )
 
     def apply_event(self, event: GameEvent) -> None:

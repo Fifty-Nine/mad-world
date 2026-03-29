@@ -11,6 +11,7 @@ from mad_world.actions import (
     BaseAction,
     BiddingAction,
     InvalidActionError,
+    InvalidBiddingActionError,
     OperationsAction,
 )
 from mad_world.core import (
@@ -107,7 +108,7 @@ def test_bidding_action_validate_semantics_invalid_bid(
 ) -> None:
     basic_game.rules.allowed_bids = [0, 1, 2, 3]
     action = BiddingAction(bid=4)
-    with pytest.raises(InvalidActionError, match="INVALID BID"):
+    with pytest.raises(InvalidBiddingActionError, match="INVALID BID"):
         action.validate_semantics(basic_game, "Alpha")
 
 

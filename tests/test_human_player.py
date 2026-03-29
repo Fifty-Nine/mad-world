@@ -91,7 +91,7 @@ async def test_human_player_prompt_user_invalid_then_valid(
 
     def parse_with_error(t: str) -> InitialMessageAction:
         if t == "error":
-            raise ValueError("test error")
+            raise ValueError("test error")  # noqa: TRY003
         return InitialMessageAction(message_to_opponent=t)
 
     side_effect = ["error", "valid"]

@@ -591,7 +591,6 @@ class OllamaPlayer(GamePlayer):
                     ),
                 )
                 await self._check_and_compress(result_obj, game)
-                return response
 
             except InvalidActionError as e:
                 self.logger.debug(
@@ -612,6 +611,9 @@ class OllamaPlayer(GamePlayer):
                         "Please correct your mistake and try again.",
                     },
                 )
+
+            else:
+                return response
 
         self.logger.debug("%sFailed after %s retries.", log_header, retries)
         return None
