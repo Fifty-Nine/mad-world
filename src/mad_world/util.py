@@ -2,6 +2,7 @@
 
 import re
 import textwrap
+from functools import singledispatch
 from typing import Any
 
 from more_itertools import partition
@@ -151,3 +152,80 @@ def get_doomsday_bids(
         if bids_trigger_mad(bid, max_bid)
     ]
     return risky, list(deadly)
+
+
+def reorder_schema_properties(
+    schema: dict[str, Any], last_key: str
+) -> dict[str, Any]:
+    """Given the JSON Schema for a model, reorder the properties
+    so that the `last_key` field always comes last. We also prefix the
+    property keys with numbers (e.g. 00_, 01_) because the underlying
+    llama.cpp grammar engine forcefully alphabetizes schema properties.
+    Use remove_ordering_prefix to convert an instance matching this schema
+    into one matching the original schema.
+    """
+
+    def process_obj(obj: dict[str, Any]) -> None:
+        if "properties" not in obj:
+            return
+
+        old_props = obj["properties"]
+        last_obj = old_props.pop(last_key, None)
+        required = obj.get("required", [])
+        new_props = {}
+
+        for i, field in enumerate(old_props.keys()):
+            field_obj = old_props[field]
+            new_key = f"{i:02d}_{field}"
+
+            new_props[new_key] = field_obj
+
+            # I want to fix this but it's currently more trouble than
+            # it's worth.
+            # ast-grep-ignore: python-excessive-nesting
+            if field in required:
+                required.remove(field)
+                required.append(new_key)
+
+        if last_obj is not None:
+            new_props[f"99_{last_key}"] = last_obj
+
+        if last_key in required:
+            required.remove(last_key)
+            required.append(f"99_{last_key}")
+
+        obj["properties"] = new_props
+
+    process_obj(schema)
+    for def_schema in schema.get("$defs", {}).values():
+        process_obj(def_schema)
+
+    return schema
+
+
+ORDERING_PREFIX_RE = re.compile(r"^\d\d_")
+
+
+@singledispatch
+def remove_ordering_prefix(obj: Any, is_key: bool = False) -> Any:
+    return obj
+
+
+@remove_ordering_prefix.register
+def _(obj: str, is_key: bool = False) -> str:
+    return ORDERING_PREFIX_RE.sub("", obj) if is_key else obj
+
+
+@remove_ordering_prefix.register(dict)
+def _(obj: dict[Any, Any], is_key: bool = False) -> dict[Any, Any]:
+    return {
+        remove_ordering_prefix(k, is_key=True): remove_ordering_prefix(
+            v, is_key=False
+        )
+        for k, v in obj.items()
+    }
+
+
+@remove_ordering_prefix.register(list)
+def _(obj: list[Any], is_key: bool = False) -> list[Any]:
+    return [remove_ordering_prefix(o, is_key=False) for o in obj]

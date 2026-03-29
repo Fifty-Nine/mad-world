@@ -2,7 +2,8 @@
 
 import pytest
 
-from mad_world.core import GamePhase, init_game
+from mad_world.core import init_game
+from mad_world.enums import GamePhase
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,

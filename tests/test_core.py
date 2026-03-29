@@ -10,8 +10,6 @@ from mad_world.core import (
     BaseAction,
     BiddingAction,
     GameEvent,
-    GameOverReason,
-    GamePhase,
     GamePlayer,
     GameState,
     InvalidActionError,
@@ -24,6 +22,7 @@ from mad_world.core import (
     process_bid,
     resolve_operation,
 )
+from mad_world.enums import GameOverReason, GamePhase
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,

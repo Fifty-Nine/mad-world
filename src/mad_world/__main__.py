@@ -173,7 +173,7 @@ def get_player(
 )
 @click.option(
     "--alpha-context",
-    default=2**15,
+    default=2**17,
     help="Context window size for player 1 model.",
 )
 @click.option(
@@ -199,7 +199,7 @@ def get_player(
 )
 @click.option(
     "--omega-context",
-    default=2**15,
+    default=2**17,
     help="Context window size for player 2 model.",
 )
 @click.option(

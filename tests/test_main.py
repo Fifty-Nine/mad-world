@@ -15,7 +15,7 @@ from mad_world.__main__ import (
     random_persona,
     setup_logging,
 )
-from mad_world.core import GameOverReason
+from mad_world.enums import GameOverReason
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.trivial_players import CrazyIvan, Pacifist
