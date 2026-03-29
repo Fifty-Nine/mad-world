@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 import textwrap
+from abc import ABC
 from functools import singledispatch
-from typing import Any
+from typing import Any, cast
 
 from more_itertools import partition
 
@@ -102,29 +103,40 @@ def get_class_name(name: str) -> str:
     )
 
 
-def get_attr_by_type[T](
-    namespace: Any, expected_type: Any, name: str
-) -> type[T] | None:
+def get_subclass_by_name[T: ABC](
+    module_name: str,
+    type_name: str,
+    base_class: Any,
+    *args: Any,
+    **kwargs: Any,
+) -> T | None:
     """
-    Finds a matching attribute by name (normalized to PascalCase) in a
-    namespace that is a subclass of the expected type.
+    Finds a matching subclass of the given base class that matches the
+    normalized version of the given name in the given module.
 
     Args:
-        namespace: The object/module to search in.
-        expected_type: The base class that the attribute must be a subclass of.
-        name: The name to look for.
+        module_name: The name of the module to search in.
+        type_name: The name of the subclass to look for.
+        base_class: The base class that the attribute must be a subclass of.
+        *args: Positional arguments to pass to the class constructor.
+        **kwargs: Keyword arguments to pass to the class constructor.
 
     Returns:
-        The matching class if found, else None.
+        An instance of the matching class constructed via cls(*args, **kwargs)
+        or None if no match is found.
     """
-    class_name = get_class_name(name)
-    attr = getattr(namespace, class_name, None)
-    if (
-        isinstance(attr, type)
-        and issubclass(attr, expected_type)
-        and attr is not expected_type
+    class_name = get_class_name(type_name)
+
+    if cls := next(
+        (
+            c
+            for c in base_class.__subclasses__()
+            if c.__name__ == class_name and c.__module__ == module_name
+        ),
+        None,
     ):
-        return attr
+        return cast("T", cls(*args, **kwargs))
+
     return None
 
 

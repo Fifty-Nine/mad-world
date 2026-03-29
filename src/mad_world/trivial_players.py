@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING, override
 
 from mad_world.actions import (
@@ -13,15 +12,15 @@ from mad_world.actions import (
 )
 from mad_world.enums import GamePhase
 from mad_world.players import GamePlayer
-from mad_world.util import get_attr_by_type
+from mad_world.util import get_subclass_by_name
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
 
 
-def get_trivial_player_class(name: str) -> type[GamePlayer] | None:
+def get_trivial_player(kind: str, name: str) -> GamePlayer | None:
     """Finds a trivial player class by name."""
-    return get_attr_by_type(sys.modules[__name__], GamePlayer, name)
+    return get_subclass_by_name(__name__, kind, GamePlayer, name)
 
 
 class CrazyIvan(GamePlayer):

@@ -149,8 +149,8 @@ def get_player(
     if model == "human":
         return HumanPlayer(name)
 
-    if trivial_cls := trivial_players.get_trivial_player_class(model):
-        return trivial_cls(name)
+    if trivial_player := trivial_players.get_trivial_player(model, name):
+        return trivial_player
 
     return OllamaPlayer(
         name=name,

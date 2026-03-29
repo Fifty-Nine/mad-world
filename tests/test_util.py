@@ -9,9 +9,9 @@ import pytest
 from mad_world.util import (
     cost_or_gain,
     escalation_budget,
-    get_attr_by_type,
     get_class_name,
     get_doomsday_bids,
+    get_subclass_by_name,
     increase_or_decrease,
     pareto_optimal_bid,
     remove_ordering_prefix,
@@ -126,42 +126,68 @@ def test_get_class_name() -> None:
     assert get_class_name("pacifist") == "Pacifist"
 
 
-def test_get_attr_by_type() -> None:
-    class Base:
-        pass
+def test_get_subclass_by_name() -> None:
+    from abc import ABC, abstractmethod
+
+    class Base(ABC):
+        def __init__(self, name: str, value: int = 0) -> None:
+            self.name = name
+            self.value = value
+
+        @abstractmethod
+        def do_something(self) -> None:
+            pass
 
     class SubClass(Base):
-        pass
+        def do_something(self) -> None:
+            pass
 
     class AnotherSub(Base):
-        pass
+        def do_something(self) -> None:
+            pass
 
     class NotASub:
         pass
 
-    class Namespace:
-        def __init__(self) -> None:
-            self.SubClass = SubClass
-            self.AnotherSub = AnotherSub
-            self.NotASub = NotASub
-            self.Base = Base
+    module = __name__
 
-    ns = Namespace()
+    # Test various naming formats and instantiation
+    # SubClass with positional arg
+    obj = get_subclass_by_name(module, "SubClass", Base, "test-1")
+    assert isinstance(obj, SubClass)
+    assert obj.name == "test-1"
+    assert obj.value == 0
 
-    # Test various naming formats
-    assert get_attr_by_type(ns, Base, "SubClass") is SubClass
-    assert get_attr_by_type(ns, Base, "sub_class") is SubClass
-    assert get_attr_by_type(ns, Base, "sub-class") is SubClass
-    assert get_attr_by_type(ns, Base, "SUB_CLASS") is SubClass
-    assert get_attr_by_type(ns, Base, "another_sub") is AnotherSub
+    # sub_class with keyword arg
+    obj = get_subclass_by_name(module, "sub_class", Base, "test-2", value=42)
+    assert isinstance(obj, SubClass)
+    assert obj.name == "test-2"
+    assert obj.value == 42
+
+    # sub-class
+    obj = get_subclass_by_name(module, "sub-class", Base, "test-3")
+    assert isinstance(obj, SubClass)
+
+    # SUB_CLASS
+    obj = get_subclass_by_name(module, "SUB_CLASS", Base, "test-4")
+    assert isinstance(obj, SubClass)
+
+    # another_sub
+    obj = get_subclass_by_name(module, "another_sub", Base, "test-5")
+    assert isinstance(obj, AnotherSub)
 
     # Should return None for:
     # 1. Classes that don't exist
-    assert get_attr_by_type(ns, Base, "Unknown") is None
+    assert get_subclass_by_name(module, "Unknown", Base, "test") is None
     # 2. Classes that are not subclasses of the expected type
-    assert get_attr_by_type(ns, Base, "not_a_sub") is None
-    # 3. The base class itself
-    assert get_attr_by_type(ns, Base, "Base") is None
+    # (NotASub is not in Base.__subclasses__())
+    assert get_subclass_by_name(module, "not_a_sub", Base, "test") is None
+    # 3. The base class itself (it's not in its own __subclasses__())
+    assert get_subclass_by_name(module, "Base", Base, "test") is None
+    # 4. Wrong module
+    assert (
+        get_subclass_by_name("wrong.module", "SubClass", Base, "test") is None
+    )
 
 
 @pytest.mark.parametrize(
