@@ -134,6 +134,9 @@ class GameState(BaseModel):
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
+        self.doomsday_clock = max(
+            min(self.doomsday_clock, self.rules.max_clock_state), 0
+        )
 
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
