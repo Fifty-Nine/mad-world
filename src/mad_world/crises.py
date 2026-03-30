@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, override
+from abc import abstractmethod
+from typing import TYPE_CHECKING, ClassVar, Literal, override
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from mad_world.actions import BaseAction
+from mad_world.cards import BaseCard
 from mad_world.enums import StandoffPosture
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 
@@ -25,15 +26,15 @@ STANDOFF_TIE_GDP_EFFECT = -5
 STANDOFF_TIE_CLOCK_EFFECT = -15
 
 
-class BaseCrisis(BaseModel, ABC):
-    title: str = Field(description="The title of the crisis event.")
-    description: str = Field(
+class BaseCrisis(BaseCard, is_base=True):
+    title: ClassVar[str] = Field(description="The title of the crisis event.")
+    description: ClassVar[str] = Field(
         description="A narrative description of the crisis event.",
     )
-    mechanics: str = Field(
+    mechanics: ClassVar[str] = Field(
         description="A plain-language explanation of the crisis mechanics.",
     )
-    additional_prompt: str | None = Field(
+    additional_prompt: ClassVar[str | None] = Field(
         description="Additional instructions for LLM-based players. "
         "May be omitted if description and mechanics are sufficient.",
         default=None,
@@ -97,9 +98,10 @@ class StandoffAction(BaseAction):
     )
 
 
-class StandoffCrisis(GenericCrisis[StandoffAction]):
-    title: str = "The Brink of Midnight"
-    description: str = (
+class StandoffCrisis(GenericCrisis[StandoffAction], card_kind="standoff"):
+    card_kind: Literal["standoff"] = "standoff"
+    title: ClassVar[str] = "The Brink of Midnight"
+    description: ClassVar[str] = (
         "Tensions have reached a boiling point. The world stands on the brink "
         "of armageddon, and a crisis has flared up in a forgotten corner of "
         "globe, threatening to spiral out of control. The superpowers have "
@@ -107,7 +109,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         "they back down and risk annihilation? Or do you back down and risk "
         "your opponent taking advantage of your weakness?"
     )
-    mechanics: str = (
+    mechanics: ClassVar[str] = (
         "Both players will now have a chance to submit a choice of either "
         '"BACK DOWN" or "STAND FIRM". The outcome of the crisis depends '
         "on both players' responses:\n"

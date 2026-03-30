@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, override
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -170,10 +170,11 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
         list_field: list[int] = Field(default_factory=list)
         opt_enum: StandoffPosture | None = None
 
-    class DummyCrisis(GenericCrisis[DummyAction]):
-        title: str = "Dummy"
-        description: str = "Dummy"
-        mechanics: str = "Dummy"
+    class DummyCrisis(GenericCrisis[DummyAction], card_kind="Dummy"):
+        card_kind: Literal["Dummy"] = "Dummy"
+        title: ClassVar[str] = "Dummy"
+        description: ClassVar[str] = "Dummy"
+        mechanics: ClassVar[str] = "Dummy"
 
         @override
         def get_action_type(self) -> type[DummyAction]:
