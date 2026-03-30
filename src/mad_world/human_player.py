@@ -7,7 +7,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, override
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import DummyCompleter, WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
 from pydantic import ValidationError
 
@@ -57,7 +57,7 @@ class HumanPlayer(GamePlayer):
             with patch_stdout():
                 user_input = await self.session.prompt_async(
                     prompt,
-                    completer=completer,
+                    completer=completer or DummyCompleter(),
                 )
 
             action = parse(user_input)
@@ -194,7 +194,9 @@ class HumanPlayer(GamePlayer):
         prompt_text += ": "
 
         with patch_stdout():
-            user_input = await self.session.prompt_async(prompt_text)
+            user_input = await self.session.prompt_async(
+                prompt_text, completer=DummyCompleter()
+            )
 
         return user_input.strip() or None
 

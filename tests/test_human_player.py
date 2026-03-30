@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, override
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from prompt_toolkit.completion import DummyCompleter, WordCompleter
 from pydantic import Field
 
 from mad_world.actions import (
@@ -213,3 +214,25 @@ async def test_human_player_crisis_message(basic_game: GameState) -> None:
         action = await player.crisis_message(basic_game, crisis)
 
     assert action.message_to_opponent is None
+
+
+@pytest.mark.asyncio
+async def test_human_player_completer_leak(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+    player.start_game(basic_game.rules)
+
+    with mock_human_input(
+        player, side_effect=["domestic-investment", ""]
+    ) as mock_prompt:
+        await player.operations(basic_game)
+
+        assert mock_prompt.call_count == 2
+        for call in mock_prompt.call_args_list:
+            assert isinstance(call.kwargs.get("completer"), WordCompleter)
+
+    with mock_human_input(player, side_effect=["My message"]) as mock_prompt:
+        await player.message(basic_game)
+
+        assert mock_prompt.call_count == 1
+        last_call_kwargs = mock_prompt.call_args.kwargs
+        assert isinstance(last_call_kwargs.get("completer"), DummyCompleter)
