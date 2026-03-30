@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from mad_world.core import GameState, PlayerState
@@ -24,3 +26,8 @@ def basic_game() -> GameState:
         current_round=1,
         current_phase=GamePhase.BIDDING,
     )
+
+
+@pytest.fixture
+def seeded_rng() -> random.Random:
+    return random.Random(0)
