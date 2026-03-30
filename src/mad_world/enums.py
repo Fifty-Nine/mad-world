@@ -11,7 +11,19 @@ class GamePhase(Enum):
     BIDDING = 3
     OPERATIONS_MESSAGING = 4
     OPERATIONS = 5
-    END = 6
+    CRISIS_MESSAGING = 6
+    CRISIS = 7
+    END = 8
+
+    def is_messaging(self) -> bool:
+        return self in (
+            self.BIDDING_MESSAGING,
+            self.OPERATIONS_MESSAGING,
+            self.CRISIS_MESSAGING,
+        )
+
+    def is_crisis(self) -> bool:
+        return self in (self.CRISIS_MESSAGING, self.CRISIS)
 
 
 class GameOverReason(Enum):

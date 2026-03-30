@@ -213,3 +213,14 @@ def test_recent_events(basic_game: GameState) -> None:
 def test_base_action_validate_semantics(basic_game: GameState) -> None:
     action = BaseAction()
     action.validate_semantics(basic_game, "Alpha")
+
+
+@pytest.mark.asyncio
+async def test_survived_crisis() -> None:
+    winner, reason, _game = await game_loop(
+        GameRules(initial_clock_state=29, max_clock_state=30),
+        [Diplomat("Alpha"), Diplomat("Omega")],
+    )
+
+    assert winner is None
+    assert reason == GameOverReason.STALEMATE

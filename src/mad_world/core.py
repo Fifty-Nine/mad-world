@@ -6,7 +6,8 @@ import asyncio
 import copy
 import logging
 import random
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +18,7 @@ from mad_world.actions import (
     InvalidOperationError,
     MessagingAction,
 )
+from mad_world.crises import CRISIS_DECK, BaseCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 from mad_world.rules import (
@@ -31,6 +33,13 @@ if TYPE_CHECKING:
 
 RANDOM = random.Random()
 CLOCK_WARNING_THRESHOLD = 0.8
+
+
+@dataclass
+class WorldDestroyed(Exception):
+    """Exception thrown when the world is destroyed."""
+
+    instigator: str | None
 
 
 class PlayerState(BaseModel):
@@ -64,6 +73,21 @@ class GameState(BaseModel):
         default=GamePhase.OPENING,
         description="The current phase of the game.",
     )
+    post_crisis_round: int | None = Field(
+        default=None,
+        description="The next round after the resolution of crises.",
+    )
+    post_crisis_phase: GamePhase | None = Field(
+        default=None, description="The next phase after resolution of crises."
+    )
+    crisis_deck: list[BaseCrisis] = Field(
+        default_factory=lambda: random.sample(CRISIS_DECK, len(CRISIS_DECK)),
+        description="The deck from which to deal crises.",
+    )
+    pending_crises: list[BaseCrisis] = Field(
+        default_factory=list,
+        description="The list of crises remaining to resolve.",
+    )
     last_round: int = Field(
         default=0,
         description="The number of the previously resolved round.",
@@ -78,6 +102,10 @@ class GameState(BaseModel):
         description="A chronological log of all events that "
         "have occurred in the game.",
     )
+
+    def player_names(self) -> tuple[str, str]:
+        assert len(self.players) == 2
+        return cast("tuple[str, str]", tuple(self.players))
 
     def validate_operation(self, operation_name: str, player_name: str) -> None:
         """Checks the validity of a single operation without enacting it.
@@ -117,6 +145,11 @@ class GameState(BaseModel):
 
         self.event_log.append(event)
         logging.getLogger("mad_world").info(event.description)
+
+        if not event.world_ending:
+            return
+
+        raise WorldDestroyed(instigator=event.actor.player())
 
     def log_message(
         self,
@@ -166,6 +199,21 @@ class GameState(BaseModel):
 
         return result
 
+    def trigger_crisis(self) -> bool:
+        if self.doomsday_clock < self.rules.max_clock_state:
+            return False
+
+        if self.current_phase.is_crisis():
+            return False
+
+        # This will need to be reworked if/when crises can trigger
+        # follow-up crises.
+        assert len(self.crisis_deck) > 0
+
+        self.pending_crises.insert(0, self.crisis_deck.pop())
+
+        return True
+
     def advance_phase(self) -> None:
         self.last_round = self.current_round
         self.last_phase = self.current_phase
@@ -185,6 +233,26 @@ class GameState(BaseModel):
             case GamePhase.OPERATIONS:
                 self.current_phase = GamePhase.BIDDING_MESSAGING
                 self.current_round += 1
+
+            case GamePhase.CRISIS_MESSAGING:
+                self.current_phase = GamePhase.CRISIS
+
+            case GamePhase.CRISIS:
+                # This will need to be updated when crises can have
+                # multiple phases/trigger follow-up crises.
+                assert len(self.pending_crises) == 0
+                assert self.post_crisis_phase is not None
+                assert self.post_crisis_round is not None
+                self.current_phase, self.current_round = (
+                    self.post_crisis_phase,
+                    self.post_crisis_round,
+                )
+                self.post_crisis_phase, self.post_crisis_round = None, None
+
+        if self.trigger_crisis():
+            self.post_crisis_phase = self.current_phase
+            self.post_crisis_round = self.current_round
+            self.current_phase = GamePhase.CRISIS_MESSAGING
 
         self.apply_event(
             GameEvent(
@@ -279,9 +347,7 @@ async def resolve_bidding(
 ) -> GameState:
     """Resolve the bidding phase of the game."""
 
-    alpha_name = players[0].name
-    omega_name = players[1].name
-
+    alpha_name, omega_name = game.player_names()
     alpha_action, omega_action = await asyncio.gather(
         players[0].bid(game),
         players[1].bid(game),
@@ -329,6 +395,7 @@ def resolve_operation(
             player_name: -op_def.influence_cost,
             opponent_name: op_def.enemy_influence_effect,
         },
+        world_ending=operation_name == "first-strike",
     )
 
 
@@ -336,9 +403,8 @@ async def resolve_operations(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
-    alpha_name = players[0].name
-    omega_name = players[1].name
 
+    alpha_name, omega_name = game.player_names()
     alpha_action, omega_action = await asyncio.gather(
         players[0].operations(game),
         players[1].operations(game),
@@ -377,12 +443,16 @@ async def resolve_messaging(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
-    alpha_name = players[0].name
-    omega_name = players[1].name
+    alpha_name, omega_name = game.player_names()
+
+    async def callback(player: GamePlayer) -> MessagingAction:
+        if game.current_phase.is_crisis():
+            return await player.crisis_message(game, game.pending_crises[-1])
+
+        return await player.message(game)
 
     alpha_msg, omega_msg = await asyncio.gather(
-        players[0].message(game),
-        players[1].message(game),
+        callback(players[0]), callback(players[1])
     )
 
     new_game = copy.deepcopy(game)
@@ -399,9 +469,8 @@ async def resolve_opening(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
-    alpha_name = players[0].name
-    omega_name = players[1].name
 
+    alpha_name, omega_name = game.player_names()
     alpha_msg, omega_msg = await asyncio.gather(
         players[0].initial_message(game),
         players[1].initial_message(game),
@@ -417,31 +486,57 @@ async def resolve_opening(
     return new_game
 
 
+async def resolve_crisis(
+    game: GameState, players: list[GamePlayer]
+) -> GameState:
+
+    new_game = copy.deepcopy(game)
+    next_crisis = new_game.pending_crises.pop()
+    events = await next_crisis.run(game, players)
+    for e in events:
+        new_game.apply_event(e)
+
+    new_game.crisis_deck.insert(0, next_crisis)
+    new_game.advance_phase()
+
+    return new_game
+
+
 async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
+    if game.current_phase.is_messaging():
+        return await resolve_messaging(game, players)
+
     match game.current_phase:
         case GamePhase.OPENING:
             return await resolve_opening(game, players)
 
-        case GamePhase.BIDDING_MESSAGING:
-            return await resolve_messaging(game, players)
-
         case GamePhase.BIDDING:
             return await resolve_bidding(game, players)
 
-        case GamePhase.OPERATIONS_MESSAGING:
-            return await resolve_messaging(game, players)
-
         case GamePhase.OPERATIONS:
             return await resolve_operations(game, players)
+
+        case GamePhase.CRISIS:
+            return await resolve_crisis(game, players)
 
     return game
 
 
 def check_game_over(game: GameState) -> bool:
     return (
-        game.doomsday_clock >= game.rules.max_clock_state
-        or game.current_round > game.rules.round_count
-    )
+        not game.current_phase.is_crisis()
+        and game.doomsday_clock >= game.rules.max_clock_state
+    ) or game.current_round > game.rules.round_count
+
+
+def destroy_world(game: GameState) -> GameState:
+    new_game = copy.deepcopy(game)
+    new_game.doomsday_clock += 50
+
+    for player in new_game.players.values():
+        player.gdp -= 1000
+
+    return new_game
 
 
 async def game_loop(
@@ -454,7 +549,11 @@ async def game_loop(
         p.start_game(rules)
 
     while not check_game_over(game):
-        game = await iterate_game(game, players)
+        try:
+            game = await iterate_game(game, players)
+        except WorldDestroyed:
+            game = destroy_world(game)
+            break
 
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")

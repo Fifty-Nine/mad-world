@@ -46,8 +46,18 @@ class BaseCrisis(BaseModel, ABC):
         players: list[GamePlayer],
     ) -> list[GameEvent]: ...
 
+    @abstractmethod
+    def get_action_type(self) -> type[BaseAction]:
+        """Get the BaseAction subclass used by this crisis."""
+
 
 class GenericCrisis[T: BaseAction](BaseCrisis):
+    @abstractmethod
+    @override
+    def get_action_type(self) -> type[T]:
+        """Get the action type."""
+        ...
+
     @abstractmethod
     def resolve(
         self,
@@ -118,6 +128,10 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
     )
 
     @override
+    def get_action_type(self) -> type[StandoffAction]:
+        return StandoffAction
+
+    @override
     def get_default_action(self, aggressive: bool) -> StandoffAction:
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
@@ -131,8 +145,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
             description="Both players have chosen to stand firm and "
             "as a result, the conflict has spiraled out of control, "
             "leading to a total nuclear exchange.",
-            gdp_delta=dict.fromkeys(players, -1000),
-            clock_delta=50,
+            world_ending=True,
         )
 
     def _tie(self, players: list[str]) -> GameEvent:
@@ -176,4 +189,4 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         return [self._winner(winner, loser)]
 
 
-CRISIS_DECK = [StandoffCrisis()]
+CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]
