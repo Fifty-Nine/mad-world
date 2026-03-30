@@ -1,0 +1,108 @@
+"""Tests for Card serialization infrastructure."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal
+
+import pytest
+from pydantic import ValidationError
+
+from mad_world.cards import BaseCard, CardNameCollisionError
+from mad_world.decks import Deck
+
+if TYPE_CHECKING:
+    import random
+
+
+class BaseTestFooCard(BaseCard, is_base=True):
+    pass
+
+
+class BaseTestBarCard(BaseCard, is_base=True):
+    pass
+
+
+class IntermediateBaseBarCard(BaseTestBarCard):
+    pass
+
+
+class ConcreteFoo1Card(BaseTestFooCard, card_kind="foo1"):
+    card_kind: Literal["foo1"] = "foo1"
+
+
+class ConcreteFoo2Card(BaseTestFooCard, card_kind="foo2"):
+    card_kind: Literal["foo2"] = "foo2"
+
+
+class ConcreteBar1Card(BaseTestBarCard, card_kind="bar1"):
+    card_kind: Literal["bar1"] = "bar1"
+
+
+class ConcreteBar2Card(IntermediateBaseBarCard, card_kind="bar2"):
+    card_kind: Literal["bar2"] = "bar2"
+
+
+def test_card_serialize() -> None:
+    assert ConcreteFoo1Card().model_dump() == {"card_kind": "foo1"}
+    assert ConcreteFoo2Card().model_dump() == {"card_kind": "foo2"}
+    assert ConcreteBar1Card().model_dump() == {"card_kind": "bar1"}
+    assert ConcreteBar2Card().model_dump() == {"card_kind": "bar2"}
+
+
+def test_card_deserialize() -> None:
+    assert (
+        BaseTestFooCard.model_validate({"card_kind": "foo1"})
+        == ConcreteFoo1Card()
+    )
+    assert (
+        BaseTestFooCard.model_validate({"card_kind": "foo2"})
+        == ConcreteFoo2Card()
+    )
+    assert (
+        BaseTestBarCard.model_validate({"card_kind": "bar1"})
+        == ConcreteBar1Card()
+    )
+    assert (
+        BaseTestBarCard.model_validate({"card_kind": "bar2"})
+        == ConcreteBar2Card()
+    )
+
+
+def test_heterogenous_card_list(stable_rng: random.Random) -> None:
+    foo_cards = Deck[BaseTestFooCard].create(
+        [ConcreteFoo1Card(), ConcreteFoo1Card(), ConcreteFoo2Card()],
+        rng=stable_rng,
+    )
+    bar_cards = Deck[BaseTestBarCard].create(
+        [ConcreteBar2Card(), ConcreteBar1Card(), ConcreteBar2Card()],
+        rng=stable_rng,
+    )
+
+    assert foo_cards == Deck[BaseTestFooCard].model_validate(
+        foo_cards.model_dump()
+    )
+    assert bar_cards == Deck[BaseTestBarCard].model_validate(
+        bar_cards.model_dump()
+    )
+
+
+def test_card_compare() -> None:
+    assert ConcreteFoo1Card() < ConcreteFoo2Card()
+
+    with pytest.raises(TypeError, match="not supported between instances"):
+        assert ConcreteFoo1Card() < 0
+
+
+def test_registry_collision() -> None:
+    with pytest.raises(CardNameCollisionError):
+
+        class NewFooCard(BaseTestFooCard, card_kind="foo1"):
+            card_kind: Literal["foo1"] = "foo1"
+
+
+def test_bad_card_kind() -> None:
+    with pytest.raises(ValidationError):
+        BaseTestFooCard.model_validate({"card_kind": 1})
+
+    with pytest.raises(ValidationError):
+        BaseTestFooCard.model_validate(1)
