@@ -75,6 +75,7 @@ select = [
     "SLF",
     "SIM",
     "T10",
+    "T20",
     "TC",
     "TID",
     "TRY",
@@ -98,6 +99,9 @@ required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["SLF001"]
 
 [tool.mypy]
 strict = true

@@ -35,6 +35,7 @@ from mad_world.trivial_players import (
     CrazyIvan,
     Diplomat,
     Pacifist,
+    ParetoEfficientPlayer,
     Saboteur,
 )
 
@@ -68,6 +69,36 @@ TEST_CASES = [
     Scenario(Diplomat, Saboteur, "Omega", GameOverReason.ECONOMIC_VICTORY),
     Scenario(Diplomat, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Diplomat, Diplomat, None, GameOverReason.STALEMATE),
+    Scenario(
+        ParetoEfficientPlayer,
+        ParetoEfficientPlayer,
+        None,
+        GameOverReason.STALEMATE,
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        CrazyIvan,
+        None,
+        GameOverReason.WORLD_DESTROYED,
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        Pacifist,
+        "Alpha",
+        GameOverReason.ECONOMIC_VICTORY,
+    ),
+    Scenario(
+        ParetoEfficientPlayer, Capitalist, None, GameOverReason.WORLD_DESTROYED
+    ),
+    Scenario(
+        ParetoEfficientPlayer, Saboteur, None, GameOverReason.WORLD_DESTROYED
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        Diplomat,
+        "Alpha",
+        GameOverReason.ECONOMIC_VICTORY,
+    ),
 ]
 
 
@@ -224,3 +255,25 @@ async def test_survived_crisis() -> None:
 
     assert winner is None
     assert reason == GameOverReason.STALEMATE
+
+
+def test_clock_limits(basic_game: GameState) -> None:
+    """Ensure clock state can't go negative due to an event."""
+    basic_game.doomsday_clock = 0
+    basic_game.apply_event(
+        GameEvent(actor=SystemActor(), description="", clock_delta=-1)
+    )
+    assert basic_game.doomsday_clock == 0
+
+    basic_game.apply_event(
+        GameEvent(
+            actor=SystemActor(),
+            description="",
+            clock_delta=basic_game.rules.max_clock_state + 1,
+        ),
+    )
+    assert basic_game.doomsday_clock == basic_game.rules.max_clock_state
+
+
+def test_state_round_trip(basic_game: GameState) -> None:
+    GameState.model_validate(basic_game.model_dump())

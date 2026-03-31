@@ -7,7 +7,7 @@ import copy
 import logging
 import random
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from pydantic import BaseModel, Field
 
@@ -18,9 +18,11 @@ from mad_world.actions import (
     InvalidOperationError,
     MessagingAction,
 )
-from mad_world.crises import CRISIS_DECK, BaseCrisis
+from mad_world.crises import BaseCrisis, create_crisis_deck
+from mad_world.decks import Deck
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import GameEvent, PlayerActor, SystemActor
+from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
@@ -80,9 +82,8 @@ class GameState(BaseModel):
     post_crisis_phase: GamePhase | None = Field(
         default=None, description="The next phase after resolution of crises."
     )
-    crisis_deck: list[BaseCrisis] = Field(
-        default_factory=lambda: random.sample(CRISIS_DECK, len(CRISIS_DECK)),
-        description="The deck from which to deal crises.",
+    crisis_deck: Deck[BaseCrisis] = Field(
+        description="The deck from which to deal crises."
     )
     pending_crises: list[BaseCrisis] = Field(
         default_factory=list,
@@ -102,6 +103,30 @@ class GameState(BaseModel):
         description="A chronological log of all events that "
         "have occurred in the game.",
     )
+    rng: SerializableRandom = Field(
+        description="The RNG state used for this game.",
+        default_factory=SerializableRandom,
+    )
+
+    @classmethod
+    def new_game(
+        cls, *, rules: GameRules, players: list[str], **kwargs: Any
+    ) -> Self:
+        rng = random.Random(rules.seed)
+        return cls(
+            rng=rng,
+            rules=rules,
+            players={
+                player: PlayerState(
+                    name=player,
+                    gdp=rules.initial_gdp,
+                    influence=rules.initial_influence,
+                )
+                for player in players
+            },
+            crisis_deck=create_crisis_deck(rng),
+            **kwargs,
+        )
 
     def player_names(self) -> tuple[str, str]:
         assert len(self.players) == 2
@@ -134,6 +159,9 @@ class GameState(BaseModel):
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
+        self.doomsday_clock = max(
+            min(self.doomsday_clock, self.rules.max_clock_state), 0
+        )
 
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
@@ -206,11 +234,7 @@ class GameState(BaseModel):
         if self.current_phase.is_crisis():
             return False
 
-        # This will need to be reworked if/when crises can trigger
-        # follow-up crises.
-        assert len(self.crisis_deck) > 0
-
-        self.pending_crises.insert(0, self.crisis_deck.pop())
+        self.pending_crises.insert(0, self.crisis_deck.draw(self.rng))
 
         return True
 
@@ -294,15 +318,8 @@ def init_game(
     players: list[GamePlayer],
     rules: GameRules = DEFAULT_RULES,
 ) -> GameState:
-    return GameState(
-        players={
-            player.name: PlayerState(
-                name=player.name,
-                gdp=rules.initial_gdp,
-                influence=rules.initial_influence,
-            )
-            for player in players
-        },
+    return GameState.new_game(
+        players=[p.name for p in players],
         rules=rules,
         doomsday_clock=rules.initial_clock_state,
     )
@@ -496,7 +513,7 @@ async def resolve_crisis(
     for e in events:
         new_game.apply_event(e)
 
-    new_game.crisis_deck.insert(0, next_crisis)
+    new_game.crisis_deck.discard(next_crisis)
     new_game.advance_phase()
 
     return new_game
