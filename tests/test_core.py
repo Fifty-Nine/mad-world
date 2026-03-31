@@ -242,3 +242,7 @@ def test_clock_limits(basic_game: GameState) -> None:
         ),
     )
     assert basic_game.doomsday_clock == basic_game.rules.max_clock_state
+
+
+def test_state_round_trip(basic_game: GameState) -> None:
+    GameState.model_validate(basic_game.model_dump())

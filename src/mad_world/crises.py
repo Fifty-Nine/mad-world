@@ -10,10 +10,13 @@ from pydantic import Field
 
 from mad_world.actions import BaseAction
 from mad_world.cards import BaseCard
+from mad_world.decks import Deck
 from mad_world.enums import StandoffPosture
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 
 if TYPE_CHECKING:
+    import random
+
     from mad_world.core import GameState
     from mad_world.players import GamePlayer
 
@@ -191,4 +194,8 @@ class StandoffCrisis(GenericCrisis[StandoffAction], card_kind="standoff"):
         return [self._winner(winner, loser)]
 
 
-CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]
+INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]
+
+
+def create_crisis_deck(rng: random.Random) -> Deck[BaseCrisis]:
+    return Deck[BaseCrisis].create(INITIAL_CRISIS_DECK, rng)

@@ -165,6 +165,9 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
 class GameRules(BaseModel):
     """Tracks the rules of a game."""
 
+    seed: int | None = Field(
+        default=None, description="The seed used for all RNG operations."
+    )
     initial_gdp: int = Field(default=50, description="Initial GDP value.")
     initial_influence: int = Field(
         default=5,
