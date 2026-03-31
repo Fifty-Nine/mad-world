@@ -104,8 +104,8 @@ class StandoffAction(BaseAction):
     )
 
 
-class StandoffCrisis(GenericCrisis[StandoffAction], card_kind="standoff"):
-    card_kind: Literal["standoff"] = "standoff"
+class StandoffCrisis(GenericCrisis[StandoffAction]):
+    card_kind: ClassVar[Literal["standoff"]] = "standoff"
     title: ClassVar[str] = "The Brink of Midnight"
     description: ClassVar[str] = (
         "Tensions have reached a boiling point. The world stands on the brink "

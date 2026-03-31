@@ -170,8 +170,8 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
         list_field: list[int] = Field(default_factory=list)
         opt_enum: StandoffPosture | None = None
 
-    class DummyCrisis(GenericCrisis[DummyAction], card_kind="Dummy"):
-        card_kind: Literal["Dummy"] = "Dummy"
+    class DummyCrisis(GenericCrisis[DummyAction]):
+        card_kind: ClassVar[Literal["Dummy"]] = "Dummy"
         title: ClassVar[str] = "Dummy"
         description: ClassVar[str] = "Dummy"
         mechanics: ClassVar[str] = "Dummy"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 import pytest
 from pydantic import ValidationError
@@ -22,24 +22,24 @@ class BaseTestBarCard(BaseCard, is_base=True):
     pass
 
 
-class IntermediateBaseBarCard(BaseTestBarCard):
+class IntermediateBaseBarCard(BaseTestBarCard, is_base=True):
     pass
 
 
-class ConcreteFoo1Card(BaseTestFooCard, card_kind="foo1"):
-    card_kind: Literal["foo1"] = "foo1"
+class ConcreteFoo1Card(BaseTestFooCard):
+    card_kind: ClassVar[Literal["foo1"]] = "foo1"
 
 
-class ConcreteFoo2Card(BaseTestFooCard, card_kind="foo2"):
-    card_kind: Literal["foo2"] = "foo2"
+class ConcreteFoo2Card(BaseTestFooCard):
+    card_kind: ClassVar[Literal["foo2"]] = "foo2"
 
 
-class ConcreteBar1Card(BaseTestBarCard, card_kind="bar1"):
-    card_kind: Literal["bar1"] = "bar1"
+class ConcreteBar1Card(BaseTestBarCard):
+    card_kind: ClassVar[Literal["bar1"]] = "bar1"
 
 
-class ConcreteBar2Card(IntermediateBaseBarCard, card_kind="bar2"):
-    card_kind: Literal["bar2"] = "bar2"
+class ConcreteBar2Card(IntermediateBaseBarCard):
+    card_kind: ClassVar[Literal["bar2"]] = "bar2"
 
 
 def test_card_serialize() -> None:
@@ -78,11 +78,21 @@ def test_heterogenous_card_list(stable_rng: random.Random) -> None:
         rng=stable_rng,
     )
 
+    all_cards: list[BaseCard] = []
+    all_cards.extend(foo_cards.draw_pile.copy())
+    all_cards.extend(bar_cards.draw_pile.copy())
+
+    foobar_cards = Deck[BaseCard].create(all_cards, rng=stable_rng)
+
     assert foo_cards == Deck[BaseTestFooCard].model_validate(
         foo_cards.model_dump()
     )
     assert bar_cards == Deck[BaseTestBarCard].model_validate(
         bar_cards.model_dump()
+    )
+
+    assert foobar_cards == Deck[BaseCard].model_validate(
+        foobar_cards.model_dump()
     )
 
 
@@ -96,13 +106,26 @@ def test_card_compare() -> None:
 def test_registry_collision() -> None:
     with pytest.raises(CardNameCollisionError):
 
-        class NewFooCard(BaseTestFooCard, card_kind="foo1"):
-            card_kind: Literal["foo1"] = "foo1"
+        class NewFooCard(BaseTestFooCard):
+            card_kind: ClassVar[Literal["foo1"]] = "foo1"
 
 
 def test_bad_card_kind() -> None:
     with pytest.raises(ValidationError):
-        BaseTestFooCard.model_validate({"card_kind": 1})
+        BaseCard.model_validate({"card_kind": 1})
 
+
+def test_bad_card_serialization_type() -> None:
     with pytest.raises(ValidationError):
-        BaseTestFooCard.model_validate(1)
+        BaseCard.model_validate(1)
+
+
+@pytest.mark.xfail
+def test_bad_card_wrong_base() -> None:
+    with pytest.raises(ValidationError):
+        BaseTestFooCard.model_validate({"card_kind": "bar1"})
+
+
+def test_bad_card_deserialize_wrong_concrete() -> None:
+    with pytest.raises(ValidationError):
+        ConcreteFoo1Card.model_validate({"card_kind": "foo2"})
