@@ -35,6 +35,7 @@ from mad_world.trivial_players import (
     CrazyIvan,
     Diplomat,
     Pacifist,
+    ParetoEfficientPlayer,
     Saboteur,
 )
 
@@ -68,6 +69,36 @@ TEST_CASES = [
     Scenario(Diplomat, Saboteur, "Omega", GameOverReason.ECONOMIC_VICTORY),
     Scenario(Diplomat, CrazyIvan, None, GameOverReason.WORLD_DESTROYED),
     Scenario(Diplomat, Diplomat, None, GameOverReason.STALEMATE),
+    Scenario(
+        ParetoEfficientPlayer,
+        ParetoEfficientPlayer,
+        None,
+        GameOverReason.STALEMATE,
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        CrazyIvan,
+        None,
+        GameOverReason.WORLD_DESTROYED,
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        Pacifist,
+        "Alpha",
+        GameOverReason.ECONOMIC_VICTORY,
+    ),
+    Scenario(
+        ParetoEfficientPlayer, Capitalist, None, GameOverReason.WORLD_DESTROYED
+    ),
+    Scenario(
+        ParetoEfficientPlayer, Saboteur, None, GameOverReason.WORLD_DESTROYED
+    ),
+    Scenario(
+        ParetoEfficientPlayer,
+        Diplomat,
+        "Alpha",
+        GameOverReason.ECONOMIC_VICTORY,
+    ),
 ]
 
 

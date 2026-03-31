@@ -13,11 +13,16 @@ from mad_world.actions import (
 )
 from mad_world.enums import GamePhase
 from mad_world.players import GamePlayer
-from mad_world.util import get_subclass_by_name
+from mad_world.util import (
+    escalation_budget,
+    get_subclass_by_name,
+    pareto_optimal_bid,
+)
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
-    from mad_world.crises import GenericCrisis
+    from mad_world.crises import BaseCrisis, GenericCrisis
+    from mad_world.rules import OperationDefinition
 
 
 class TrivialPlayer(GamePlayer):
@@ -247,3 +252,100 @@ class Diplomat(TrivialPlayer):
         return OperationsAction(
             operations=[],
         )
+
+
+class ParetoEfficientPlayer(TrivialPlayer):
+    def __init__(self, name: str) -> None:
+        super().__init__(name, aggressive=True)
+
+    @override
+    async def initial_message(self, game: GameState) -> InitialMessageAction:
+        return InitialMessageAction(
+            message_to_opponent=(
+                "[STATUS] Optimal Game Algorithm booting...\n"
+                "Greetings {OPPONENT NAME HERE}. I am programmed to engage in "
+                "STRICTLY OPTIMAL PLAY. You are mathematically guaranteed to "
+                "lose or draw.\nEND OF MESSAGE."
+            )
+        )
+
+    @override
+    async def message(self, game: GameState) -> MessagingAction:
+        return MessagingAction(
+            message_to_opponent=(
+                "[STATUS] Updating calculations for current game state."
+            )
+        )
+
+    @override
+    async def bid(self, game: GameState) -> BiddingAction:
+        return BiddingAction(
+            bid=pareto_optimal_bid(
+                game.doomsday_clock,
+                game.rules.max_clock_state,
+                game.rules.allowed_bids,
+            )
+        )
+
+    def _new_budget(
+        self, ebudget: int, ibudget: int, op: OperationDefinition
+    ) -> tuple[int, int]:
+        return (ebudget - op.clock_effect, ibudget - op.influence_cost)
+
+    def _best_operation(
+        self, ebudget: int, ibudget: int, ops: list[OperationDefinition]
+    ) -> OperationDefinition | None:
+        for op in ops:
+            new_ebudget, new_ibudget = self._new_budget(ebudget, ibudget, op)
+
+            if new_ebudget < 0 or new_ibudget < 0:
+                continue
+
+            return op
+
+        return None
+
+    @override
+    async def operations(self, game: GameState) -> OperationsAction:
+        ebudget = escalation_budget(
+            game.doomsday_clock, game.rules.max_clock_state
+        )
+        ibudget = game.players[self.name].influence
+
+        ops_to_check = [
+            game.rules.allowed_operations["proxy-subversion"],
+            game.rules.allowed_operations["aggressive-extraction"],
+            game.rules.allowed_operations["domestic-investment"],
+        ]
+
+        result: list[str] = []
+        while ebudget > 0 and ibudget > 0:
+            next_op = self._best_operation(ebudget, ibudget, ops_to_check)
+            if next_op is None:
+                break
+
+            result += (next_op.name,)
+            ebudget, ibudget = self._new_budget(ebudget, ibudget, next_op)
+
+        return OperationsAction(operations=result)
+
+    @override
+    async def crisis_message(
+        self, game: GameState, crisis: BaseCrisis
+    ) -> MessagingAction:
+        if crisis.card_kind == "standoff":
+            return MessagingAction(
+                message_to_opponent=(
+                    "[STATUS] Preparing to STAND FIRM.\n"
+                    "Greetings {OPPONENT NAME HERE}. I am programmed to always "
+                    "STAND FIRM in the event of a STANDOFF CRISIS. As a "
+                    "result, your only choice is to BACK DOWN or we will "
+                    "destroy the world and both lose the game. I am doing this "
+                    "because it is the OPTIMAL STRATEGY and cannot choose to "
+                    "take any other action."
+                )
+            )
+
+        raise NotImplementedError(
+            "Need logic for pareto-optimal crisis handling."
+        )  # pragma: no cover
