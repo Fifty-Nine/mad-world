@@ -7,7 +7,7 @@ import random
 
 import pytest
 
-from mad_world.decks import Deck
+from mad_world.decks import Deck, DeckEmptyError
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def test_draw_empty_deck(
     for _ in range(len(stable_deck)):
         stable_deck.draw(stable_rng)
 
-    with pytest.raises(IndexError, match="pop from empty list"):
+    with pytest.raises(DeckEmptyError):
         stable_deck.draw(stable_rng)
 
 

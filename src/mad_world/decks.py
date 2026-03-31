@@ -11,6 +11,16 @@ if TYPE_CHECKING:
     from typing import Self
 
 
+class DeckEmptyError(RuntimeError):
+    """Exception raised when the caller attempts to draw from a deck where
+    all cards are currently in play."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Attempted to draw from a deck where all cards are already in play."
+        )
+
+
 class Deck[T](BaseModel):
     draw_pile: list[T] = Field(
         description="The deck from which cards are drawn."
@@ -41,6 +51,9 @@ class Deck[T](BaseModel):
     def draw(self, rng: random.Random) -> T:
         if len(self.draw_pile) == 0:
             self.shuffle_draw(rng, with_discard=True)
+
+        if len(self.draw_pile) == 0:
+            raise DeckEmptyError
 
         result = self.draw_pile.pop()
         self.in_play.append(result)
