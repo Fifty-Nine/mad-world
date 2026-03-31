@@ -36,45 +36,27 @@ class BaseCard(BaseModel, ABC):
 
     card_kind: ClassVar[str]
 
-    _registries: ClassVar[dict[type, dict[str, type[BaseCard]]]] = {}
+    _registry: ClassVar[dict[str, type[BaseCard]]] = {}
 
     @model_serializer
     def serialize(self) -> dict[str, Any]:
         return {"card_kind": self.card_kind}
 
     @classmethod
-    def init_registry(cls, *, is_base: bool) -> None:
-        if is_base:
-            cls._registries[cls] = {}
+    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
+        """Add a subclass to the Card registry."""
+        super().__init_subclass__(*args, **kwargs)
+        kind = getattr(cls, "card_kind", None)
+
+        if kind is None:
             return
 
-        if getattr(cls, "card_kind", None) is None:
-            return
-
-        for base_class in cls.__mro__:
-            registry = cls._registries.get(base_class)
-            if registry is None:
-                continue
-
-            if cls.card_kind not in registry:
-                registry[cls.card_kind] = cls
-                continue
-
+        if kind in cls._registry:
             raise CardNameCollisionError(
-                cls.card_kind, registry[cls.card_kind].__name__
+                cls.__name__, cls._registry[kind].__name__
             )
 
-    @classmethod
-    def __init_subclass__(
-        cls,
-        *,
-        is_base: bool = False,
-        **kwargs: Any,
-    ) -> None:
-        """Add a subclass to the Card registry."""
-        super().__init_subclass__(**kwargs)
-
-        cls.init_registry(is_base=is_base)
+        cls._registry[kind] = cls
 
     def __lt__(self, other: Any) -> bool:
         if not isinstance(other, BaseCard):
@@ -83,46 +65,42 @@ class BaseCard(BaseModel, ABC):
         return self.card_kind < other.card_kind
 
     @staticmethod
-    def _get_value(obj: Any, key: str) -> Any:
-        if isinstance(obj, dict):
-            return obj.get(key, None)
-
-        return getattr(obj, key, None)
-
-    @classmethod
-    def _validate_kind(cls, value_kind: Any, cls_kind: Any) -> str | None:
-        if (
-            value_kind is not None
-            and cls_kind is not None
-            and value_kind != cls_kind
-        ):
-            raise CardKindMismatchError(cls_kind, value_kind)
-
-        result = value_kind or cls_kind
-        if not isinstance(result, (str, type(None))):
-            raise InvalidCardKindError(value_kind)
-
-        return result
+    def _get_kind(obj: Any) -> str | None:
+        result = (
+            obj.get("card_kind", None)
+            if isinstance(obj, dict)
+            else getattr(obj, "card_kind", None)
+        )
+        return result if isinstance(result, (str, type(None))) else None
 
     @model_validator(mode="wrap")
     @classmethod
     def route_to_subclass(
         cls, value: Any, handler: ValidatorFunctionWrapHandler
     ) -> BaseCard:
-        value_kind = cls._get_value(value, "card_kind")
-        cls_kind = getattr(cls, "card_kind", None)
+        static_kind = BaseCard._get_kind(cls)
+        dynamic_kind = BaseCard._get_kind(value)
 
-        kind = cls._validate_kind(value_kind, cls_kind)
+        static_cls = cls._registry.get(static_kind or "", None)
+        dynamic_cls = cls._registry.get(dynamic_kind or "", None)
 
-        if kind is None:
-            raise InvalidCardKindError(kind)
+        if (
+            dynamic_cls is not None
+            and static_cls is not None
+            and dynamic_cls != static_cls
+        ):
+            raise CardKindMismatchError(
+                static_cls.__name__, dynamic_cls.__name__
+            )
 
-        registry = cls._registries.get(cls)
-        concrete_type = registry.get(kind) if registry is not None else None
-        if concrete_type is None or concrete_type is cls:
+        final_cls = dynamic_cls or static_cls
+        if final_cls == cls:
             return cast("BaseCard", handler(value))
 
-        return concrete_type.model_validate(value)
+        if final_cls and cls not in final_cls.__mro__:
+            raise CardKindMismatchError(cls.__name__, final_cls.__name__)
 
+        if final_cls is not None:
+            return final_cls.model_validate(value)
 
-BaseCard.init_registry(is_base=True)
+        raise InvalidCardKindError(dynamic_kind or static_kind)

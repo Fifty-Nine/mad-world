@@ -14,15 +14,15 @@ if TYPE_CHECKING:
     import random
 
 
-class BaseTestFooCard(BaseCard, is_base=True):
+class BaseTestFooCard(BaseCard):
     pass
 
 
-class BaseTestBarCard(BaseCard, is_base=True):
+class BaseTestBarCard(BaseCard):
     pass
 
 
-class IntermediateBaseBarCard(BaseTestBarCard, is_base=True):
+class IntermediateBaseBarCard(BaseTestBarCard):
     pass
 
 
@@ -120,7 +120,6 @@ def test_bad_card_serialization_type() -> None:
         BaseCard.model_validate(1)
 
 
-@pytest.mark.xfail
 def test_bad_card_wrong_base() -> None:
     with pytest.raises(ValidationError):
         BaseTestFooCard.model_validate({"card_kind": "bar1"})

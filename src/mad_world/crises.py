@@ -29,7 +29,7 @@ STANDOFF_TIE_GDP_EFFECT = -5
 STANDOFF_TIE_CLOCK_EFFECT = -15
 
 
-class BaseCrisis(BaseCard, ABC, is_base=True):
+class BaseCrisis(BaseCard, ABC):
     """The base class for all cards in the Crisis deck.
 
     Class attributes:
