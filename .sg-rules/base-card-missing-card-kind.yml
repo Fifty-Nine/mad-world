@@ -1,0 +1,52 @@
+id: base-card-missing-card-kind
+language: python
+rule:
+  kind: class_definition
+  all:
+    # 1. Inherits from a Card or Crisis class
+    - has:
+        field: superclasses
+        has:
+          regex: .*(Card|Crisis).*
+
+    # 2. Exclude base/generic classes directly
+    - not:
+        has:
+          field: name
+          regex: ^(BaseCard|BaseCrisis|GenericCrisis|.*Base.*)$
+
+    # 3. Exclude test classes
+    - not:
+        has:
+          field: name
+          regex: ^Test.*
+
+    # 4. Exclude intentionally abstract classes
+    - not:
+        has:
+          field: name
+          regex: .*Abstract.*
+    - not:
+        has:
+          pattern: "@abstractmethod"
+
+    # 5. Check for valid card_kind assignment
+    # Concrete subclasses MUST define card_kind as a class-level attribute
+    # and assign it a non-empty string literal.
+    - not:
+        has:
+          kind: block
+          has:
+            kind: expression_statement
+            has:
+              kind: assignment
+              all:
+                - has:
+                    kind: identifier
+                    pattern: card_kind
+                - has:
+                    kind: string
+                    regex: ^['"][^'"]+['"]$
+message: |
+  Concrete subclasses of BaseCard must define a ClassVar Literal called card_kind which contains a single (non-empty) string.
+  Example: card_kind: ClassVar[Literal["my-card"]] = "my-card"
