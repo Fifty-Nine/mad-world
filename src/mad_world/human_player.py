@@ -1,4 +1,5 @@
 """Human player implementation for Mad World."""
+# ruff: noqa: T201
 
 from __future__ import annotations
 

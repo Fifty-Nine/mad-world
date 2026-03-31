@@ -75,6 +75,7 @@ select = [
     "SLF",
     "SIM",
     "T10",
+    "T20",
     "TC",
     "TID",
     "TRY",
