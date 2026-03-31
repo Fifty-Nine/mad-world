@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar, Literal, override
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,6 +15,7 @@ from mad_world.crises import (
     STANDOFF_TIE_GDP_EFFECT,
     STANDOFF_TIE_INF_EFFECT,
     STANDOFF_WINNER_CLOCK_EFFECT,
+    BaseCrisis,
     GenericCrisis,
     StandoffAction,
     StandoffCrisis,
@@ -156,3 +157,18 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.clock_delta == STANDOFF_WINNER_CLOCK_EFFECT
         assert event.gdp_delta["Player1"] == STANDOFF_LOSER_GDP_EFFECT
         assert event.influence_delta["Player1"] == STANDOFF_LOSER_INF_EFFECT
+
+
+def test_crisis_default_additional_prompt() -> None:
+    class DummyCrisis(BaseCrisis):
+        card_kind: ClassVar[Literal["dummy"]] = "dummy"
+
+        @override
+        async def run(self, *_args: Any, **_kwargs: Any) -> Any: ...
+
+        @override
+        def get_action_type(self) -> Any: ...
+
+    # Ensure no attribute errors when subclasses do not define additional_prompt
+    assert DummyCrisis.additional_prompt is None
+    assert DummyCrisis().additional_prompt is None

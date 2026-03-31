@@ -44,7 +44,7 @@ class BaseCrisis(BaseCard, ABC):
     title: ClassVar[str]
     description: ClassVar[str]
     mechanics: ClassVar[str]
-    additional_prompt: ClassVar[str | None]
+    additional_prompt: ClassVar[str | None] = None
 
     @abstractmethod
     async def run(
