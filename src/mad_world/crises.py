@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar, Literal, override
 
 from pydantic import Field
@@ -29,19 +29,22 @@ STANDOFF_TIE_GDP_EFFECT = -5
 STANDOFF_TIE_CLOCK_EFFECT = -15
 
 
-class BaseCrisis(BaseCard, is_base=True):
-    title: ClassVar[str] = Field(description="The title of the crisis event.")
-    description: ClassVar[str] = Field(
-        description="A narrative description of the crisis event.",
-    )
-    mechanics: ClassVar[str] = Field(
-        description="A plain-language explanation of the crisis mechanics.",
-    )
-    additional_prompt: ClassVar[str | None] = Field(
-        description="Additional instructions for LLM-based players. "
-        "May be omitted if description and mechanics are sufficient.",
-        default=None,
-    )
+class BaseCrisis(BaseCard, ABC, is_base=True):
+    """The base class for all cards in the Crisis deck.
+
+    Class attributes:
+        title (str): The title of the crisis event.
+        description (str): A narrative description of the crisis event.
+        mechanics (str): A plain-language explanation of the crisis mechanics.
+        additional_prompt (str): Additional instructions for LLM-based players.
+                                 May be omitted if `description` and `mechanics`
+                                 provide sufficient prompting.
+    """
+
+    title: ClassVar[str]
+    description: ClassVar[str]
+    mechanics: ClassVar[str]
+    additional_prompt: ClassVar[str | None]
 
     @abstractmethod
     async def run(

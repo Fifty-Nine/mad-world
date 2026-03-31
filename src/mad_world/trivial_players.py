@@ -324,7 +324,7 @@ class ParetoEfficientPlayer(TrivialPlayer):
             if next_op is None:
                 break
 
-            result += (next_op.name,)
+            result.append(next_op.name)
             ebudget, ibudget = self._new_budget(ebudget, ibudget, next_op)
 
         return OperationsAction(operations=result)
