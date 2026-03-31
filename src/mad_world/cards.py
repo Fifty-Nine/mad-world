@@ -16,7 +16,7 @@ from pydantic import (
 class CardNameCollisionError(Exception):
     def __init__(self, name: str, exist_name: str) -> None:
         super().__init__(
-            f"Card with name {name} already exists in registry; "
+            f'Card with kind "{name}" already exists in registry; '
             f"Existing class name: {exist_name}"
         )
 
@@ -38,9 +38,13 @@ class BaseCard(BaseModel, ABC):
 
     _registry: ClassVar[dict[str, type[BaseCard]]] = {}
 
-    @model_serializer
-    def serialize(self) -> dict[str, Any]:
-        return {"card_kind": self.card_kind}
+    @model_serializer(mode="wrap")
+    def serialize(
+        self, handler: ValidatorFunctionWrapHandler
+    ) -> dict[str, Any]:
+        result = cast("dict[str, Any]", handler(self))
+        result["card_kind"] = self.card_kind
+        return result
 
     @classmethod
     def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
@@ -52,9 +56,7 @@ class BaseCard(BaseModel, ABC):
             return
 
         if kind in cls._registry:
-            raise CardNameCollisionError(
-                cls.__name__, cls._registry[kind].__name__
-            )
+            raise CardNameCollisionError(kind, cls._registry[kind].__name__)
 
         cls._registry[kind] = cls
 

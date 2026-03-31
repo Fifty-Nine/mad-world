@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, Literal
 
 import pytest
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from mad_world.cards import BaseCard, CardNameCollisionError
 from mad_world.decks import Deck
@@ -104,7 +104,9 @@ def test_card_compare() -> None:
 
 
 def test_registry_collision() -> None:
-    with pytest.raises(CardNameCollisionError):
+    with pytest.raises(
+        CardNameCollisionError, match='Card with kind "foo1" already exists'
+    ):
 
         class NewFooCard(BaseTestFooCard):
             card_kind: ClassVar[Literal["foo1"]] = "foo1"
@@ -128,3 +130,14 @@ def test_bad_card_wrong_base() -> None:
 def test_bad_card_deserialize_wrong_concrete() -> None:
     with pytest.raises(ValidationError):
         ConcreteFoo1Card.model_validate({"card_kind": "foo2"})
+
+
+def test_card_instance_state() -> None:
+    class StatefulCard(BaseCard):
+        card_kind: ClassVar[Literal["stateful"]] = "stateful"
+        field: str = Field()
+
+    card = StatefulCard(field="foo")
+
+    assert card == StatefulCard.model_validate(card.model_dump())
+    assert card == BaseCard.model_validate(card.model_dump())
