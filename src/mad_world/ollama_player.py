@@ -11,7 +11,6 @@ import ollama
 from pydantic import (
     BaseModel,
     Field,
-    TypeAdapter,
     ValidationError,
     create_model,
     model_validator,
@@ -605,11 +604,7 @@ class OllamaPlayer(GamePlayer):
             f"==== {game.current_phase.name} {self.name} response====\n"
         )
         for _i in range(retries):
-            adapter = TypeAdapter(response_model)
-            schema = reorder_schema_properties(
-                adapter.json_schema(),
-                last_key="action",
-            )
+            schema = response_model.format_schema()
             result_obj = await self.client.chat(
                 model=self.model,
                 messages=self.messages,
@@ -619,7 +614,7 @@ class OllamaPlayer(GamePlayer):
             result = result_obj.message.content
 
             try:
-                response = adapter.validate_json(result or "")
+                response = response_model.model_validate_json(result or "{}")
             except ValidationError as e:
                 self.logger.debug(
                     wrap_text(
