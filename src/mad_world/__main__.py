@@ -321,6 +321,9 @@ def create_log_session_dir(
     if timestamp is None:
         timestamp = datetime.now()
 
+    alpha_persona = alpha_persona.partition("\n")[0]
+    omega_persona = omega_persona.partition("\n")[0]
+
     dir_name = (
         (
             f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
