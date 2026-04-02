@@ -182,7 +182,7 @@ def get_player(
 )
 @click.option(
     "--alpha-temperature",
-    default=0.0,
+    default=0.8,
     help="Temperature for player 1 model.",
 )
 @click.option(
