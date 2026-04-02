@@ -279,3 +279,7 @@ def _(obj: dict[Any, Any], *, is_key: bool = False) -> dict[Any, Any]:
 @remove_ordering_prefix.register(list)
 def _(obj: list[Any], *, is_key: bool = False) -> list[Any]:
     return [remove_ordering_prefix(o, is_key=False) for o in obj]
+
+
+def bannerize(text: str) -> str:
+    return "=" * 10 + " " + text + " " + "=" * 10 + "\n"

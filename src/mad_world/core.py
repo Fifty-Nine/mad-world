@@ -27,7 +27,7 @@ from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
 )
-from mad_world.util import clamp, wrap_text
+from mad_world.util import bannerize, clamp, wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
@@ -215,9 +215,10 @@ class GameState(BaseModel):
 
     def describe_state(self) -> str:
         result = (
-            f"The current round is now {self.current_round}, "
-            f"{self.current_phase.name} phase.\n"
-            f"  Clock: {self.doomsday_clock}/"
+            bannerize(
+                f"ROUND {self.current_round} PHASE {self.current_phase.name}"
+            )
+            + f"  Clock: {self.doomsday_clock}/"
             f"{self.rules.max_clock_state}"
             f"{' (CRITICAL)' if self.clock_is_critical() else ''}\n"
             "  Players:\n"
