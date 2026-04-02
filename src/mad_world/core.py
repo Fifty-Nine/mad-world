@@ -27,7 +27,7 @@ from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
 )
-from mad_world.util import wrap_text
+from mad_world.util import clamp, wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
@@ -159,10 +159,6 @@ class GameState(BaseModel):
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
-        self.doomsday_clock = max(
-            min(self.doomsday_clock, self.rules.max_clock_state), 0
-        )
-
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
@@ -178,6 +174,13 @@ class GameState(BaseModel):
             return
 
         raise WorldDestroyed(instigator=event.actor.player())
+
+    def _clamp_fields(self) -> None:
+        """Clamp relevant game states to their allowed values after events may
+        have moved them beyond their limits."""
+        self.doomsday_clock = clamp(
+            self.doomsday_clock, 0, self.rules.max_clock_state
+        )
 
     def log_message(
         self,
@@ -239,6 +242,7 @@ class GameState(BaseModel):
         return True
 
     def advance_phase(self) -> None:
+        self._clamp_fields()
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:

@@ -6,9 +6,12 @@ import re
 import textwrap
 from abc import ABC
 from functools import singledispatch
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from more_itertools import partition
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsRichComparisonT
 
 
 def increase_or_decrease(val: int) -> str:
@@ -17,6 +20,24 @@ def increase_or_decrease(val: int) -> str:
 
 def cost_or_gain(val: int) -> str:
     return "gain" if val >= 0 else "cost"
+
+
+class BadClampRangeError(Exception):
+    def __init__(
+        self, min_val: SupportsRichComparisonT, max_val: SupportsRichComparisonT
+    ) -> None:
+        super().__init__(f"min_val ({min_val}) must be <= max_val ({max_val})")
+
+
+def clamp(
+    val: SupportsRichComparisonT,
+    min_val: SupportsRichComparisonT,
+    max_val: SupportsRichComparisonT,
+) -> SupportsRichComparisonT:
+    if min_val != max_val and max(min_val, max_val) == min_val:
+        raise BadClampRangeError(min_val, max_val)
+
+    return max(min(val, max_val), min_val)
 
 
 def wrap_text(text: str, indent: str = "", width: int = 80) -> str:

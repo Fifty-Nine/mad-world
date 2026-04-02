@@ -263,6 +263,8 @@ def test_clock_limits(basic_game: GameState) -> None:
     basic_game.apply_event(
         GameEvent(actor=SystemActor(), description="", clock_delta=-1)
     )
+    assert basic_game.doomsday_clock == -1
+    basic_game.advance_phase()
     assert basic_game.doomsday_clock == 0
 
     basic_game.apply_event(
@@ -272,6 +274,8 @@ def test_clock_limits(basic_game: GameState) -> None:
             clock_delta=basic_game.rules.max_clock_state + 1,
         ),
     )
+    assert basic_game.doomsday_clock == basic_game.rules.max_clock_state + 1
+    basic_game.advance_phase()
     assert basic_game.doomsday_clock == basic_game.rules.max_clock_state
 
 
