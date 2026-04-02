@@ -5,7 +5,7 @@ from __future__ import annotations
 import gzip
 import json
 import textwrap
-from typing import TYPE_CHECKING, Any, cast, override
+from typing import TYPE_CHECKING, Any, override
 
 import ollama
 from pydantic import (
@@ -309,30 +309,36 @@ class CrisisMessagingResponse(ActionResponse):
     )
 
 
-def create_crisis_response(crisis: BaseCrisis) -> type[ActionResponse]:
+class CrisisResponse[T: BaseAction](ActionResponse):
+    crisis_analysis: str = Field(
+        description=(
+            "Evaluate the game state, your opponent's "
+            "recent messages, and the potential consequences of "
+            "this crisis."
+        ),
+    )
+    tactical_plan: str = Field(
+        description=(
+            "Detail your specific plan for this crisis. "
+            "Explain why you are choosing this action and how it "
+            "aligns with your persona."
+        ),
+    )
+    action: T = Field(description="Your finalized action for this phase.")
+
+
+def create_crisis_response[T: BaseAction](
+    crisis: GenericCrisis[T],
+) -> type[CrisisResponse[T]]:
+    """Create a runtime model for the given crisis. This is necessary because
+    the dynamic type of `T` is erased at runtime, meaning
+    `type(CrisisResponse[..]())` is actually just `BaseAction`. To keep static
+    type safety and ensure correct schema generation, we just generate a new
+    model identical to the generic model except that `action` has the
+    correct runtime type."""
     return create_model(
         f"{crisis.__class__.__name__}Response",
-        __base__=ActionResponse,
-        crisis_analysis=(
-            str,
-            Field(
-                description=(
-                    "Evaluate the game state, your opponent's "
-                    "recent messages, and the potential consequences of "
-                    "this crisis."
-                ),
-            ),
-        ),
-        tactical_plan=(
-            str,
-            Field(
-                description=(
-                    "Detail your specific plan for this crisis. "
-                    "Explain why you are choosing this action and how it "
-                    "aligns with your persona."
-                ),
-            ),
-        ),
+        __base__=CrisisResponse[T],
         action=(
             crisis.action_type,
             Field(description="Your finalized action for this phase."),
@@ -560,20 +566,15 @@ class OllamaPlayer(GamePlayer):
 
         def severity(game: GameState) -> str:
             level = 1.0 * game.doomsday_clock / game.rules.max_clock_state
-            if level >= 0.9:
-                return "!!!!! CRITICAL WARNING !!!!!\n"
-
             if level >= 0.8:
                 return "WARNING: "
 
             return "NOTE: "
 
-        result = (
-            f"{severity(game)}You are at risk of triggering a global crisis.\n"
-        )
+        result = f"{severity(game)}A global crisis is possible this round:"
 
         result += "".join(
-            f"\n- A bid of {bid} RISKS A GLOBAL CRISIS if your opponent "
+            f"\n- A bid of {bid} MAY TRIGGER A GLOBAL CRISIS if your opponent "
             f"bids {obid} or more."
             for bid, obid in risky
         )
@@ -582,10 +583,7 @@ class OllamaPlayer(GamePlayer):
             "your opponent's action."
             for bid in deadly
         )
-        result += (
-            "\nRemember that if MAD occurs, you will lose even if you "
-            "are currently winning."
-        )
+        result += "\n"
         return result
 
     @staticmethod
@@ -1047,7 +1045,6 @@ class OllamaPlayer(GamePlayer):
         )
 
         schema = create_crisis_response(crisis)
-
         self.add_prompt(
             prompt,
             game.current_phase,
@@ -1055,7 +1052,7 @@ class OllamaPlayer(GamePlayer):
         )
         result = await self.retry_prompt(schema, game)
         return (
-            cast("T", result.action)
+            result.action
             if result
             else crisis.get_default_action(aggressive=False)
         )
