@@ -132,6 +132,10 @@ class GameState(BaseModel):
         assert len(self.players) == 2
         return cast("tuple[str, str]", tuple(self.players))
 
+    def op_cost(self, op: str) -> int:
+        """Helper function for getting the Inf cost of a named operation."""
+        return self.rules.allowed_operations[op].influence_cost
+
     def validate_operation(self, operation_name: str, player_name: str) -> None:
         """Checks the validity of a single operation without enacting it.
 

@@ -112,7 +112,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "Direct economic warfare. Highly damaging to the opponent's score, "
             "but expensive and escalatory."
         ),
-        influence_cost=4,
+        influence_cost=3,
         enemy_gdp_effect=-5,
         clock_effect=2,
     ),
@@ -123,7 +123,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "of nuclear war. Generates zero economic value but has a massive "
             "clock impact."
         ),
-        influence_cost=5,
+        influence_cost=6,
         clock_effect=-9,
     ),
     "stand-down": OperationDefinition(
