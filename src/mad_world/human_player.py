@@ -254,13 +254,11 @@ class HumanPlayer(GamePlayer):
         print(f"\n{game.describe_state()}")
         print(f"\n[{self.name}] Crisis Phase: {crisis.title}")
 
-        action_class = crisis.get_action_type()
-
         while True:
-            field_values = await self._prompt_crisis_action(action_class)
+            field_values = await self._prompt_crisis_action(crisis.action_type)
 
             try:
-                action = action_class.model_validate(field_values)
+                action = crisis.action_type.model_validate(field_values)
                 action.validate_semantics(game, self.name)
             except (ValidationError, InvalidActionError) as e:
                 print(f"Invalid input: {e}")

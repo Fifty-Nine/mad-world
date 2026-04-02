@@ -166,9 +166,6 @@ def test_crisis_default_additional_prompt() -> None:
         @override
         async def run(self, *_args: Any, **_kwargs: Any) -> Any: ...
 
-        @override
-        def get_action_type(self) -> Any: ...
-
     # Ensure no attribute errors when subclasses do not define additional_prompt
     assert DummyCrisis.additional_prompt is None
     assert DummyCrisis().additional_prompt is None

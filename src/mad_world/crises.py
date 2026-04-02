@@ -46,6 +46,8 @@ class BaseCrisis(BaseCard, ABC):
     mechanics: ClassVar[str]
     additional_prompt: ClassVar[str | None] = None
 
+    action_type: ClassVar[type[BaseAction]]
+
     @abstractmethod
     async def run(
         self,
@@ -53,17 +55,9 @@ class BaseCrisis(BaseCard, ABC):
         players: list[GamePlayer],
     ) -> list[GameEvent]: ...
 
-    @abstractmethod
-    def get_action_type(self) -> type[BaseAction]:
-        """Get the BaseAction subclass used by this crisis."""
-
 
 class GenericCrisis[T: BaseAction](BaseCrisis):
-    @abstractmethod
-    @override
-    def get_action_type(self) -> type[T]:
-        """Get the action type."""
-        ...
+    action_type: ClassVar[type[T]]
 
     @abstractmethod
     def resolve(
@@ -105,6 +99,8 @@ class StandoffAction(BaseAction):
 
 
 class StandoffCrisis(GenericCrisis[StandoffAction]):
+    action_type: ClassVar[type] = StandoffAction
+
     card_kind: ClassVar[Literal["standoff"]] = "standoff"
     title: ClassVar[str] = "The Brink of Midnight"
     description: ClassVar[str] = (
@@ -134,10 +130,6 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         f"losses of {abs(STANDOFF_LOSER_GDP_EFFECT)} GDP and "
         f"{abs(STANDOFF_LOSER_INF_EFFECT)} Influence."
     )
-
-    @override
-    def get_action_type(self) -> type[StandoffAction]:
-        return StandoffAction
 
     @override
     def get_default_action(self, aggressive: bool) -> StandoffAction:
