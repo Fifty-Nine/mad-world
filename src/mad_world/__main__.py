@@ -280,18 +280,9 @@ def create_log_session_dir(
     if timestamp is None:
         timestamp = datetime.now()
 
-    alpha_persona = get_persona(alpha_config).partition("\n")[0]
-    omega_persona = get_persona(omega_config).partition("\n")[0]
-    alpha_persona = f"-{alpha_persona}" if alpha_persona else ""
-    omega_persona = f"-{omega_persona}" if omega_persona else ""
-
-    alpha_model = get_model_name(alpha_config)
-    omega_model = get_model_name(omega_config)
-
     dir_name = (
         (
-            f"{alpha_config.name}{alpha_persona}-{alpha_model}-vs-"
-            f"{omega_config.name}{omega_persona}-{omega_model}."
+            f"{alpha_config.file_name()}-vs-{omega_config.file_name()}."
             f"{timestamp.isoformat()}"
         )
         .replace(":", "-")
@@ -319,13 +310,9 @@ async def amain(
     logger = setup_logging(verbosity, log_dir)
 
     logger.info(
-        "Game starting\nPlayer 1: %s %s (%s)\nPlayer 2: %s %s (%s)",
-        alpha_config.name,
-        get_persona(alpha_config),
-        get_model_name(alpha_config),
-        omega_config.name,
-        get_persona(omega_config),
-        get_model_name(omega_config),
+        "Game starting\nPlayer 1: %s\nPlayer 2: %s",
+        alpha_config.summarize(),
+        omega_config.summarize(),
     )
 
     players = [

@@ -25,16 +25,37 @@ class LLMPlayerConfig(BaseModel):
     repeat_penalty: float = 1.1
     repeat_last_n: int = 64
 
+    def _simple_persona(self) -> str:
+        return (self.persona or "").partition("\n")[0].strip()
+
+    def summarize(self) -> str:
+        return f"{self.name} - {self._simple_persona()} ({self.model})"
+
+    def file_name(self) -> str:
+        return f"{self.name}-{self._simple_persona()}-{self.model}"
+
 
 class HumanPlayerConfig(BaseModel):
     kind: Literal[PlayerKind.HUMAN] = PlayerKind.HUMAN
     name: str
+
+    def summarize(self) -> str:
+        return f"{self.name} (Human)"
+
+    def file_name(self) -> str:
+        return f"{self.name}-Human"
 
 
 class TrivialPlayerConfig(BaseModel):
     kind: Literal[PlayerKind.TRIVIAL] = PlayerKind.TRIVIAL
     name: str
     bot_name: str
+
+    def summarize(self) -> str:
+        return f"{self.name} ({self.bot_name} bot)"
+
+    def file_name(self) -> str:
+        return f"{self.name}-Bot-{self.bot_name}"
 
 
 PlayerConfig = Annotated[
