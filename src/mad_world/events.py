@@ -36,6 +36,9 @@ class PlayerActor(BaseModel):
         return self.name
 
 
+AnyActor = SystemActor | PlayerActor | None
+
+
 class GameEvent(BaseModel):
     """Represents a discrete state change in the game."""
 

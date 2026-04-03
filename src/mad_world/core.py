@@ -26,7 +26,7 @@ from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
 )
-from mad_world.util import bannerize, wrap_text
+from mad_world.util import bannerize, escalation_bar, wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
@@ -254,6 +254,7 @@ class GameState(BaseModel):
         )
 
     def describe_state(self) -> str:
+        tracker = escalation_bar(self.escalation_track, defrag=True)
         result = (
             bannerize(
                 f"ROUND {self.current_round} PHASE {self.current_phase.name}"
@@ -261,6 +262,8 @@ class GameState(BaseModel):
             + f"  Clock: {self.doomsday_clock}/"
             f"{self.rules.max_clock_state}"
             f"{' (CRITICAL)' if self.clock_is_critical() else ''}\n"
+            "  Escalation Tracker:\n"
+            f"{wrap_text(tracker, indent='    ')}"
             "  Players:\n"
         )
         for player in self.players.values():
