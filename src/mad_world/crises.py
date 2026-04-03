@@ -148,17 +148,29 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
             world_ending=True,
         )
 
-    def _tie(self, players: list[str]) -> GameEvent:
+    def _tie(self, game: GameState, players: list[str]) -> GameEvent:
+        target_clock = min(
+            game.rules.max_clock_state - 1,
+            game.doomsday_clock + STANDOFF_TIE_CLOCK_EFFECT,
+        )
+        clock_delta = target_clock - game.doomsday_clock
+
         return GameEvent(
             actor=SystemActor(),
             description="Both players have chosen to back down. The world "
             "breathes a sigh of relief as cooler heads have prevailed.",
             gdp_delta=dict.fromkeys(players, STANDOFF_TIE_GDP_EFFECT),
             influence_delta=dict.fromkeys(players, STANDOFF_TIE_INF_EFFECT),
-            clock_delta=STANDOFF_TIE_CLOCK_EFFECT,
+            clock_delta=clock_delta,
         )
 
-    def _winner(self, winner: str, loser: str) -> GameEvent:
+    def _winner(self, game: GameState, winner: str, loser: str) -> GameEvent:
+        target_clock = min(
+            game.rules.max_clock_state - 1,
+            game.doomsday_clock + STANDOFF_WINNER_CLOCK_EFFECT,
+        )
+        clock_delta = target_clock - game.doomsday_clock
+
         return GameEvent(
             actor=PlayerActor(name=winner),
             description=f"{winner} looked death in the eyes and didn't blink. "
@@ -166,7 +178,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
             "forced into a costly withdrawal.",
             gdp_delta={loser: STANDOFF_LOSER_GDP_EFFECT},
             influence_delta={loser: STANDOFF_LOSER_INF_EFFECT},
-            clock_delta=STANDOFF_WINNER_CLOCK_EFFECT,
+            clock_delta=clock_delta,
         )
 
     @override
@@ -180,13 +192,13 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
             return [self._doomsday(list(actions.keys()))]
 
         if all(p == StandoffPosture.BACK_DOWN for p in postures):
-            return [self._tie(list(actions.keys()))]
+            return [self._tie(game, list(actions.keys()))]
 
         winner, loser = actions.keys()
         if actions[winner].posture == StandoffPosture.BACK_DOWN:
             winner, loser = loser, winner
 
-        return [self._winner(winner, loser)]
+        return [self._winner(game, winner, loser)]
 
 
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]

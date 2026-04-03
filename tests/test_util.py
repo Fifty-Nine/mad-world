@@ -7,10 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from mad_world.events import PlayerActor, SystemActor
 from mad_world.util import (
     BadClampRangeError,
     clamp,
     cost_or_gain,
+    defrag_escalation_track,
+    escalation_bar,
     escalation_budget,
     get_class_name,
     get_doomsday_bids,
@@ -361,3 +364,19 @@ def test_clamp_range() -> None:
 
     with pytest.raises(BadClampRangeError):
         clamp("foo", "zzz", "aaa")
+
+
+def test_escalation_bar() -> None:
+    p1 = PlayerActor(name="Bar")
+    p2 = PlayerActor(name="Foo")
+    sys = SystemActor()
+    track = [None, sys, p2, None, sys, p1]
+    assert defrag_escalation_track(track) == [p1, p2, sys, sys, None, None]
+
+    assert escalation_bar(track, defrag=True) == (
+        "+------+\n|BFxx  |\n+------+\n"
+    )
+
+    assert escalation_bar(track, defrag=False) == (
+        "+------+\n| xF xB|\n+------+\n"
+    )

@@ -13,6 +13,8 @@ from more_itertools import partition
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparisonT
 
+    from mad_world.events import AnyActor
+
 
 def increase_or_decrease(val: int) -> str:
     return "increase" if val >= 0 else "decrease"
@@ -283,3 +285,31 @@ def _(obj: list[Any], *, is_key: bool = False) -> list[Any]:
 
 def bannerize(text: str) -> str:
     return "=" * 10 + " " + text + " " + "=" * 10 + "\n"
+
+
+def defrag_escalation_track(tracker: list[AnyActor]) -> list[AnyActor]:
+    def key(a: AnyActor) -> Any:
+        return (
+            a is None,
+            a is not None and a.is_system(),
+            a.player() if a is not None else "",
+        )
+
+    return sorted(tracker, key=key)
+
+
+def escalation_bar(tracker: list[AnyActor], *, defrag: bool) -> str:
+    def marker(a: AnyActor) -> str:
+        if a is None:
+            return " "
+
+        p = a.player()
+        return "x" if p is None else p[0]
+
+    if defrag:
+        tracker = defrag_escalation_track(tracker)
+
+    track_text = "".join([marker(t) for t in tracker])
+
+    wrapper = "+" + ("-" * len(tracker)) + "+"
+    return f"{wrapper}\n|{track_text}|\n{wrapper}\n"

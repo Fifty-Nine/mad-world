@@ -29,7 +29,10 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
 
     @pytest.fixture
     def mock_game_state(self) -> MagicMock:
-        return MagicMock()
+        mock = MagicMock()
+        mock.doomsday_clock = 50
+        mock.rules.max_clock_state = 100
+        return mock
 
     @pytest.fixture
     def crisis(self) -> C:
@@ -115,6 +118,44 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert event.gdp_delta["Player2"] == STANDOFF_TIE_GDP_EFFECT
         assert event.influence_delta["Player1"] == STANDOFF_TIE_INF_EFFECT
         assert event.influence_delta["Player2"] == STANDOFF_TIE_INF_EFFECT
+
+    def test_resolve_tie_clamping(
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
+    ) -> None:
+        """Test resolution when both players back down, but clock is high."""
+        mock_game_state.escalation_track = ["System"] * 150
+        mock_game_state.doomsday_clock = 150
+        mock_game_state.rules.max_clock_state = 100
+        actions = {
+            "Player1": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+        }
+
+        events = crisis.resolve(mock_game_state, actions)
+        assert len(events) == 1
+        event = events[0]
+        assert event.clock_delta == -51
+
+    def test_resolve_winner_clamping(
+        self,
+        crisis: StandoffCrisis,
+        mock_game_state: MagicMock,
+    ) -> None:
+        """Test resolution when one player stands firm, and clock is high."""
+        mock_game_state.escalation_track = ["System"] * 150
+        mock_game_state.doomsday_clock = 150
+        mock_game_state.rules.max_clock_state = 100
+        actions = {
+            "Player1": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+        }
+
+        events = crisis.resolve(mock_game_state, actions)
+        assert len(events) == 1
+        event = events[0]
+        assert event.clock_delta == -51
 
     def test_resolve_winner_p1(
         self,
