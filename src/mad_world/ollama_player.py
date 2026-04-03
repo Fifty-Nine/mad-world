@@ -368,6 +368,8 @@ class OllamaPlayer(GamePlayer):
             "num_predict": config.token_limit,
             "num_ctx": config.context_size,
             "temperature": config.temperature,
+            "repeat_penalty": config.repeat_penalty,
+            "repeat_last_n": config.repeat_last_n,
             "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None

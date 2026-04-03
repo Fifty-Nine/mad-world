@@ -22,6 +22,8 @@ class LLMPlayerConfig(BaseModel):
     temperature: float = 0.8
     context_size: int = 2**17
     token_limit: int = 2**13
+    repeat_penalty: float = 1.1
+    repeat_last_n: int = 64
 
 
 class HumanPlayerConfig(BaseModel):
