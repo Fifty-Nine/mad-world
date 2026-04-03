@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,7 @@ import click
 from click_loglevel import LogLevel
 
 from mad_world import trivial_players
-from mad_world.core import RANDOM, format_results, game_loop
+from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.rules import GameRules
@@ -133,7 +134,7 @@ PERSONA_NOUNS = (
 
 
 def random_persona() -> str:
-    return f"{RANDOM.choice(PERSONA_ADJECTIVES)} {RANDOM.choice(PERSONA_NOUNS)}"
+    return f"{random.choice(PERSONA_ADJECTIVES)} {random.choice(PERSONA_NOUNS)}"
 
 
 def get_player(

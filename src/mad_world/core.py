@@ -32,7 +32,6 @@ if TYPE_CHECKING:
     from mad_world.players import GamePlayer
 
 
-RANDOM = random.Random()
 CLOCK_WARNING_THRESHOLD = 0.8
 
 
@@ -515,7 +514,7 @@ async def resolve_operations(
     )
 
     new_game = copy.deepcopy(game)
-    i = RANDOM.choice([0, 1])
+    i = game.rng.choice([0, 1])
 
     while len(alpha_action.operations) > 0 or len(omega_action.operations) > 0:
         active_name = alpha_name if i == 0 else omega_name
