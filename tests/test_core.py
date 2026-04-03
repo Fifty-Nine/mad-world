@@ -280,8 +280,8 @@ def test_escalation_debt(basic_game: GameState) -> None:
             clock_delta=5,
         )
     )
-    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 5
-    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+    assert basic_game.escalation_debt("Alpha") == 5
+    assert basic_game.escalation_debt("Omega") == 0
 
     # Alpha de-escalates by 8 -> net -3. Should spill over to Omega.
     basic_game.apply_event(
@@ -291,8 +291,8 @@ def test_escalation_debt(basic_game: GameState) -> None:
             clock_delta=-8,
         )
     )
-    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
-    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+    assert basic_game.escalation_debt("Alpha") == 0
+    assert basic_game.escalation_debt("Omega") == 0
 
     # Alpha de-escalates by 2 -> Omega is already 0, goes to -2.
     # Then clamped to 0.
@@ -303,8 +303,8 @@ def test_escalation_debt(basic_game: GameState) -> None:
             clock_delta=-2,
         )
     )
-    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
-    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+    assert basic_game.escalation_debt("Alpha") == 0
+    assert basic_game.escalation_debt("Omega") == 0
 
     # Omega escalates
     basic_game.apply_event(
@@ -314,8 +314,8 @@ def test_escalation_debt(basic_game: GameState) -> None:
             clock_delta=4,
         )
     )
-    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
-    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 4
+    assert basic_game.escalation_debt("Alpha") == 0
+    assert basic_game.escalation_debt("Omega") == 4
 
 
 def test_state_round_trip(basic_game: GameState) -> None:

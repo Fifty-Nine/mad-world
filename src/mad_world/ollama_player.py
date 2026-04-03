@@ -536,8 +536,24 @@ class OllamaPlayer(GamePlayer):
         result += "\n"
         return result
 
-    @staticmethod
-    def format_game_state(game: GameState) -> str:
+    def escalation_debt(self, game: GameState) -> str:
+        my_debt = game.escalation_debt(self.name)
+        their_debt = game.escalation_debt(self.opponent_name)
+
+        diff = my_debt - their_debt
+
+        if abs(diff) < (game.rules.max_clock_state / 6):
+            return ""
+
+        clock = game.doomsday_clock
+
+        return (
+            f"{self.name} is responsible for {my_debt}/{clock} clock points.\n"
+            f"{self.opponent_name} is responsible for {their_debt}/{clock} "
+            "clock points.\n"
+        )
+
+    def format_game_state(self, game: GameState) -> str:
         result = (
             f"Round {game.current_round} of {game.rules.round_count}\n"
             f"Phase: {game.current_phase.name}\n"
@@ -549,6 +565,7 @@ class OllamaPlayer(GamePlayer):
             game.doomsday_clock,
             game.rules.max_clock_state,
         )
+        result += self.escalation_debt(game)
         result += f"Escalation budget: {budget}\nPlayers:\n"
 
         result += "\n".join(

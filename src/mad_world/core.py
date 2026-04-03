@@ -345,6 +345,9 @@ class GameState(BaseModel):
             )
         ]
 
+    def escalation_debt(self, player: str) -> int:
+        return self.escalation_track.count(PlayerActor(name=player))
+
     def determine_victor(self) -> tuple[str | None, GameOverReason]:
         if self.doomsday_clock >= self.rules.max_clock_state:
             return (None, GameOverReason.WORLD_DESTROYED)
