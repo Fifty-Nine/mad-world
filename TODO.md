@@ -1,3 +1,4 @@
+- Fix tests writing to log dir.
 - **Implement mandates**
 - **Add influence cap/decay**
 - **Add coop win condition**
