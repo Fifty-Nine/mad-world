@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from mad_world.core import init_game
+from mad_world.core import GameState
 from mad_world.crises import StandoffAction, StandoffCrisis
 from mad_world.enums import GamePhase, StandoffPosture
 from mad_world.rules import GameRules
@@ -22,7 +22,7 @@ from mad_world.trivial_players import (
 async def test_crazy_ivan_initial_message() -> None:
     """Test Crazy Ivan's initial message."""
     player = CrazyIvan("TestIvan")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         await player.initial_message(game_state)
     ).message_to_opponent == "I'm crazy Ivan. Prepare to die!"
@@ -33,7 +33,7 @@ async def test_crazy_ivan_bid() -> None:
     """Test Crazy Ivan's bidding logic."""
     player = CrazyIvan("TestIvan")
     rules = GameRules()
-    game_state = init_game([player], rules)
+    game_state = GameState.new_game(players=[player.name], rules=rules)
 
     action = await player.bid(game_state)
 
@@ -45,7 +45,7 @@ async def test_crazy_ivan_bid() -> None:
 async def test_crazy_ivan_operations() -> None:
     """Test Crazy Ivan's operation logic."""
     player = CrazyIvan("TestIvan")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.operations(game_state)
 
@@ -56,7 +56,7 @@ async def test_crazy_ivan_operations() -> None:
 async def test_crazy_ivan_message() -> None:
     """Test Crazy Ivan's message logic."""
     player = CrazyIvan("TestIvan")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.message(game_state)
     assert action.message_to_opponent is None
@@ -66,7 +66,7 @@ async def test_crazy_ivan_message() -> None:
 async def test_pacifist_initial_message() -> None:
     """Test Pacifist's initial message."""
     player = Pacifist("TestPacifist")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         await player.initial_message(game_state)
     ).message_to_opponent == "I seek only peace and prosperity for all."
@@ -76,7 +76,7 @@ async def test_pacifist_initial_message() -> None:
 async def test_pacifist_bid() -> None:
     """Test Pacifist's bidding logic."""
     player = Pacifist("TestPacifist")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.bid(game_state)
 
@@ -88,7 +88,7 @@ async def test_pacifist_bid() -> None:
 async def test_pacifist_operations() -> None:
     """Test Pacifist's operation logic."""
     player = Pacifist("TestPacifist")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.operations(game_state)
 
@@ -99,7 +99,7 @@ async def test_pacifist_operations() -> None:
 async def test_pacifist_message() -> None:
     """Test Pacifist's message logic."""
     player = Pacifist("TestPacifist")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     game_state.current_phase = GamePhase.BIDDING_MESSAGING
     action = await player.message(game_state)
@@ -117,7 +117,7 @@ async def test_pacifist_message() -> None:
 async def test_capitalist_initial_message() -> None:
     """Test Capitalist's initial message."""
     player = Capitalist("TestCap")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         (await player.initial_message(game_state)).message_to_opponent
         == "Greed is good. I am here to maximize shareholder value."
@@ -128,7 +128,7 @@ async def test_capitalist_initial_message() -> None:
 async def test_capitalist_bid() -> None:
     """Test Capitalist's bidding logic."""
     player = Capitalist("TestCap")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.bid(game_state)
 
@@ -139,7 +139,7 @@ async def test_capitalist_bid() -> None:
 async def test_capitalist_operations() -> None:
     """Test Capitalist's operation logic."""
     player = Capitalist("TestCap")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.operations(game_state)
 
@@ -150,7 +150,7 @@ async def test_capitalist_operations() -> None:
 async def test_capitalist_message() -> None:
     """Test Capitalist's message logic."""
     player = Capitalist("TestCap")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     game_state.current_phase = GamePhase.BIDDING_MESSAGING
     action = await player.message(game_state)
@@ -165,7 +165,7 @@ async def test_capitalist_message() -> None:
 async def test_saboteur_initial_message() -> None:
     """Test Saboteur's initial message."""
     player = Saboteur("TestSaboteur")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         (await player.initial_message(game_state)).message_to_opponent
         == "We look forward to a long and mutually beneficial relationship..."
@@ -176,7 +176,7 @@ async def test_saboteur_initial_message() -> None:
 async def test_saboteur_bid() -> None:
     """Test Saboteur's bidding logic."""
     player = Saboteur("TestSaboteur")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.bid(game_state)
 
@@ -187,7 +187,7 @@ async def test_saboteur_bid() -> None:
 async def test_saboteur_operations_insufficient_influence() -> None:
     """Test Saboteur's operation logic without enough influence."""
     player = Saboteur("TestSaboteur")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     # Set influence to 3 (needs 4 for proxy-subversion)
     game_state.players["TestSaboteur"].influence = (
@@ -203,7 +203,7 @@ async def test_saboteur_operations_insufficient_influence() -> None:
 async def test_saboteur_operations_sufficient_influence() -> None:
     """Test Saboteur's operation logic with enough influence."""
     player = Saboteur("TestSaboteur")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     game_state.players["TestSaboteur"].influence = game_state.op_cost(
         "proxy-subversion"
@@ -218,7 +218,7 @@ async def test_saboteur_operations_sufficient_influence() -> None:
 async def test_saboteur_message() -> None:
     """Test Saboteur's message logic."""
     player = Saboteur("TestSaboteur")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     game_state.current_phase = GamePhase.BIDDING_MESSAGING
     action = await player.message(game_state)
@@ -249,7 +249,7 @@ async def test_saboteur_message() -> None:
 async def test_diplomat_initial_message() -> None:
     """Test Diplomat's initial message."""
     player = Diplomat("TestDiplomat")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         (await player.initial_message(game_state)).message_to_opponent
         == "I believe we can resolve our differences through dialogue."
@@ -260,7 +260,7 @@ async def test_diplomat_initial_message() -> None:
 async def test_diplomat_bid() -> None:
     """Test Diplomat's bidding logic."""
     player = Diplomat("TestDiplomat")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     action = await player.bid(game_state)
 
@@ -271,7 +271,7 @@ async def test_diplomat_bid() -> None:
 async def test_diplomat_operations_insufficient_influence() -> None:
     """Test Diplomat's operation logic without enough influence."""
     player = Diplomat("TestDiplomat")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     # Set influence to 4 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = (
@@ -287,7 +287,7 @@ async def test_diplomat_operations_insufficient_influence() -> None:
 async def test_diplomat_operations_sufficient_influence() -> None:
     """Test Diplomat's operation logic with enough influence."""
     player = Diplomat("TestDiplomat")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     # Set influence to 5 (needs 5 for unilateral-drawdown)
     game_state.players["TestDiplomat"].influence = game_state.op_cost(
@@ -303,7 +303,7 @@ async def test_diplomat_operations_sufficient_influence() -> None:
 async def test_diplomat_message() -> None:
     """Test Diplomat's message logic."""
     player = Diplomat("TestDiplomat")
-    game_state = init_game([player])
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
 
     game_state.current_phase = GamePhase.BIDDING_MESSAGING
     action = await player.message(game_state)
@@ -348,7 +348,7 @@ async def test_generic_crisis_resolution(
 
     assert player is not None
 
-    game = init_game([player])
+    game = GameState.new_game(players=[player.name], rules=GameRules())
     crisis = StandoffCrisis()
     action = await player.crisis(game, crisis)
 

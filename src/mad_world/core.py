@@ -24,10 +24,9 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
-    DEFAULT_RULES,
     GameRules,
 )
-from mad_world.util import bannerize, clamp, wrap_text
+from mad_world.util import bannerize, wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
@@ -62,11 +61,19 @@ class GameState(BaseModel):
     players: dict[str, PlayerState] = Field(
         description="The state of each player, keyed by their name.",
     )
-    doomsday_clock: int = Field(
-        default=0,
-        description="The current value of the doomsday clock.",
-        ge=0,
+    escalation_track: list[SystemActor | PlayerActor | None] = Field(
+        default_factory=list,
+        description=(
+            "A literal track of colored cubes (strings of player names "
+            "or 'System') representing escalation debt."
+        ),
     )
+
+    @property
+    def doomsday_clock(self) -> int:
+        """The current value of the doomsday clock."""
+        return len(self.escalation_track) - self.escalation_track.count(None)
+
     current_round: int = Field(
         default=1,
         description="The current round number.",
@@ -113,7 +120,7 @@ class GameState(BaseModel):
         cls, *, rules: GameRules, players: list[str], **kwargs: Any
     ) -> Self:
         rng = random.Random(rules.seed)
-        return cls(
+        result = cls(
             rng=rng,
             rules=rules,
             players={
@@ -124,9 +131,12 @@ class GameState(BaseModel):
                 )
                 for player in players
             },
+            escalation_track=[None] * rules.max_clock_state,
             crisis_deck=create_crisis_deck(rng),
             **kwargs,
         )
+        result.escalate(SystemActor(), rules.initial_clock_state)
+        return result
 
     def player_names(self) -> tuple[str, str]:
         assert len(self.players) == 2
@@ -161,8 +171,41 @@ class GameState(BaseModel):
                 operation=operation_name,
             )
 
+    def _deescalate_one(self, actor: SystemActor | PlayerActor) -> None:
+        # First look for any of actor's cubes.
+        for i in range(len(self.escalation_track) - 1, -1, -1):
+            track_actor = self.escalation_track[i]
+            if track_actor == actor or (
+                actor.is_system() and track_actor is not None
+            ):
+                self.escalation_track[i] = None
+                return
+
+        # Now look for any cube.
+        for i in range(len(self.escalation_track) - 1, -1, -1):
+            track_actor = self.escalation_track[i]
+            if track_actor is None:
+                continue
+
+            self.escalation_track[i] = None
+            break
+
+    def _escalate_one(self, actor: SystemActor | PlayerActor) -> None:
+        for i in range(len(self.escalation_track)):
+            if self.escalation_track[i] is None:
+                self.escalation_track[i] = actor
+                return
+
+    def escalate(self, actor: SystemActor | PlayerActor, amount: int) -> None:
+        """Escalate the doomsday clock by adding cubes to the track."""
+        fn = self._escalate_one if amount >= 0 else self._deescalate_one
+        amount = abs(amount)
+        while amount > 0:
+            fn(actor)
+            amount -= 1
+
     def apply_event(self, event: GameEvent) -> None:
-        self.doomsday_clock += event.clock_delta
+        self.escalate(event.actor, event.clock_delta)
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
@@ -178,13 +221,6 @@ class GameState(BaseModel):
             return
 
         raise WorldDestroyed(instigator=event.actor.player())
-
-    def _clamp_fields(self) -> None:
-        """Clamp relevant game states to their allowed values after events may
-        have moved them beyond their limits."""
-        self.doomsday_clock = clamp(
-            self.doomsday_clock, 0, self.rules.max_clock_state
-        )
 
     def log_message(
         self,
@@ -247,7 +283,6 @@ class GameState(BaseModel):
         return True
 
     def advance_phase(self) -> None:
-        self._clamp_fields()
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
@@ -323,18 +358,9 @@ class GameState(BaseModel):
         return (None, GameOverReason.STALEMATE)
 
 
-def init_game(
-    players: list[GamePlayer],
-    rules: GameRules = DEFAULT_RULES,
-) -> GameState:
-    return GameState.new_game(
-        players=[p.name for p in players],
-        rules=rules,
-        doomsday_clock=rules.initial_clock_state,
-    )
-
-
-def process_bid(game: GameState, player_name: str, bid: int) -> None:
+def get_bid_impact(
+    game: GameState, player_name: str, bid: int
+) -> tuple[int, int, str]:
     action = BiddingAction(bid=bid)
 
     try:
@@ -357,14 +383,7 @@ def process_bid(game: GameState, player_name: str, bid: int) -> None:
         desc = f"{player_name} bid {bid} for influence."
         clock_impact = bid
 
-    game.apply_event(
-        GameEvent(
-            actor=PlayerActor(name=player_name),
-            description=desc,
-            clock_delta=clock_impact,
-            influence_delta={player_name: bid},
-        ),
-    )
+    return bid, clock_impact, desc
 
 
 async def resolve_bidding(
@@ -374,14 +393,70 @@ async def resolve_bidding(
     """Resolve the bidding phase of the game."""
 
     alpha_name, omega_name = game.player_names()
+    alpha_actor, omega_actor = (
+        PlayerActor(name=alpha_name),
+        PlayerActor(name=omega_name),
+    )
     alpha_action, omega_action = await asyncio.gather(
         players[0].bid(game),
         players[1].bid(game),
     )
 
     new_game = copy.deepcopy(game)
-    process_bid(new_game, alpha_name, alpha_action.bid)
-    process_bid(new_game, omega_name, omega_action.bid)
+
+    alpha_bid, alpha_impact, alpha_desc = get_bid_impact(
+        new_game, alpha_name, alpha_action.bid
+    )
+    omega_bid, omega_impact, omega_desc = get_bid_impact(
+        new_game, omega_name, omega_action.bid
+    )
+
+    new_game.apply_event(
+        GameEvent(
+            actor=alpha_actor,
+            description=alpha_desc,
+            clock_delta=0,
+            influence_delta={alpha_name: alpha_bid},
+        )
+    )
+    new_game.apply_event(
+        GameEvent(
+            actor=omega_actor,
+            description=omega_desc,
+            clock_delta=0,
+            influence_delta={omega_name: omega_bid},
+        )
+    )
+
+    clock_start = new_game.doomsday_clock
+    alpha_rem = abs(alpha_impact)
+    alpha_sign = 1 if alpha_impact > 0 else -1 if alpha_impact < 0 else 0
+
+    omega_rem = abs(omega_impact)
+    omega_sign = 1 if omega_impact > 0 else -1 if omega_impact < 0 else 0
+
+    def apply_impact(rem: int, sign: int, actor: PlayerActor) -> int:
+        if rem <= 0:
+            return 0
+        new_game.escalate(actor, sign * 1)
+        return rem - 1
+
+    while alpha_rem > 0 or omega_rem > 0:
+        alpha_rem = apply_impact(alpha_rem, alpha_sign, alpha_actor)
+        omega_rem = apply_impact(omega_rem, omega_sign, omega_actor)
+
+    clock_end = new_game.doomsday_clock
+    net_change = clock_end - clock_start
+
+    new_game.apply_event(
+        GameEvent(
+            actor=SystemActor(),
+            description=(
+                f"Bidding resolved. Net doomsday clock change: {net_change:+d}"
+            ),
+            clock_delta=0,
+        )
+    )
 
     new_game.advance_phase()
 
@@ -557,7 +632,7 @@ def check_game_over(game: GameState) -> bool:
 
 def destroy_world(game: GameState) -> GameState:
     new_game = copy.deepcopy(game)
-    new_game.doomsday_clock += 50
+    new_game.escalate(SystemActor(), 50)
 
     for player in new_game.players.values():
         player.gdp -= 1000
@@ -569,7 +644,7 @@ async def game_loop(
     rules: GameRules,
     players: list[GamePlayer],
 ) -> tuple[str | None, GameOverReason, GameState]:
-    game = init_game(players, rules)
+    game = GameState.new_game(players=[p.name for p in players], rules=rules)
 
     for p in players:
         p.start_game(rules)

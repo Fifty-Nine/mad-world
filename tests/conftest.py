@@ -23,7 +23,6 @@ def basic_game() -> GameState:
     return GameState.new_game(
         players=["Alpha", "Omega"],
         rules=rules,
-        doomsday_clock=0,
         current_round=1,
         current_phase=GamePhase.BIDDING,
     )

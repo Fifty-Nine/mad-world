@@ -18,6 +18,9 @@ class ActorKind(Enum):
 class SystemActor(BaseModel):
     actor_kind: Literal[ActorKind.SYSTEM] = Field(default=ActorKind.SYSTEM)
 
+    def is_system(self) -> bool:
+        return True
+
     def player(self) -> str | None:
         return None
 
@@ -25,6 +28,9 @@ class SystemActor(BaseModel):
 class PlayerActor(BaseModel):
     actor_kind: Literal[ActorKind.PLAYER] = Field(default=ActorKind.PLAYER)
     name: str
+
+    def is_system(self) -> bool:
+        return False
 
     def player(self) -> str | None:
         return self.name

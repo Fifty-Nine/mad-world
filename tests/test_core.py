@@ -18,8 +18,8 @@ from mad_world.core import (
     GameState,
     format_results,
     game_loop,
+    get_bid_impact,
     iterate_game,
-    process_bid,
     resolve_operation,
 )
 from mad_world.enums import GameOverReason, GamePhase
@@ -156,15 +156,12 @@ def test_operations_action_validate_semantics_insufficient_influence(
         action.validate_semantics(basic_game, "Alpha")
 
 
-def test_process_bid_invalid_bid(basic_game: GameState) -> None:
+def test_get_bid_impact_invalid_bid(basic_game: GameState) -> None:
     basic_game.rules.allowed_bids = [0, 1]
-    process_bid(basic_game, "Alpha", -999)
-    assert basic_game.players["Alpha"].influence == 6
-    assert basic_game.doomsday_clock == 1
-    assert (
-        "corrected to the maximum possible value"
-        in basic_game.event_log[-1].description
-    )
+    bid, impact, desc = get_bid_impact(basic_game, "Alpha", -999)
+    assert bid == 1
+    assert impact == 1
+    assert "corrected to the maximum possible value" in desc
 
 
 def test_resolve_operation_invalid_operation(basic_game: GameState) -> None:
@@ -186,7 +183,7 @@ def test_game_event_defaults() -> None:
 
 def test_describe_state_critical_clock(basic_game: GameState) -> None:
     basic_game.rules.max_clock_state = 30
-    basic_game.doomsday_clock = 25
+    basic_game.escalation_track = [SystemActor()] * 25
     description = basic_game.describe_state()
     assert "(CRITICAL)" in description
 
@@ -259,12 +256,9 @@ async def test_survived_crisis() -> None:
 
 def test_clock_limits(basic_game: GameState) -> None:
     """Ensure clock state can't go negative due to an event."""
-    basic_game.doomsday_clock = 0
     basic_game.apply_event(
         GameEvent(actor=SystemActor(), description="", clock_delta=-1)
     )
-    assert basic_game.doomsday_clock == -1
-    basic_game.advance_phase()
     assert basic_game.doomsday_clock == 0
 
     basic_game.apply_event(
@@ -274,9 +268,54 @@ def test_clock_limits(basic_game: GameState) -> None:
             clock_delta=basic_game.rules.max_clock_state + 1,
         ),
     )
-    assert basic_game.doomsday_clock == basic_game.rules.max_clock_state + 1
-    basic_game.advance_phase()
     assert basic_game.doomsday_clock == basic_game.rules.max_clock_state
+
+
+def test_escalation_debt(basic_game: GameState) -> None:
+    # Alpha escalates by 5
+    basic_game.apply_event(
+        GameEvent(
+            actor=PlayerActor(name="Alpha"),
+            description="Alpha escalates",
+            clock_delta=5,
+        )
+    )
+    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 5
+    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+
+    # Alpha de-escalates by 8 -> net -3. Should spill over to Omega.
+    basic_game.apply_event(
+        GameEvent(
+            actor=PlayerActor(name="Alpha"),
+            description="Alpha de-escalates heavily",
+            clock_delta=-8,
+        )
+    )
+    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
+    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+
+    # Alpha de-escalates by 2 -> Omega is already 0, goes to -2.
+    # Then clamped to 0.
+    basic_game.apply_event(
+        GameEvent(
+            actor=PlayerActor(name="Alpha"),
+            description="Alpha de-escalates again",
+            clock_delta=-2,
+        )
+    )
+    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
+    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 0
+
+    # Omega escalates
+    basic_game.apply_event(
+        GameEvent(
+            actor=PlayerActor(name="Omega"),
+            description="Omega escalates",
+            clock_delta=4,
+        )
+    )
+    assert basic_game.escalation_track.count(PlayerActor(name="Alpha")) == 0
+    assert basic_game.escalation_track.count(PlayerActor(name="Omega")) == 4
 
 
 def test_state_round_trip(basic_game: GameState) -> None:

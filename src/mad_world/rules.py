@@ -218,6 +218,3 @@ class GameRules(BaseModel):
             self.de_escalate_impact,
             self.allowed_bids,
         )
-
-
-DEFAULT_RULES: GameRules = GameRules()
