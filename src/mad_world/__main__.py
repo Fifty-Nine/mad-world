@@ -182,12 +182,9 @@ DEFAULT_OMEGA = LLMPlayerConfig(
 )
 
 
-def _ensure_persona(config: PlayerConfig) -> PlayerConfig:
+def _ensure_persona(config: PlayerConfig) -> None:
     if config.kind == PlayerKind.LLM and config.persona is None:
-        new_config = config.model_copy(deep=True)
-        new_config.persona = random_persona()
-        return new_config
-    return config
+        config.persona = random_persona()
 
 
 def run_game(
@@ -205,8 +202,8 @@ def run_game(
         log_dir: Base directory for storing session logs.
         verbosity: Logging verbosity level.
     """
-    alpha = _ensure_persona(alpha)
-    omega = _ensure_persona(omega)
+    _ensure_persona(alpha)
+    _ensure_persona(omega)
 
     log_level = getattr(logging, verbosity)
 
