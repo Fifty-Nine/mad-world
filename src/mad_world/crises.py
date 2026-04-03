@@ -99,7 +99,7 @@ class StandoffAction(BaseAction):
 
 
 class StandoffCrisis(GenericCrisis[StandoffAction]):
-    action_type: ClassVar[type] = StandoffAction
+    action_type: ClassVar[type[StandoffAction]] = StandoffAction
 
     card_kind: ClassVar[Literal["standoff"]] = "standoff"
     title: ClassVar[str] = "The Brink of Midnight"
