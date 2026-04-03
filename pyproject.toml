@@ -6,12 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.3.1",
-    "click-loglevel>=0.7.0",
+    "jsonargparse[signatures]>=4.47.0",
     "more-itertools>=10.8.0",
     "ollama>=0.6.1",
     "prompt-toolkit>=3.0.52",
     "pydantic>=2.12.5",
 ]
+
+[project.scripts]
+mad_world = "mad_world.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

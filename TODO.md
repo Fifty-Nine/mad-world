@@ -1,12 +1,9 @@
+- Fix tests writing to log dir.
 - **Implement mandates**
-- **Implement crisis**
-- **Add blame tracker**
 - **Add influence cap/decay**
 - **Add coop win condition**
-- Expand testing
+- Add more crises
+- Expand testing of ollama_player
 - Add stochastic clock effects.
-- Add clock decay?
-- Add crisis deck.
 - Improve first strike mechanic.
-- Add communication loop?
 - Add a TUI interface.

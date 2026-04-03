@@ -8,12 +8,17 @@ import random
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-import click
-from click_loglevel import LogLevel
+from jsonargparse import CLI
+from prompt_toolkit import PromptSession
 
 from mad_world import trivial_players
+from mad_world.config import (
+    LLMPlayerConfig,
+    PlayerConfig,
+    PlayerKind,
+)
 from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
@@ -133,152 +138,172 @@ PERSONA_NOUNS = (
 )
 
 
+def coerce_bool_response(response: str, *, default_val: bool) -> bool | None:
+    response = response.strip().lower()
+    if response == "":
+        return default_val
+
+    if response in ("n", "no"):
+        return False
+
+    if response in ("y", "ye", "yes"):
+        return True
+
+    return None
+
+
+async def prompt_bool_once(
+    prompt: str,
+    session: PromptSession[str],
+    loop_timeout: float = 5.0,
+    *,
+    default_val: bool,
+) -> bool | str:
+    suffix = " [Y/n]> " if default_val else " [y/N]> "
+    try:
+        answer = await asyncio.wait_for(
+            session.prompt_async(prompt + suffix), timeout=loop_timeout
+        )
+    except (TimeoutError, KeyboardInterrupt, EOFError):
+        return default_val
+
+    result = coerce_bool_response(answer, default_val=default_val)
+    return result if result is not None else answer
+
+
+async def prompt_bool(
+    prompt: str, loop_timeout: float = 5.0, *, default_val: bool
+) -> bool:
+    session: PromptSession[str] = PromptSession()
+    prefix = ""
+    while True:
+        result = await prompt_bool_once(
+            prefix + prompt, session, loop_timeout, default_val=default_val
+        )
+
+        if isinstance(result, str):
+            prefix = f"Unrecognized response: {result}\n"
+            continue
+
+        return result
+
+
+def should_preserve_logs(*, default_choice: bool) -> bool:
+    return asyncio.run(
+        prompt_bool(
+            "Do you want to preserve the logs?", default_val=default_choice
+        )
+    )
+
+
 def random_persona() -> str:
     return f"{random.choice(PERSONA_ADJECTIVES)} {random.choice(PERSONA_NOUNS)}"
 
 
 def get_player(
-    name: str,
+    config: PlayerConfig,
     opponent_name: str,
-    model: str,
-    persona: str,
-    temperature: float,
-    context: int,
-    tokens: int,
     log_dir: Path,
-    logger: logging.Logger | None = None,
+    logger: logging.Logger,
 ) -> GamePlayer:
-    if model == "human":
-        return HumanPlayer(name)
+    if config.kind == PlayerKind.HUMAN:
+        return HumanPlayer(config.name)
 
     logger = logger or logging.getLogger("mad_world")
 
-    if trivial_player := trivial_players.get_trivial_player(model, name):
+    if config.kind == PlayerKind.TRIVIAL:
+        trivial_player = trivial_players.get_trivial_player(
+            config.bot_name, config.name
+        )
+        if not trivial_player:
+            msg = f"Unknown trivial player bot name: {config.bot_name}"
+            raise ValueError(msg)
         return trivial_player
 
     return OllamaPlayer(
-        name=name,
+        config=config,
         opponent_name=opponent_name,
-        model=model,
-        persona=persona,
-        context_size=context,
-        token_limit=tokens,
-        temperature=temperature,
         log_dir=log_dir,
+        compression_threshold=0.75,
         logger=logger,
     )
 
 
-@click.command()
-@click.option("--alpha-name", default="Norlandia", help="Name of player 1.")
-@click.option(
-    "--alpha-model",
-    default="gemma3:12b",
-    help="Ollama model used for player 1.",
+DEFAULT_ALPHA = LLMPlayerConfig(
+    kind=PlayerKind.LLM,
+    name="Norlandia",
+    model="gemma3:12b",
 )
-@click.option(
-    "--alpha-persona",
-    default=None,
-    help="Persona prompt for player 1.",
+DEFAULT_OMEGA = LLMPlayerConfig(
+    kind=PlayerKind.LLM,
+    name="Southern Imperium",
+    model="gemma3:12b",
 )
-@click.option(
-    "--alpha-temperature",
-    default=0.8,
-    help="Temperature for player 1 model.",
-)
-@click.option(
-    "--alpha-context",
-    default=2**17,
-    help="Context window size for player 1 model.",
-)
-@click.option(
-    "--alpha-tokens",
-    default=2**13,
-    help="Output token budget for player 1 model.",
-)
-@click.option(
-    "--omega-name",
-    default="Southern Imperium",
-    help="Name of player 2.",
-)
-@click.option(
-    "--omega-model",
-    default="gemma3:12b",
-    help="Ollama model used for player 2.",
-)
-@click.option(
-    "--omega-persona",
-    default=None,
-    help="Persona prompt for player 2.",
-)
-@click.option(
-    "--omega-temperature",
-    default=0.0,
-    help="Temperature for player 2 model.",
-)
-@click.option(
-    "--omega-context",
-    default=2**17,
-    help="Context window size for player 2 model.",
-)
-@click.option(
-    "--omega-tokens",
-    default=2**13,
-    help="Output token budget for player 2 model.",
-)
-@click.option(
-    "--log-dir",
-    default="./logs",
-    type=click.Path(path_type=Path),
-    help="Base directory for logs.",
-)
-@click.option(
-    "-v",
-    "--verbosity",
-    type=LogLevel(),
-    default="DEBUG",
-    help="Set verbosity level.",
-    show_default=True,
-)
-def main(
-    alpha_name: str,
-    alpha_model: str,
-    alpha_persona: str | None,
-    alpha_temperature: float,
-    alpha_context: int,
-    alpha_tokens: int,
-    omega_name: str,
-    omega_model: str,
-    omega_persona: str | None,
-    omega_temperature: float,
-    omega_context: int,
-    omega_tokens: int,
-    verbosity: int,
-    log_dir: Path,
+
+
+def _default_config(config: PlayerConfig) -> PlayerConfig:
+    updates = {}
+    if config.kind == PlayerKind.LLM and config.persona is None:
+        updates["persona"] = random_persona()
+
+    return config.model_copy(update=updates, deep=True)
+
+
+def run_game(
+    alpha: PlayerConfig = DEFAULT_ALPHA,
+    omega: PlayerConfig = DEFAULT_OMEGA,
+    log_dir: Path = Path("./logs"),
+    verbosity: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO",
 ) -> None:
-    asyncio.run(
-        amain(
-            alpha_name,
-            alpha_model,
-            alpha_persona,
-            alpha_temperature,
-            alpha_context,
-            alpha_tokens,
-            omega_name,
-            omega_model,
-            omega_persona,
-            omega_temperature,
-            omega_context,
-            omega_tokens,
-            verbosity,
-            log_dir_base=log_dir,
-        ),
+    """
+    Mad World CLI
+
+    Args:
+        alpha: Configuration for player 1.
+        omega: Configuration for player 2.
+        log_dir: Base directory for storing session logs.
+        verbosity: Logging verbosity level.
+    """
+    alpha = _default_config(alpha)
+    omega = _default_config(omega)
+
+    specific_log_dir = create_log_session_dir(
+        log_dir,
+        alpha,
+        omega,
     )
 
+    logger = setup_logging(verbosity, specific_log_dir)
 
-def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
+    preserve_by_default = True
+    try:
+        asyncio.run(
+            amain(
+                alpha_config=alpha,
+                omega_config=omega,
+                log_dir=specific_log_dir,
+                logger=logger,
+            )
+        )
+    except (KeyboardInterrupt, EOFError):
+        preserve_by_default = False
+
+    if (
+        not should_preserve_logs(default_choice=preserve_by_default)
+        and specific_log_dir.exists()
+        and specific_log_dir.is_dir()
+    ):
+        shutil.rmtree(specific_log_dir)
+
+
+def main() -> None:
+    CLI(run_game, prog="mad_world")  # type: ignore[no-untyped-call]
+
+
+def setup_logging(verbosity: str, log_dir: Path) -> logging.Logger:
     """Configures logging for the game session."""
     logger = logging.getLogger("mad_world")
+    log_level = getattr(logging, verbosity)
     logger.setLevel(logging.DEBUG)
 
     # Clear existing handlers if any
@@ -295,7 +320,7 @@ def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     file_handler.setLevel(logging.INFO)
 
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(verbosity)
+    stream_handler.setLevel(log_level)
 
     logger.addHandler(debug_file_handler)
     logger.addHandler(file_handler)
@@ -310,25 +335,17 @@ def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
 
 def create_log_session_dir(
     log_dir_base: Path,
-    alpha_name: str,
-    alpha_persona: str,
-    alpha_model: str,
-    omega_name: str,
-    omega_persona: str,
-    omega_model: str,
+    alpha_config: PlayerConfig,
+    omega_config: PlayerConfig,
     timestamp: datetime | None = None,
 ) -> Path:
     """Creates a unique directory for the game session logs."""
     if timestamp is None:
         timestamp = datetime.now()
 
-    alpha_persona = alpha_persona.partition("\n")[0]
-    omega_persona = omega_persona.partition("\n")[0]
-
     dir_name = (
         (
-            f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
-            f"{omega_name}-{omega_persona}-{omega_model}."
+            f"{alpha_config.file_name()}-vs-{omega_config.file_name()}."
             f"{timestamp.isoformat()}"
         )
         .replace(":", "-")
@@ -341,78 +358,35 @@ def create_log_session_dir(
 
 
 async def amain(
-    alpha_name: str,
-    alpha_model: str,
-    alpha_persona: str | None,
-    alpha_temperature: float,
-    alpha_context: int,
-    alpha_tokens: int,
-    omega_name: str,
-    omega_model: str,
-    omega_persona: str | None,
-    omega_temperature: float,
-    omega_context: int,
-    omega_tokens: int,
-    verbosity: int,
-    log_dir_base: Path = Path("./logs"),
+    alpha_config: PlayerConfig,
+    omega_config: PlayerConfig,
+    logger: logging.Logger,
+    log_dir: Path,
 ) -> None:
 
-    alpha_persona = alpha_persona or random_persona()
-    omega_persona = omega_persona or random_persona()
-
-    log_dir = create_log_session_dir(
-        log_dir_base,
-        alpha_name,
-        alpha_persona,
-        alpha_model,
-        omega_name,
-        omega_persona,
-        omega_model,
-    )
-
-    logger = setup_logging(verbosity, log_dir)
-
     logger.info(
-        "Game starting\nPlayer 1: %s %s (%s)\nPlayer 2: %s %s (%s)",
-        alpha_name,
-        alpha_persona,
-        alpha_model,
-        omega_name,
-        omega_persona,
-        omega_model,
+        "Game starting\nPlayer 1: %s\nPlayer 2: %s",
+        alpha_config.summarize(),
+        omega_config.summarize(),
     )
 
     players = [
         get_player(
-            alpha_name,
-            omega_name,
-            alpha_model,
-            alpha_persona,
-            alpha_temperature,
-            alpha_context,
-            alpha_tokens,
+            alpha_config,
+            omega_config.name,
             log_dir,
             logger,
         ),
         get_player(
-            omega_name,
-            alpha_name,
-            omega_model,
-            omega_persona,
-            omega_temperature,
-            omega_context,
-            omega_tokens,
+            omega_config,
+            alpha_config.name,
             log_dir,
             logger,
         ),
     ]
-    try:
-        winner, reason, state = await game_loop(GameRules(), players)
-        logger.info(wrap_text(format_results(winner, reason, state)))
-    except (KeyboardInterrupt, EOFError):
-        if log_dir.exists() and log_dir.is_dir():
-            shutil.rmtree(log_dir)
+    winner, reason, state = await game_loop(GameRules(), players)
+    logger.info(wrap_text(format_results(winner, reason, state)))
 
 
 if __name__ == "__main__":
-    main()  # pragma: no cover
+    main()  # pragma: no cover│asyncio.exceptions.CancelledError
