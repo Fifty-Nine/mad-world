@@ -162,14 +162,10 @@ def get_player(
         return trivial_player
 
     return OllamaPlayer(
-        name=config.name,
+        config=config,
         opponent_name=opponent_name,
-        model=config.model,
-        persona=config.persona,
-        context_size=config.context_size,
-        token_limit=config.token_limit,
-        temperature=config.temperature,
         log_dir=log_dir,
+        compression_threshold=0.75,
         logger=logger,
     )
 

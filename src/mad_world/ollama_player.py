@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     import logging
     from pathlib import Path
 
+    from mad_world.config import LLMPlayerConfig
     from mad_world.crises import GenericCrisis
     from mad_world.events import GameEvent
     from mad_world.rules import GameRules
@@ -349,31 +350,24 @@ def create_crisis_response[T: BaseAction](
 class OllamaPlayer(GamePlayer):
     def __init__(
         self,
-        name: str,
+        config: LLMPlayerConfig,
         opponent_name: str,
-        model: str = "qwen3.5:9b",
-        token_limit: int = 8192,
-        context_size: int = 2**17,
-        temperature: float = 0.8,
-        persona: str | None = None,
         log_dir: Path | None = None,
         compression_threshold: float = 0.75,
         *,
         logger: logging.Logger,
     ) -> None:
-        super().__init__(name)
+        super().__init__(config.name)
         self.opponent_name = opponent_name
-        self.persona = persona
-        self.model = model
+        self.persona = config.persona
+        self.model = config.model
         self.client = ollama.AsyncClient()
         self.messages: list[dict[str, str]] = []
-        self.token_limit = token_limit
-        self.context_size = context_size
-        self.temperature = temperature
+        self.config = config
         self.prompt_options = {
-            "num_predict": self.token_limit,
-            "num_ctx": self.context_size,
-            "temperature": self.temperature,
+            "num_predict": config.token_limit,
+            "num_ctx": config.context_size,
+            "temperature": config.temperature,
             "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None
@@ -483,7 +477,7 @@ class OllamaPlayer(GamePlayer):
         settings_path = self.log_base.with_suffix(".model-settings.json")
         with settings_path.open("w", encoding="utf-8") as f:
             json.dump(
-                {"model": self.model, "options": self.prompt_options},
+                self.config.model_dump(mode="json"),
                 indent=2,
                 ensure_ascii=False,
                 fp=f,
@@ -795,12 +789,12 @@ class OllamaPlayer(GamePlayer):
         eval_count = getattr(response_obj, "eval_count", 0) or 0
         total_tokens = prompt_eval_count + eval_count
 
-        usage = total_tokens / self.context_size
+        usage = total_tokens / self.config.context_size
         self.logger.debug(
             "[%s] Context usage: %s/%s (%s)",
             self.name,
             total_tokens,
-            self.context_size,
+            self.config.context_size,
             f"{usage:.1%}",
         )
         if usage > self.compression_threshold:
