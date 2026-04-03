@@ -698,7 +698,9 @@ class OllamaPlayer(GamePlayer):
 
     async def _compress_context(self, game: GameState) -> None:
         self.logger.debug(
-            "[%s] Context usage exceeded 95%. Compressing context...", self.name
+            "[%s] Context usage exceeded %s. Compressing context...",
+            self.name,
+            f"{self.compression_threshold:.0%}",
         )
         compression_prompt = (
             "System Directive: Internal Memory Update\n"
