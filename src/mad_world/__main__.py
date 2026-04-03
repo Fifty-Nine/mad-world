@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from jsonargparse import CLI
+from prompt_toolkit import PromptSession
 
 from mad_world import trivial_players
 from mad_world.config import (
@@ -137,6 +138,64 @@ PERSONA_NOUNS = (
 )
 
 
+def coerce_bool_response(response: str, *, default_val: bool) -> bool | None:
+    response = response.strip().lower()
+    if response == "":
+        return default_val
+
+    if response in ("n", "no"):
+        return False
+
+    if response in ("y", "ye", "yes"):
+        return True
+
+    return None
+
+
+async def prompt_bool_once(
+    prompt: str,
+    session: PromptSession[str],
+    loop_timeout: float = 5.0,
+    *,
+    default_val: bool,
+) -> bool | str:
+    suffix = " [Y/n]> " if default_val else " [y/N]> "
+    try:
+        answer = await asyncio.wait_for(
+            session.prompt_async(prompt + suffix), timeout=loop_timeout
+        )
+    except (TimeoutError, KeyboardInterrupt, EOFError):
+        return default_val
+
+    result = coerce_bool_response(answer, default_val=default_val)
+    return result if result is not None else answer
+
+
+async def prompt_bool(
+    prompt: str, loop_timeout: float = 5.0, *, default_val: bool
+) -> bool:
+    session: PromptSession[str] = PromptSession()
+    prefix = ""
+    while True:
+        result = await prompt_bool_once(
+            prefix + prompt, session, loop_timeout, default_val=default_val
+        )
+
+        if isinstance(result, str):
+            prefix = f"Unrecognized response: {result}\n"
+            continue
+
+        return result
+
+
+def should_preserve_logs(*, default_choice: bool) -> bool:
+    return asyncio.run(
+        prompt_bool(
+            "Do you want to preserve the logs?", default_val=default_choice
+        )
+    )
+
+
 def random_persona() -> str:
     return f"{random.choice(PERSONA_ADJECTIVES)} {random.choice(PERSONA_NOUNS)}"
 
@@ -145,7 +204,7 @@ def get_player(
     config: PlayerConfig,
     opponent_name: str,
     log_dir: Path,
-    logger: logging.Logger | None = None,
+    logger: logging.Logger,
 ) -> GamePlayer:
     if config.kind == PlayerKind.HUMAN:
         return HumanPlayer(config.name)
@@ -194,7 +253,7 @@ def run_game(
     alpha: PlayerConfig = DEFAULT_ALPHA,
     omega: PlayerConfig = DEFAULT_OMEGA,
     log_dir: Path = Path("./logs"),
-    verbosity: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "DEBUG",
+    verbosity: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO",
 ) -> None:
     """
     Mad World CLI
@@ -208,25 +267,43 @@ def run_game(
     alpha = _default_config(alpha)
     omega = _default_config(omega)
 
-    log_level = getattr(logging, verbosity)
-
-    asyncio.run(
-        amain(
-            alpha_config=alpha,
-            omega_config=omega,
-            verbosity=log_level,
-            log_dir_base=log_dir,
-        )
+    specific_log_dir = create_log_session_dir(
+        log_dir,
+        alpha,
+        omega,
     )
+
+    logger = setup_logging(verbosity, specific_log_dir)
+
+    preserve_by_default = True
+    try:
+        asyncio.run(
+            amain(
+                alpha_config=alpha,
+                omega_config=omega,
+                log_dir=specific_log_dir,
+                logger=logger,
+            )
+        )
+    except (KeyboardInterrupt, EOFError):
+        preserve_by_default = False
+
+    if (
+        not should_preserve_logs(default_choice=preserve_by_default)
+        and specific_log_dir.exists()
+        and specific_log_dir.is_dir()
+    ):
+        shutil.rmtree(specific_log_dir)
 
 
 def main() -> None:
     CLI(run_game, prog="mad_world")  # type: ignore[no-untyped-call]
 
 
-def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
+def setup_logging(verbosity: str, log_dir: Path) -> logging.Logger:
     """Configures logging for the game session."""
     logger = logging.getLogger("mad_world")
+    log_level = getattr(logging, verbosity)
     logger.setLevel(logging.DEBUG)
 
     # Clear existing handlers if any
@@ -243,7 +320,7 @@ def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     file_handler.setLevel(logging.INFO)
 
     stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(verbosity)
+    stream_handler.setLevel(log_level)
 
     logger.addHandler(debug_file_handler)
     logger.addHandler(file_handler)
@@ -254,20 +331,6 @@ def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
 
     return logger
-
-
-def get_persona(config: PlayerConfig) -> str:
-    if config.kind == PlayerKind.LLM:
-        return config.persona or ""
-    return ""
-
-
-def get_model_name(config: PlayerConfig) -> str:
-    if config.kind == PlayerKind.LLM:
-        return config.model
-    if config.kind == PlayerKind.TRIVIAL:
-        return config.bot_name
-    return "human"
 
 
 def create_log_session_dir(
@@ -297,17 +360,9 @@ def create_log_session_dir(
 async def amain(
     alpha_config: PlayerConfig,
     omega_config: PlayerConfig,
-    verbosity: int,
-    log_dir_base: Path = Path("./logs"),
+    logger: logging.Logger,
+    log_dir: Path,
 ) -> None:
-
-    log_dir = create_log_session_dir(
-        log_dir_base,
-        alpha_config,
-        omega_config,
-    )
-
-    logger = setup_logging(verbosity, log_dir)
 
     logger.info(
         "Game starting\nPlayer 1: %s\nPlayer 2: %s",
@@ -329,13 +384,9 @@ async def amain(
             logger,
         ),
     ]
-    try:
-        winner, reason, state = await game_loop(GameRules(), players)
-        logger.info(wrap_text(format_results(winner, reason, state)))
-    except (KeyboardInterrupt, EOFError):
-        if log_dir.exists() and log_dir.is_dir():
-            shutil.rmtree(log_dir)
+    winner, reason, state = await game_loop(GameRules(), players)
+    logger.info(wrap_text(format_results(winner, reason, state)))
 
 
 if __name__ == "__main__":
-    main()  # pragma: no cover
+    main()  # pragma: no cover│asyncio.exceptions.CancelledError

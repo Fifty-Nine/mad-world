@@ -11,11 +11,12 @@ import pytest
 
 from mad_world.__main__ import (
     amain,
+    coerce_bool_response,
     create_log_session_dir,
-    get_model_name,
-    get_persona,
     get_player,
     main,
+    prompt_bool,
+    prompt_bool_once,
     random_persona,
     run_game,
     setup_logging,
@@ -39,20 +40,6 @@ def test_random_persona() -> None:
     assert isinstance(persona, str)
     assert " " in persona
     assert re.match(r"^([A-Z][a-z]+) ([A-Z][a-z]+)$", persona) is not None
-
-
-def test_get_persona_model_name() -> None:
-    llm = LLMPlayerConfig(name="A", model="M", persona="P")
-    human = HumanPlayerConfig(name="H")
-    trivial = TrivialPlayerConfig(name="T", bot_name="B")
-
-    assert get_persona(llm) == "P"
-    assert get_persona(human) == ""
-    assert get_persona(trivial) == ""
-
-    assert get_model_name(llm) == "M"
-    assert get_model_name(human) == "human"
-    assert get_model_name(trivial) == "B"
 
 
 def test_create_log_session_dir(tmp_path: Path) -> None:
@@ -113,7 +100,7 @@ def test_setup_logging(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    logger = setup_logging(logging.INFO, log_dir)
+    logger = setup_logging("INFO", log_dir)
 
     # Check if handlers were added
     handler_types = [type(h) for h in logger.handlers]
@@ -134,6 +121,7 @@ def test_get_player(tmp_path: Path) -> None:
         HumanPlayerConfig(name="Alpha"),
         "Omega",
         log_dir,
+        logging.getLogger(__name__),
     )
     assert isinstance(player_human, HumanPlayer)
 
@@ -142,6 +130,7 @@ def test_get_player(tmp_path: Path) -> None:
         TrivialPlayerConfig(name="Alpha", bot_name="CrazyIvan"),
         "Omega",
         log_dir,
+        logging.getLogger(__name__),
     )
 
     assert isinstance(player_crazy, CrazyIvan)
@@ -156,6 +145,7 @@ def test_get_player(tmp_path: Path) -> None:
         ),
         "Omega",
         log_dir,
+        logging.getLogger(__name__),
     )
     assert isinstance(player_ollama, OllamaPlayer)
     assert player_ollama.model == "gemma3:12b"
@@ -166,6 +156,7 @@ def test_get_player(tmp_path: Path) -> None:
             TrivialPlayerConfig(name="Alpha", bot_name="Unknown"),
             "Omega",
             log_dir,
+            logging.getLogger(__name__),
         )
 
 
@@ -188,31 +179,29 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
     await amain(
         alpha_config,
         omega_config,
-        verbosity=logging.INFO,
-        log_dir_base=tmp_path,
+        log_dir=tmp_path,
+        logger=logging.getLogger(__name__),
     )
 
     assert mock_game_loop.called
 
 
-@pytest.mark.asyncio
-@patch("mad_world.__main__.game_loop", new_callable=AsyncMock)
+@patch("mad_world.__main__.amain", new_callable=AsyncMock)
 @patch("mad_world.__main__.shutil.rmtree")
-async def test_amain_keyboard_interrupt(
+def test_run_game_keyboard_interrupt(
     mock_rmtree: MagicMock,
-    mock_game_loop: AsyncMock,
+    mock_amain: AsyncMock,
     tmp_path: Path,
 ) -> None:
-    mock_game_loop.side_effect = KeyboardInterrupt()
+    mock_amain.side_effect = KeyboardInterrupt()
 
     alpha_config = HumanPlayerConfig(name="Alpha")
     omega_config = HumanPlayerConfig(name="Omega")
 
-    await amain(
+    run_game(
         alpha_config,
         omega_config,
-        verbosity=logging.INFO,
-        log_dir_base=tmp_path,
+        log_dir=tmp_path,
     )
 
     assert mock_rmtree.called
@@ -289,3 +278,40 @@ def test_cli_parsing_invalid() -> None:
         pytest.raises((SystemExit, ArgumentError)),
     ):
         main()
+
+
+def test_coerce_bool_response() -> None:
+    assert coerce_bool_response("", default_val=True) is True
+    assert coerce_bool_response("  \n", default_val=False) is False
+    assert coerce_bool_response("n", default_val=True) is False
+    assert coerce_bool_response("NO", default_val=True) is False
+    assert coerce_bool_response("y", default_val=False) is True
+    assert coerce_bool_response("YES", default_val=False) is True
+    assert coerce_bool_response("YE", default_val=False) is True
+    assert coerce_bool_response("invalid", default_val=True) is None
+
+
+@pytest.mark.asyncio
+async def test_prompt_bool_once_success() -> None:
+    session = AsyncMock()
+    session.prompt_async.return_value = "yes"
+    result = await prompt_bool_once("prompt", session, default_val=False)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_prompt_bool_once_unrecognized() -> None:
+    session = AsyncMock()
+    session.prompt_async.return_value = "foo"
+    result = await prompt_bool_once("prompt", session, default_val=False)
+    assert result == "foo"
+
+
+@pytest.mark.asyncio
+async def test_prompt_bool_retry() -> None:
+    patch_target = "mad_world.__main__.prompt_bool_once"
+    with patch(patch_target, new_callable=AsyncMock) as mock_pbo:
+        mock_pbo.side_effect = ["invalid", True]
+        result = await prompt_bool("prompt", default_val=False)
+        assert result is True
+        assert mock_pbo.call_count == 2
