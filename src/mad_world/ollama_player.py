@@ -370,7 +370,6 @@ class OllamaPlayer(GamePlayer):
             "temperature": config.temperature,
             "repeat_penalty": config.repeat_penalty,
             "repeat_last_n": config.repeat_last_n,
-            "think": False,
         }
         self.grand_strategy: GrandStrategy | None = None
         self.log_base = (
@@ -621,6 +620,7 @@ class OllamaPlayer(GamePlayer):
                 messages=self.messages,
                 format=schema,
                 options=self.prompt_options,
+                think=False,
             )
             result = result_obj.message.content
 
@@ -743,6 +743,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=temp_messages,
             options=self.prompt_options,
+            think=False,
         )
 
         summary = summary_response.message.content or ""
@@ -1119,6 +1120,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             options=self.prompt_options,
+            think=False,
         )
         self.messages.append(
             {"role": "assistant", "content": result.message.content or ""},
