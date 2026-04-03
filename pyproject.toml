@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2.12.5",
 ]
 
+[project.scripts]
+mad_world = "mad_world.__main__:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

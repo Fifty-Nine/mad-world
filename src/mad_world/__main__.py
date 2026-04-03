@@ -218,7 +218,7 @@ def run_game(
 
 
 def main() -> None:
-    CLI(run_game)  # type: ignore[no-untyped-call]
+    CLI(run_game, prog="mad_world")  # type: ignore[no-untyped-call]
 
 
 def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
