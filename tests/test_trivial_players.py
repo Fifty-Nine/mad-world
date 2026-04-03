@@ -190,7 +190,9 @@ async def test_saboteur_operations_insufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 3 (needs 4 for proxy-subversion)
-    game_state.players["TestSaboteur"].influence = 3
+    game_state.players["TestSaboteur"].influence = (
+        game_state.op_cost("proxy-subversion") - 1
+    )
 
     action = await player.operations(game_state)
 
@@ -203,8 +205,9 @@ async def test_saboteur_operations_sufficient_influence() -> None:
     player = Saboteur("TestSaboteur")
     game_state = init_game([player])
 
-    # Set influence to 4 (needs 4 for proxy-subversion)
-    game_state.players["TestSaboteur"].influence = 4
+    game_state.players["TestSaboteur"].influence = game_state.op_cost(
+        "proxy-subversion"
+    )
 
     action = await player.operations(game_state)
 
@@ -225,14 +228,16 @@ async def test_saboteur_message() -> None:
     )
 
     game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
-    game_state.players["TestSaboteur"].influence = 4
+    game_state.players["TestSaboteur"].influence = game_state.op_cost(
+        "proxy-subversion"
+    )
     action = await player.message(game_state)
     assert action.message_to_opponent == (
         "Oh, did your infrastructure spontaneously combust? "
         "Must be the weather."
     )
 
-    game_state.players["TestSaboteur"].influence = 3
+    game_state.players["TestSaboteur"].influence -= 1
     action = await player.message(game_state)
     assert (
         action.message_to_opponent
@@ -269,7 +274,9 @@ async def test_diplomat_operations_insufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 4 (needs 5 for unilateral-drawdown)
-    game_state.players["TestDiplomat"].influence = 4
+    game_state.players["TestDiplomat"].influence = (
+        game_state.op_cost("unilateral-drawdown") - 1
+    )
 
     action = await player.operations(game_state)
 
@@ -283,7 +290,9 @@ async def test_diplomat_operations_sufficient_influence() -> None:
     game_state = init_game([player])
 
     # Set influence to 5 (needs 5 for unilateral-drawdown)
-    game_state.players["TestDiplomat"].influence = 5
+    game_state.players["TestDiplomat"].influence = game_state.op_cost(
+        "unilateral-drawdown"
+    )
 
     action = await player.operations(game_state)
 
@@ -304,14 +313,16 @@ async def test_diplomat_message() -> None:
     )
 
     game_state.current_phase = GamePhase.OPERATIONS_MESSAGING
-    game_state.players["TestDiplomat"].influence = 5
+    game_state.players["TestDiplomat"].influence = game_state.op_cost(
+        "unilateral-drawdown"
+    )
     action = await player.message(game_state)
     assert action.message_to_opponent == (
         "I invite you to the negotiating table. "
         "Let us step back from the brink."
     )
 
-    game_state.players["TestDiplomat"].influence = 4
+    game_state.players["TestDiplomat"].influence -= 1
     action = await player.message(game_state)
     assert (
         action.message_to_opponent == "We must continue our diplomatic efforts."

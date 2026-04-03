@@ -11,8 +11,8 @@ import ollama
 from pydantic import (
     BaseModel,
     Field,
-    TypeAdapter,
     ValidationError,
+    create_model,
     model_validator,
 )
 
@@ -29,6 +29,7 @@ from mad_world.core import (
     PlayerState,
     format_results,
 )
+from mad_world.crises import BaseCrisis, StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -164,7 +165,7 @@ class GrandStrategy(BaseModel):
 
     def to_prompt(self) -> str:
         return (
-            "Core gameply loop:\n"
+            "Core gameplay loop:\n"
             f"  {self.core_loop}\n"
             "Clock management strategy:\n"
             f"  {self.clock_management}\n"
@@ -290,6 +291,61 @@ class OperationsResponse(ActionResponse):
     )
 
 
+class CrisisMessagingResponse(ActionResponse):
+    crisis_analysis: str = Field(
+        description="Analyze the current global crisis. How does it align or "
+        "conflict with your goals? What is the ideal outcome for you?",
+    )
+    message_goal: str = Field(
+        description="The goal of the next message to your opponent.",
+        examples=[
+            "Convince them to back down so we both survive.",
+            "Demand they back down under threat of mutual destruction.",
+            "Deceive them into thinking I will back down.",
+        ],
+    )
+    action: MessagingAction = Field(
+        description="Your finalized action for this phase.",
+    )
+
+
+class CrisisResponse[T: BaseAction](ActionResponse):
+    crisis_analysis: str = Field(
+        description=(
+            "Evaluate the game state, your opponent's "
+            "recent messages, and the potential consequences of "
+            "this crisis."
+        ),
+    )
+    tactical_plan: str = Field(
+        description=(
+            "Detail your specific plan for this crisis. "
+            "Explain why you are choosing this action and how it "
+            "aligns with your persona."
+        ),
+    )
+    action: T = Field(description="Your finalized action for this phase.")
+
+
+def create_crisis_response[T: BaseAction](
+    crisis: GenericCrisis[T],
+) -> type[CrisisResponse[T]]:
+    """Create a runtime model for the given crisis. This is necessary because
+    the dynamic type of `T` is erased at runtime, meaning
+    `type(CrisisResponse[..]())` is actually just `BaseAction`. To keep static
+    type safety and ensure correct schema generation, we just generate a new
+    model identical to the generic model except that `action` has the
+    correct runtime type."""
+    return create_model(
+        f"{crisis.__class__.__name__}Response",
+        __base__=CrisisResponse[T],
+        action=(
+            crisis.action_type,
+            Field(description="Your finalized action for this phase."),
+        ),
+    )
+
+
 class OllamaPlayer(GamePlayer):
     def __init__(
         self,
@@ -297,11 +353,11 @@ class OllamaPlayer(GamePlayer):
         opponent_name: str,
         model: str = "qwen3.5:9b",
         token_limit: int = 8192,
-        context_size: int = 2**15,
-        temperature: float = 0.0,
+        context_size: int = 2**17,
+        temperature: float = 0.8,
         persona: str | None = None,
         log_dir: Path | None = None,
-        compression_threshold: float = 0.95,
+        compression_threshold: float = 0.75,
         *,
         logger: logging.Logger,
     ) -> None:
@@ -375,6 +431,11 @@ class OllamaPlayer(GamePlayer):
             indent="        ",
         )
         prompt += (
+            "\n  Crises:\n"
+            "    If the doomsday clock reaches max value, a global crisis is "
+            "triggered. You will enter a special Crisis Phase where you must "
+            "communicate and then take a decisive action. If you fail to "
+            "resolve it, MAD may be triggered.\n"
             "\nYou will receive a prompt detailing the current Phase and Game "
             "State and respond with your action matching the provided schema.\n"
             "CRITICAL INSTRUCTIONS: \n"
@@ -431,10 +492,14 @@ class OllamaPlayer(GamePlayer):
         schemas_path = self.log_base.with_suffix(".schemas.json.gz")
         with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
             schemas = {
-                "opening": InitialMessageResponse.prompt_schema(),
-                "messaging": MessagingResponse.prompt_schema(),
-                "bidding": BiddingResponse.prompt_schema(),
-                "operations": OperationsResponse.prompt_schema(),
+                "opening": InitialMessageResponse.format_schema(),
+                "messaging": MessagingResponse.format_schema(),
+                "bidding": BiddingResponse.format_schema(),
+                "operations": OperationsResponse.format_schema(),
+                "crisis_messaging": CrisisMessagingResponse.format_schema(),
+                "crisis": create_crisis_response(
+                    StandoffCrisis()
+                ).format_schema(),
             }
             json.dump(schemas, f, indent=2, ensure_ascii=False)
 
@@ -501,35 +566,31 @@ class OllamaPlayer(GamePlayer):
 
         def severity(game: GameState) -> str:
             level = 1.0 * game.doomsday_clock / game.rules.max_clock_state
-            if level >= 0.9:
-                return "!!!!! CRITICAL WARNING !!!!!\n"
-
             if level >= 0.8:
                 return "WARNING: "
 
             return "NOTE: "
 
-        result = f"{severity(game)}You are at risk of triggering MAD.\n"
+        result = f"{severity(game)}A global crisis is possible this round:"
 
         result += "".join(
-            f"\n- A bid of {bid} RISKS MAD if your opponent "
+            f"\n- A bid of {bid} MAY TRIGGER A GLOBAL CRISIS if your opponent "
             f"bids {obid} or more."
             for bid, obid in risky
         )
         result += "".join(
-            f"\n- A bid of {bid} GUARANTEES MAD regardless of your opponent's "
-            "action."
+            f"\n- A bid of {bid} GUARANTEES A GLOBAL CRISIS regardless of "
+            "your opponent's action."
             for bid in deadly
         )
-        result += (
-            "\nRemember that if MAD occurs, you will lose even if you "
-            "are currently winning."
-        )
+        result += "\n"
         return result
 
     @staticmethod
     def dump_model_response(response: BaseModel) -> str:
-        return json.dumps(response.model_dump(), indent=2, ensure_ascii=False)
+        return json.dumps(
+            response.model_dump(mode="json"), indent=2, ensure_ascii=False
+        )
 
     async def retry_prompt[T: ActionResponse](
         self,
@@ -541,17 +602,17 @@ class OllamaPlayer(GamePlayer):
             f"==== {game.current_phase.name} {self.name} response====\n"
         )
         for _i in range(retries):
-            adapter = TypeAdapter(response_model)
+            schema = response_model.format_schema()
             result_obj = await self.client.chat(
                 model=self.model,
                 messages=self.messages,
-                format=response_model.format_schema(),
+                format=schema,
                 options=self.prompt_options,
             )
             result = result_obj.message.content
 
             try:
-                response = adapter.validate_json(result or "")
+                response = response_model.model_validate_json(result or "{}")
             except ValidationError as e:
                 self.logger.debug(
                     wrap_text(
@@ -879,6 +940,38 @@ class OllamaPlayer(GamePlayer):
         return result.action if result else MessagingAction()
 
     @override
+    async def crisis_message(
+        self,
+        game: GameState,
+        crisis: BaseCrisis,
+    ) -> MessagingAction:
+        prompt = self.format_game_state(game)
+        prompt += self.my_strategy()
+
+        prompt += f"\nCRISIS ALERT: {crisis.title}\n"
+        prompt += f"{crisis.description}\n\n"
+        prompt += f"Mechanics:\n{crisis.mechanics}\n\n"
+
+        if crisis.additional_prompt:
+            prompt += f"{crisis.additional_prompt}\n\n"
+
+        prompt += (
+            "You are currently in the Crisis Messaging Phase. "
+            "You may now provide a single message to your opponent. "
+            "They will see this message BEFORE they commit to their action "
+            "in the upcoming Crisis Resolution phase. Use this channel to "
+            "conduct diplomacy, threaten, or deceive your opponent.\n"
+        )
+
+        self.add_prompt(
+            prompt,
+            game.current_phase,
+            CrisisMessagingResponse.prompt_schema(),
+        )
+        result = await self.retry_prompt(CrisisMessagingResponse, game)
+        return result.action if result else MessagingAction()
+
+    @override
     async def bid(self, game: GameState) -> BiddingAction:
         prompt = self.format_game_state(game)
         pbid = pareto_optimal_bid(
@@ -934,8 +1027,35 @@ class OllamaPlayer(GamePlayer):
         game: GameState,
         crisis: GenericCrisis[T],
     ) -> T:
-        # FIXME
-        return crisis.get_default_action(aggressive=True)
+        prompt = self.format_game_state(game)
+        prompt += self.my_strategy()
+
+        prompt += f"\nCRISIS RESOLUTION: {crisis.title}\n"
+        prompt += f"{crisis.description}\n\n"
+        prompt += f"Mechanics:\n{crisis.mechanics}\n\n"
+
+        if crisis.additional_prompt:
+            prompt += f"{crisis.additional_prompt}\n\n"
+
+        prompt += (
+            "You must now choose how to respond to this crisis. Your action, "
+            "along with your opponent's action, will determine the outcome. "
+            "Consider the risks carefully, as failure to de-escalate may lead "
+            "to MAD."
+        )
+
+        schema = create_crisis_response(crisis)
+        self.add_prompt(
+            prompt,
+            game.current_phase,
+            schema.prompt_schema(),
+        )
+        result = await self.retry_prompt(schema, game)
+        return (
+            result.action
+            if result
+            else crisis.get_default_action(aggressive=False)
+        )
 
     @override
     async def game_over(

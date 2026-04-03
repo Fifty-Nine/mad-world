@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, override
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -136,7 +137,7 @@ async def test_human_player_crisis(basic_game: GameState) -> None:
     crisis = StandoffCrisis()
 
     # Test with valid integer string input
-    with mock_human_input(player, side_effect=["1"]):
+    with mock_human_input(player, side_effect=["back down"]):
         action = await player.crisis(basic_game, crisis)
 
     assert action.posture == StandoffPosture.BACK_DOWN
@@ -148,7 +149,7 @@ async def test_human_player_crisis(basic_game: GameState) -> None:
     assert action.posture == StandoffPosture.STAND_FIRM
 
     # Test with invalid input then valid input
-    with mock_human_input(player, side_effect=["", "invalid", "1"]):
+    with mock_human_input(player, side_effect=["", "invalid", "back down"]):
         action = await player.crisis(basic_game, crisis)
 
     assert action.posture == StandoffPosture.BACK_DOWN
@@ -165,20 +166,21 @@ async def test_human_player_crisis(basic_game: GameState) -> None:
 async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 
+    class DummyEnum(Enum):
+        ONE_VALUE = 1
+        OTHER_VALUE = 2
+
     class DummyAction(BaseAction):
         text_field: str
         list_field: list[int] = Field(default_factory=list)
-        opt_enum: StandoffPosture | None = None
+        opt_enum: DummyEnum | None = None
 
     class DummyCrisis(GenericCrisis[DummyAction]):
         card_kind: ClassVar[Literal["Dummy"]] = "Dummy"
         title: ClassVar[str] = "Dummy"
         description: ClassVar[str] = "Dummy"
         mechanics: ClassVar[str] = "Dummy"
-
-        @override
-        def get_action_type(self) -> type[DummyAction]:
-            return DummyAction
+        action_type: ClassVar[type] = DummyAction
 
         @override
         def resolve(
@@ -198,7 +200,7 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
 
     assert action.text_field == "hello"
     assert action.list_field == []
-    assert action.opt_enum == StandoffPosture.BACK_DOWN
+    assert action.opt_enum == DummyEnum.ONE_VALUE
 
 
 @pytest.mark.asyncio

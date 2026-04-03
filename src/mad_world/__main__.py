@@ -182,7 +182,7 @@ def get_player(
 )
 @click.option(
     "--alpha-temperature",
-    default=0.0,
+    default=0.8,
     help="Temperature for player 1 model.",
 )
 @click.option(
@@ -320,6 +320,9 @@ def create_log_session_dir(
     """Creates a unique directory for the game session logs."""
     if timestamp is None:
         timestamp = datetime.now()
+
+    alpha_persona = alpha_persona.partition("\n")[0]
+    omega_persona = omega_persona.partition("\n")[0]
 
     dir_name = (
         (

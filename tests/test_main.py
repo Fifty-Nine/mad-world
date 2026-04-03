@@ -54,6 +54,27 @@ def test_create_log_session_dir(tmp_path: Path) -> None:
     assert log_dir.is_dir()
 
 
+def test_create_log_session_dir_long_personas(tmp_path: Path) -> None:
+    timestamp = datetime(2026, 3, 25, 20, 50, 23)
+    log_dir = create_log_session_dir(
+        tmp_path,
+        "Alpha",
+        "PersonaA\nExtra persona text",
+        "ModelA",
+        "Omega",
+        "PersonaB\n" + "\n".join(["  another line"] * 100),
+        "ModelB",
+        timestamp=timestamp,
+    )
+
+    expected_name = (
+        "Alpha-PersonaA-ModelA-vs-Omega-PersonaB-ModelB.2026-03-25T20-50-23"
+    )
+    assert log_dir.name == expected_name
+    assert log_dir.exists()
+    assert log_dir.is_dir()
+
+
 def test_setup_logging(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from mad_world.util import (
+    BadClampRangeError,
+    clamp,
     cost_or_gain,
     escalation_budget,
     get_class_name,
@@ -19,6 +21,9 @@ from mad_world.util import (
     reorder_schema_properties,
     wrap_text,
 )
+
+if TYPE_CHECKING:
+    from _typeshed import SupportsRichComparisonT
 
 
 def test_wrap_text_basic() -> None:
@@ -320,3 +325,39 @@ def test_remove_ordering_prefix_other_types() -> None:
 def test_increase_or_decrease(value: int, inc_dec: str, cost_gain: str) -> None:
     assert increase_or_decrease(value) == inc_dec
     assert cost_or_gain(value) == cost_gain
+
+
+@pytest.mark.parametrize(
+    ("val", "min_val", "max_val", "expect"),
+    [
+        (5, 0, 10, 5),
+        (-1, 0, 10, 0),
+        (20, 0, 10, 10),
+        (-10, -20, -5, -10),
+        (-30, -20, -5, -20),
+        (-1, -20, -5, -5),
+        (0.0, -10.0, 10.0, 0.0),
+        (-10.1, -10.0, 10.0, -10.0),
+        (10.1, -10.0, 10.0, 10.0),
+        ("foo", "aaa", "zzz", "foo"),
+        ("ccc", "aaa", "bbb", "bbb"),
+    ],
+)
+def test_clamp(
+    val: SupportsRichComparisonT,
+    min_val: SupportsRichComparisonT,
+    max_val: SupportsRichComparisonT,
+    expect: SupportsRichComparisonT,
+) -> None:
+    assert clamp(val, min_val, max_val) == expect
+
+
+def test_clamp_range() -> None:
+    with pytest.raises(BadClampRangeError):
+        clamp(0, 10, 0)
+
+    with pytest.raises(BadClampRangeError):
+        clamp(0.0, 10.0, 0.0)
+
+    with pytest.raises(BadClampRangeError):
+        clamp("foo", "zzz", "aaa")

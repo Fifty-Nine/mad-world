@@ -11,3 +11,4 @@ dist/
 logs/
 .coverage
 .vscode/
+plan-docs/

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 class GamePhase(Enum):
@@ -32,6 +32,6 @@ class GameOverReason(Enum):
     STALEMATE = 3
 
 
-class StandoffPosture(Enum):
-    BACK_DOWN = 1
-    STAND_FIRM = 2
+class StandoffPosture(StrEnum):
+    BACK_DOWN = "back down"
+    STAND_FIRM = "stand firm"

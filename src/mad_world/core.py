@@ -27,7 +27,7 @@ from mad_world.rules import (
     DEFAULT_RULES,
     GameRules,
 )
-from mad_world.util import wrap_text
+from mad_world.util import bannerize, clamp, wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
@@ -132,6 +132,10 @@ class GameState(BaseModel):
         assert len(self.players) == 2
         return cast("tuple[str, str]", tuple(self.players))
 
+    def op_cost(self, op: str) -> int:
+        """Helper function for getting the Inf cost of a named operation."""
+        return self.rules.allowed_operations[op].influence_cost
+
     def validate_operation(self, operation_name: str, player_name: str) -> None:
         """Checks the validity of a single operation without enacting it.
 
@@ -159,10 +163,6 @@ class GameState(BaseModel):
 
     def apply_event(self, event: GameEvent) -> None:
         self.doomsday_clock += event.clock_delta
-        self.doomsday_clock = max(
-            min(self.doomsday_clock, self.rules.max_clock_state), 0
-        )
-
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
@@ -178,6 +178,13 @@ class GameState(BaseModel):
             return
 
         raise WorldDestroyed(instigator=event.actor.player())
+
+    def _clamp_fields(self) -> None:
+        """Clamp relevant game states to their allowed values after events may
+        have moved them beyond their limits."""
+        self.doomsday_clock = clamp(
+            self.doomsday_clock, 0, self.rules.max_clock_state
+        )
 
     def log_message(
         self,
@@ -212,9 +219,10 @@ class GameState(BaseModel):
 
     def describe_state(self) -> str:
         result = (
-            f"The current round is now {self.current_round}, "
-            f"{self.current_phase.name} phase.\n"
-            f"  Clock: {self.doomsday_clock}/"
+            bannerize(
+                f"ROUND {self.current_round} PHASE {self.current_phase.name}"
+            )
+            + f"  Clock: {self.doomsday_clock}/"
             f"{self.rules.max_clock_state}"
             f"{' (CRITICAL)' if self.clock_is_critical() else ''}\n"
             "  Players:\n"
@@ -239,6 +247,7 @@ class GameState(BaseModel):
         return True
 
     def advance_phase(self) -> None:
+        self._clamp_fields()
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
