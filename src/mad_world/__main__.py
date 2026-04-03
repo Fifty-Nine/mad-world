@@ -8,12 +8,16 @@ import random
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-import click
-from click_loglevel import LogLevel
+from jsonargparse import CLI
 
 from mad_world import trivial_players
+from mad_world.config import (
+    LLMPlayerConfig,
+    PlayerConfig,
+    PlayerKind,
+)
 from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
@@ -138,142 +142,90 @@ def random_persona() -> str:
 
 
 def get_player(
-    name: str,
+    config: PlayerConfig,
     opponent_name: str,
-    model: str,
-    persona: str,
-    temperature: float,
-    context: int,
-    tokens: int,
     log_dir: Path,
     logger: logging.Logger | None = None,
 ) -> GamePlayer:
-    if model == "human":
-        return HumanPlayer(name)
+    if config.kind == PlayerKind.HUMAN:
+        return HumanPlayer(config.name)
 
     logger = logger or logging.getLogger("mad_world")
 
-    if trivial_player := trivial_players.get_trivial_player(model, name):
+    if config.kind == PlayerKind.TRIVIAL:
+        trivial_player = trivial_players.get_trivial_player(
+            config.bot_name, config.name
+        )
+        if not trivial_player:
+            msg = f"Unknown trivial player bot name: {config.bot_name}"
+            raise ValueError(msg)
         return trivial_player
 
     return OllamaPlayer(
-        name=name,
+        name=config.name,
         opponent_name=opponent_name,
-        model=model,
-        persona=persona,
-        context_size=context,
-        token_limit=tokens,
-        temperature=temperature,
+        model=config.model,
+        persona=config.persona,
+        context_size=config.context_size,
+        token_limit=config.token_limit,
+        temperature=config.temperature,
         log_dir=log_dir,
         logger=logger,
     )
 
 
-@click.command()
-@click.option("--alpha-name", default="Norlandia", help="Name of player 1.")
-@click.option(
-    "--alpha-model",
-    default="gemma3:12b",
-    help="Ollama model used for player 1.",
+DEFAULT_ALPHA = LLMPlayerConfig(
+    kind=PlayerKind.LLM,
+    name="Norlandia",
+    model="gemma3:12b",
 )
-@click.option(
-    "--alpha-persona",
-    default=None,
-    help="Persona prompt for player 1.",
+DEFAULT_OMEGA = LLMPlayerConfig(
+    kind=PlayerKind.LLM,
+    name="Southern Imperium",
+    model="gemma3:12b",
 )
-@click.option(
-    "--alpha-temperature",
-    default=0.8,
-    help="Temperature for player 1 model.",
-)
-@click.option(
-    "--alpha-context",
-    default=2**17,
-    help="Context window size for player 1 model.",
-)
-@click.option(
-    "--alpha-tokens",
-    default=2**13,
-    help="Output token budget for player 1 model.",
-)
-@click.option(
-    "--omega-name",
-    default="Southern Imperium",
-    help="Name of player 2.",
-)
-@click.option(
-    "--omega-model",
-    default="gemma3:12b",
-    help="Ollama model used for player 2.",
-)
-@click.option(
-    "--omega-persona",
-    default=None,
-    help="Persona prompt for player 2.",
-)
-@click.option(
-    "--omega-temperature",
-    default=0.0,
-    help="Temperature for player 2 model.",
-)
-@click.option(
-    "--omega-context",
-    default=2**17,
-    help="Context window size for player 2 model.",
-)
-@click.option(
-    "--omega-tokens",
-    default=2**13,
-    help="Output token budget for player 2 model.",
-)
-@click.option(
-    "--log-dir",
-    default="./logs",
-    type=click.Path(path_type=Path),
-    help="Base directory for logs.",
-)
-@click.option(
-    "-v",
-    "--verbosity",
-    type=LogLevel(),
-    default="DEBUG",
-    help="Set verbosity level.",
-    show_default=True,
-)
-def main(
-    alpha_name: str,
-    alpha_model: str,
-    alpha_persona: str | None,
-    alpha_temperature: float,
-    alpha_context: int,
-    alpha_tokens: int,
-    omega_name: str,
-    omega_model: str,
-    omega_persona: str | None,
-    omega_temperature: float,
-    omega_context: int,
-    omega_tokens: int,
-    verbosity: int,
-    log_dir: Path,
+
+
+def _ensure_persona(config: PlayerConfig) -> PlayerConfig:
+    if config.kind == PlayerKind.LLM and config.persona is None:
+        new_config = config.model_copy(deep=True)
+        new_config.persona = random_persona()
+        return new_config
+    return config
+
+
+def run_game(
+    alpha: PlayerConfig = DEFAULT_ALPHA,
+    omega: PlayerConfig = DEFAULT_OMEGA,
+    log_dir: Path = Path("./logs"),
+    verbosity: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "DEBUG",
 ) -> None:
+    """
+    Mad World CLI
+
+    Args:
+        alpha: Configuration for player 1.
+        omega: Configuration for player 2.
+        log_dir: Base directory for storing session logs.
+        verbosity: Logging verbosity level.
+    """
+    alpha = _ensure_persona(alpha)
+    omega = _ensure_persona(omega)
+
+    log_level = getattr(logging, verbosity)
+
     asyncio.run(
         amain(
-            alpha_name,
-            alpha_model,
-            alpha_persona,
-            alpha_temperature,
-            alpha_context,
-            alpha_tokens,
-            omega_name,
-            omega_model,
-            omega_persona,
-            omega_temperature,
-            omega_context,
-            omega_tokens,
-            verbosity,
+            alpha_config=alpha,
+            omega_config=omega,
+            verbosity=log_level,
             log_dir_base=log_dir,
-        ),
+        )
     )
+
+
+def main() -> None:
+    CLI(run_game)  # type: ignore[no-untyped-call]
 
 
 def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
@@ -308,27 +260,42 @@ def setup_logging(verbosity: int, log_dir: Path) -> logging.Logger:
     return logger
 
 
+def get_persona(config: PlayerConfig) -> str:
+    if config.kind == PlayerKind.LLM:
+        return config.persona or ""
+    return ""
+
+
+def get_model_name(config: PlayerConfig) -> str:
+    if config.kind == PlayerKind.LLM:
+        return config.model
+    if config.kind == PlayerKind.TRIVIAL:
+        return config.bot_name
+    return "human"
+
+
 def create_log_session_dir(
     log_dir_base: Path,
-    alpha_name: str,
-    alpha_persona: str,
-    alpha_model: str,
-    omega_name: str,
-    omega_persona: str,
-    omega_model: str,
+    alpha_config: PlayerConfig,
+    omega_config: PlayerConfig,
     timestamp: datetime | None = None,
 ) -> Path:
     """Creates a unique directory for the game session logs."""
     if timestamp is None:
         timestamp = datetime.now()
 
-    alpha_persona = alpha_persona.partition("\n")[0]
-    omega_persona = omega_persona.partition("\n")[0]
+    alpha_persona = get_persona(alpha_config).partition("\n")[0]
+    omega_persona = get_persona(omega_config).partition("\n")[0]
+    alpha_persona = f"-{alpha_persona}" if alpha_persona else ""
+    omega_persona = f"-{omega_persona}" if omega_persona else ""
+
+    alpha_model = get_model_name(alpha_config)
+    omega_model = get_model_name(omega_config)
 
     dir_name = (
         (
-            f"{alpha_name}-{alpha_persona}-{alpha_model}-vs-"
-            f"{omega_name}-{omega_persona}-{omega_model}."
+            f"{alpha_config.name}{alpha_persona}-{alpha_model}-vs-"
+            f"{omega_config.name}{omega_persona}-{omega_model}."
             f"{timestamp.isoformat()}"
         )
         .replace(":", "-")
@@ -341,67 +308,40 @@ def create_log_session_dir(
 
 
 async def amain(
-    alpha_name: str,
-    alpha_model: str,
-    alpha_persona: str | None,
-    alpha_temperature: float,
-    alpha_context: int,
-    alpha_tokens: int,
-    omega_name: str,
-    omega_model: str,
-    omega_persona: str | None,
-    omega_temperature: float,
-    omega_context: int,
-    omega_tokens: int,
+    alpha_config: PlayerConfig,
+    omega_config: PlayerConfig,
     verbosity: int,
     log_dir_base: Path = Path("./logs"),
 ) -> None:
 
-    alpha_persona = alpha_persona or random_persona()
-    omega_persona = omega_persona or random_persona()
-
     log_dir = create_log_session_dir(
         log_dir_base,
-        alpha_name,
-        alpha_persona,
-        alpha_model,
-        omega_name,
-        omega_persona,
-        omega_model,
+        alpha_config,
+        omega_config,
     )
 
     logger = setup_logging(verbosity, log_dir)
 
     logger.info(
         "Game starting\nPlayer 1: %s %s (%s)\nPlayer 2: %s %s (%s)",
-        alpha_name,
-        alpha_persona,
-        alpha_model,
-        omega_name,
-        omega_persona,
-        omega_model,
+        alpha_config.name,
+        get_persona(alpha_config),
+        get_model_name(alpha_config),
+        omega_config.name,
+        get_persona(omega_config),
+        get_model_name(omega_config),
     )
 
     players = [
         get_player(
-            alpha_name,
-            omega_name,
-            alpha_model,
-            alpha_persona,
-            alpha_temperature,
-            alpha_context,
-            alpha_tokens,
+            alpha_config,
+            omega_config.name,
             log_dir,
             logger,
         ),
         get_player(
-            omega_name,
-            alpha_name,
-            omega_model,
-            omega_persona,
-            omega_temperature,
-            omega_context,
-            omega_tokens,
+            omega_config,
+            alpha_config.name,
             log_dir,
             logger,
         ),

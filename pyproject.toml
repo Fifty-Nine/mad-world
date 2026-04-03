@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.3.1",
-    "click-loglevel>=0.7.0",
+    "jsonargparse[signatures]>=4.47.0",
     "more-itertools>=10.8.0",
     "ollama>=0.6.1",
     "prompt-toolkit>=3.0.52",

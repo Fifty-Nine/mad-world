@@ -70,18 +70,6 @@ wheels = [
 ]
 
 [[package]]
-name = "click-loglevel"
-version = "0.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/1e/3e9e7836e1a21486a71045a654ef2ff8c6a0d72f331ddefd9ec0d11b3b9c/click_loglevel-0.7.0.tar.gz", hash = "sha256:a0a623fbe35d87f65ae266f8ab27dcc7e7de1015c0b2bdca45c57f3ef01f61f5", size = 7993, upload-time = "2025-10-28T12:29:44.173Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/fe/1850599c1a186c83901883d6a7aa126e04860dbe319447da0c91d1746b2b/click_loglevel-0.7.0-py3-none-any.whl", hash = "sha256:5f7ca7af45545c17ecfcbfcaa469667016652bdc859dbeb104cee7503ab0f7b6", size = 6851, upload-time = "2025-10-28T12:29:42.928Z" },
-]
-
-[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -184,6 +172,15 @@ wheels = [
 ]
 
 [[package]]
+name = "docstring-parser"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/9d/c3b43da9515bd270df0f80548d9944e389870713cc1fe2b8fb35fe2bcefd/docstring_parser-0.17.0.tar.gz", hash = "sha256:583de4a309722b3315439bb31d64ba3eebada841f2e2cee23b99df001434c912", size = 27442, upload-time = "2025-07-21T07:35:01.868Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/e2/2537ebcff11c1ee1ff17d8d0b6f4db75873e3b0fb32c2d4a2ee31ecb310a/docstring_parser-0.17.0-py3-none-any.whl", hash = "sha256:cf2569abd23dce8099b300f9b4fa8191e9582dda731fd533daf54c4551658708", size = 36896, upload-time = "2025-07-21T07:35:00.684Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.25.2"
 source = { registry = "https://pypi.org/simple" }
@@ -248,12 +245,39 @@ wheels = [
 ]
 
 [[package]]
+name = "importlib-resources"
+version = "6.5.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/8c/f834fbf984f691b4f7ff60f50b514cc3de5cc08abfc3295564dd89c5e2e7/importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c", size = 44693, upload-time = "2025-01-03T18:51:56.698Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/ed/1f1afb2e9e7f38a545d628f864d562a5ae64fe6f7a10e28ffb9b185b4e89/importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec", size = 37461, upload-time = "2025-01-03T18:51:54.306Z" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "jsonargparse"
+version = "4.47.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/55/cb2efc27c07d4002bea7705b866bd10d5f63261fca06163ee8b17c608cc8/jsonargparse-4.47.0.tar.gz", hash = "sha256:d4a7b71ecd92695147650cf896a317cd0b34f3e48e52559382964e60fa67371f", size = 226021, upload-time = "2026-03-21T09:07:43.202Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/57/e5153ad1e9d9ad7554aa96bfa9bbd037fc3b06fd910810e9ab9d0b1dff82/jsonargparse-4.47.0-py3-none-any.whl", hash = "sha256:b038671662c1073b4a7045aa29c868e8485abe81c09ffc6716e6deff31c3cf25", size = 129061, upload-time = "2026-03-13T11:52:07.383Z" },
+]
+
+[package.optional-dependencies]
+signatures = [
+    { name = "docstring-parser" },
+    { name = "typeshed-client" },
 ]
 
 [[package]]
@@ -322,7 +346,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
-    { name = "click-loglevel" },
+    { name = "jsonargparse", extra = ["signatures"] },
     { name = "more-itertools" },
     { name = "ollama" },
     { name = "prompt-toolkit" },
@@ -343,7 +367,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
-    { name = "click-loglevel", specifier = ">=0.7.0" },
+    { name = "jsonargparse", extras = ["signatures"], specifier = ">=4.47.0" },
     { name = "more-itertools", specifier = ">=10.8.0" },
     { name = "ollama", specifier = ">=0.6.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.52" },
@@ -718,6 +742,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/26/6b/8786ba5736562220d588a2f6653e6c17e90c59ced34a2d7b512ef8956103/ruff-0.15.7-py3-none-win32.whl", hash = "sha256:6d39e2d3505b082323352f733599f28169d12e891f7dd407f2d4f54b4c2886de", size = 10582538, upload-time = "2026-03-19T16:26:15.992Z" },
     { url = "https://files.pythonhosted.org/packages/2b/e9/346d4d3fffc6871125e877dae8d9a1966b254fbd92a50f8561078b88b099/ruff-0.15.7-py3-none-win_amd64.whl", hash = "sha256:4d53d712ddebcd7dace1bc395367aec12c057aacfe9adbb6d832302575f4d3a1", size = 11755839, upload-time = "2026-03-19T16:26:19.897Z" },
     { url = "https://files.pythonhosted.org/packages/8f/e8/726643a3ea68c727da31570bde48c7a10f1aa60eddd628d94078fec586ff/ruff-0.15.7-py3-none-win_arm64.whl", hash = "sha256:18e8d73f1c3fdf27931497972250340f92e8c861722161a9caeb89a58ead6ed2", size = 11023304, upload-time = "2026-03-19T16:26:51.669Z" },
+]
+
+[[package]]
+name = "typeshed-client"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-resources" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/71/34/e9fcb7ebbace96b6ab0f397df47dad7e42d8819aa091bc6c4ea1e7f9226b/typeshed_client-2.9.0.tar.gz", hash = "sha256:9c2659a4ba11a9d8597d63770416b42c69861189bf861809f6443d329c84be3a", size = 521553, upload-time = "2026-03-01T18:25:57.658Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/86/50/42c0cadd4d62b0d98929db479346b7da6e4ab8346a4de39ed80176fb39b7/typeshed_client-2.9.0-py3-none-any.whl", hash = "sha256:9383660241a4864fd4af971e533b735bd8c5b3d2f88f7ac279e41699ebe1369c", size = 786547, upload-time = "2026-03-01T18:25:55.976Z" },
 ]
 
 [[package]]
