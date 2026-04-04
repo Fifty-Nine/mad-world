@@ -34,6 +34,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
+    extract_json_from_response,
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
@@ -625,7 +626,9 @@ class OllamaPlayer(GamePlayer):
             result = result_obj.message.content
 
             try:
-                response = response_model.model_validate_json(result or "{}")
+                response = response_model.model_validate_json(
+                    extract_json_from_response(result or "{}")
+                )
             except ValidationError as e:
                 self.logger.debug(
                     wrap_text(

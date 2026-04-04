@@ -313,3 +313,37 @@ def escalation_bar(tracker: list[AnyActor], *, defrag: bool) -> str:
 
     wrapper = "+" + ("-" * len(tracker)) + "+"
     return f"{wrapper}\n|{track_text}|\n{wrapper}\n"
+
+
+def extract_json_from_response(response: str) -> str:
+    """Extract JSON from the last code block in a model response.
+
+    Handles markdown-formatted JSON blocks like:
+    ```json
+    {...}
+    ```
+
+    Returns the JSON content from the last code block found, or the last
+    instance of a JSON object if no code blocks are present. Returns the
+    original string if no code blocks or JSON objects are found.
+
+    Args:
+        response: The raw model response string.
+
+    Returns:
+        The JSON content from the last code block, or the original string
+        if no code blocks or JSON objects are found.
+    """
+    # 1. Try to find markdown code blocks first
+    pattern = r"```(?:\w+)?\s*\n?(.*?)\n?```"
+    if matches := re.findall(pattern, response, re.DOTALL):
+        match = cast("str", matches[-1])
+        return match.strip()
+
+    # 2. Fallback: look for the last JSON object {...}
+    start = response.rfind("{")
+    end = response.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return response[start : end + 1].strip()
+
+    return response

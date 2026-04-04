@@ -15,6 +15,7 @@ from mad_world.util import (
     defrag_escalation_track,
     escalation_bar,
     escalation_budget,
+    extract_json_from_response,
     get_class_name,
     get_doomsday_bids,
     get_subclass_by_name,
@@ -380,3 +381,92 @@ def test_escalation_bar() -> None:
     assert escalation_bar(track, defrag=False) == (
         "+------+\n| xF xB|\n+------+\n"
     )
+
+
+# Test data for extract_json_from_response
+_TEST_JSON_EXTRACT_CASES: list[tuple[str, str]] = [
+    # JSON in markdown block with language specifier
+    (
+        '```json\n{"action": "bid", "bid": 5}\n```',
+        '{"action": "bid", "bid": 5}',
+    ),
+    # JSON in markdown block without language specifier
+    (
+        '```\n{"action": "bid", "bid": 5}\n```',
+        '{"action": "bid", "bid": 5}',
+    ),
+    # Multiple code blocks - should get the last one
+    (
+        (
+            '```json\n{"first": 1}\n```\n\nSome text\n\n'
+            '```json\n{"second": 2}\n```'
+        ),
+        '{"second": 2}',
+    ),
+    # Code block with extra whitespace inside
+    (
+        '```json\n  {\n    "foo": "bar"\n  }\n```',
+        '{\n    "foo": "bar"\n  }',
+    ),
+    # No code blocks - return original
+    (
+        "Just plain text without any code blocks",
+        "Just plain text without any code blocks",
+    ),
+    # Empty code block
+    (
+        "```\nSome text",
+        "```\nSome text",
+    ),
+    # Code block with trailing content after closing ```
+    (
+        '```json\n{"foo": "bar"}\n```\nThis should be ignored',
+        '{"foo": "bar"}',
+    ),
+    # Nested backticks in text (edge case)
+    (
+        ('Some text `not a block` and then ```json\n{"real": "json"}\n```'),
+        '{"real": "json"}',
+    ),
+    # Only closing backticks
+    (
+        "```",
+        "```",
+    ),
+    # No closing backticks - should return original
+    (
+        '```json\n{"incomplete": true',
+        '```json\n{"incomplete": true',
+    ),
+    # JSON with special characters
+    (
+        '```json\n{"message": "It\'s a test", "count": 42}\n```',
+        '{"message": "It\'s a test", "count": 42}',
+    ),
+    # Multiple lines of whitespace between backticks
+    (
+        '```json\n\n\n{"foo": "bar"}\n\n\n```',
+        '{"foo": "bar"}',
+    ),
+    # Raw JSON without markdown blocks
+    (
+        'Here is the result: {"action": "bid", "bid": 5}',
+        '{"action": "bid", "bid": 5}',
+    ),
+    # Multiple objects, should get the last one
+    (
+        'First {"a": 1} then {"b": 2}',
+        '{"b": 2}',
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    _TEST_JSON_EXTRACT_CASES,
+)
+def test_extract_json_from_response(
+    response: str,
+    expected: str,
+) -> None:
+    assert extract_json_from_response(response) == expected
