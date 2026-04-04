@@ -8,8 +8,9 @@ when working in this codebase.
   environment isolation. Do not use `pip` or `venv` directly. Add dependencies
   with `uv add` or `uv add --dev`.
 * **Task Runner:** A `Makefile` is provided for common operations.
-  * Run `make all-checks` frequently to run Ruff (linting), Mypy (type
-    checking), and Pytest (testing) against the current uncommitted codebase.
+  * Run `make check` and `make test` frequently to run Ruff (linting), Mypy
+    (type checking), and Pytest (testing) against the current uncommitted
+    codebase.
   * Run `make format` to automatically format the code and fix safe linting
     errors. If the linter makes a change (e.g., moving something to a
     typechecking block because it isn't used at runtime) DO NOT REVERT IT unless
