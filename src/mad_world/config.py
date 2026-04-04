@@ -2,10 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from enum import StrEnum
-from typing import Annotated, Literal
+from functools import cache
+from importlib.resources import files
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter, model_validator
+
+
+@cache
+def _load_model_defaults() -> dict[str, LLMParams]:
+    try:
+        text = files("mad_world").joinpath("model_defaults.json").read_text()
+
+        return TypeAdapter(dict[str, LLMParams]).validate_json(text)
+    except FileNotFoundError:
+        logging.getLogger(__name__).exception(
+            "Error occured loading model defaults"
+        )
+        return {}
 
 
 class PlayerKind(StrEnum):
@@ -14,16 +30,44 @@ class PlayerKind(StrEnum):
     TRIVIAL = "trivial"
 
 
+class LLMParams(BaseModel):
+    temperature: float = Field(
+        default=0.8, description="Temperature for the LLM."
+    )
+    context_size: int = Field(default=2**15, description="Context window size.")
+    token_limit: int = Field(
+        default=2**13, description="Token limit per completion."
+    )
+    repeat_penalty: float = Field(
+        default=1.1, description="Repetition penalty."
+    )
+    repeat_last_n: int = Field(
+        default=64, description="Repetition context size."
+    )
+
+    @staticmethod
+    def defaults_for_model(model: str) -> LLMParams:
+        model_defaults = _load_model_defaults().get(model) or LLMParams()
+        return LLMParams.model_validate(
+            LLMParams().model_dump()
+            | model_defaults.model_dump(exclude_unset=True)
+        )
+
+
 class LLMPlayerConfig(BaseModel):
     kind: Literal[PlayerKind.LLM] = PlayerKind.LLM
     name: str
-    model: str
+    model: str = Field(description="The LLM model being used.")
     persona: str | None = None
-    temperature: float = 0.8
-    context_size: int = 2**17
-    token_limit: int = 2**13
-    repeat_penalty: float = 1.1
-    repeat_last_n: int = 64
+    params: LLMParams = Field(default_factory=LLMParams)
+
+    @model_validator(mode="after")
+    def with_model_defaults(self) -> Self:
+        self.params = LLMParams.model_validate(
+            LLMParams.defaults_for_model(self.model).model_dump()
+            | self.params.model_dump(exclude_unset=True)
+        )
+        return self
 
     def _simple_persona(self) -> str:
         return (self.persona or "").partition("\n")[0].strip()
