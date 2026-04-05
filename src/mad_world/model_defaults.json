@@ -6,8 +6,14 @@
     "context_size": 32768,
     "repeat_penalty": 1.3
   },
+  "gemma4:e4b": {
+      "context_size": 131072
+  },
   "rnj-1:8b": {
     "repeat_penalty": 1.5,
-    "context_size": 131072
+    "context_size": 16384,
+    "token_limit": 4096,
+    "repeat_last_n": 256,
+    "temperature": 0.3
   }
 }

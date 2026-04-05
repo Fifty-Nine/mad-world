@@ -124,8 +124,8 @@ def test_config_rnj_defaults() -> None:
     config = LLMPlayerConfig(
         name="name", model="rnj-1:8b"
     ).with_model_defaults()
-    assert config.params.temperature == 0.8
-    assert config.params.context_size == 2**17
-    assert config.params.token_limit == 2**13
+    assert config.params.temperature == 0.3
+    assert config.params.context_size == 2**14
+    assert config.params.token_limit == 2**12
     assert config.params.repeat_penalty == 1.5
-    assert config.params.repeat_last_n == 64
+    assert config.params.repeat_last_n == 256
