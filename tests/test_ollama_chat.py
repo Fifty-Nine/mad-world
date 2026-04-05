@@ -14,6 +14,7 @@ from click.testing import CliRunner
 from prompt_toolkit import PromptSession
 
 from mad_world import ollama_chat
+from mad_world.config import LLMParams
 from mad_world.ollama_chat import (
     QuitProgram,
     exit_loop,
@@ -114,7 +115,7 @@ def test_prompt_loop_empty_input() -> None:
     client_mock = MagicMock()
     messages: list[dict[str, str]] = []
 
-    prompt_loop(session_mock, client_mock, "model", messages)
+    prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
     assert not messages
     client_mock.chat.assert_not_called()
 
@@ -129,7 +130,7 @@ def test_prompt_loop_slash_command() -> None:
     with patch(
         "mad_world.ollama_chat.process_slash_command", return_value=True
     ):
-        prompt_loop(session_mock, client_mock, "model", messages)
+        prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
 
     assert not messages
     client_mock.chat.assert_not_called()
@@ -151,7 +152,7 @@ def test_prompt_loop_valid_input(capsys: pytest.CaptureFixture[str]) -> None:
     ollama_chat.pending_images.append(b"image1")
 
     try:
-        prompt_loop(session_mock, client_mock, "model", messages)
+        prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
     finally:
         ollama_chat.pending_images = old_pending
 
@@ -224,7 +225,9 @@ def test_main_success(tmp_path: Path) -> None:
     with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
         result = runner.invoke(main, [str(log_file), "--model", "mymodel"])
         assert result.exit_code == 0
-        mock_run.assert_called_once_with(log_file, "mymodel", host=None)
+        mock_run.assert_called_once_with(
+            log_file, "mymodel", host=None, settings=None
+        )
 
 
 def test_main_quit_program(tmp_path: Path) -> None:
@@ -273,7 +276,7 @@ def test_prompt_loop_response_error(capsys: pytest.CaptureFixture[str]) -> None:
     client_mock.chat.side_effect = ollama.ResponseError("err1")
     messages: list[dict[str, Any]] = []
 
-    prompt_loop(session_mock, client_mock, "model", messages)
+    prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
 
     captured = capsys.readouterr()
     assert "Failed to communicate with ollama: err1" in captured.err
@@ -288,10 +291,109 @@ def test_prompt_loop_response_error(capsys: pytest.CaptureFixture[str]) -> None:
     client_mock.chat.side_effect = chat_generator_partial_success
     messages.clear()
 
-    prompt_loop(session_mock, client_mock, "model", messages)
+    prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
 
     captured = capsys.readouterr()
     assert "Partial " in captured.out
     assert "Failed to communicate with ollama: err2" in captured.err
     assert len(messages) == 1
     assert messages[0]["role"] == "user"
+
+
+def test_load_settings_not_found(tmp_path: Path) -> None:
+    """Test load_settings when file is not found."""
+    settings_file = tmp_path / "missing.json"
+    params, model = ollama_chat.load_settings(settings_file)
+    assert model is None
+    assert params.temperature == 0.8
+
+
+def test_load_settings_bad_json(tmp_path: Path) -> None:
+    """Test load_settings with invalid JSON."""
+    settings_file = tmp_path / "bad.json"
+    settings_file.write_text("{bad json")
+    _params, model = ollama_chat.load_settings(settings_file)
+    assert _params == LLMParams()
+    assert model is None
+
+
+def test_load_settings_is_a_dir(tmp_path: Path) -> None:
+    settings_file = tmp_path / "dir"
+    settings_file.mkdir()
+    _params, model = ollama_chat.load_settings(settings_file)
+    assert _params == LLMParams()
+    assert model is None
+
+
+def test_load_settings_perms(tmp_path: Path) -> None:
+    settings_file = tmp_path / "dir"
+    settings_file.write_text("{}")
+    settings_file.chmod(0)
+    _params, model = ollama_chat.load_settings(settings_file)
+    assert _params == LLMParams()
+    assert model is None
+
+
+def test_load_settings_success(tmp_path: Path) -> None:
+    """Test load_settings with valid JSON."""
+    settings_file = tmp_path / "settings.json"
+    settings_file.write_text(
+        '{"model": "test-model", "params": {"temperature": 0.5}}'
+    )
+    params, model = ollama_chat.load_settings(settings_file)
+    assert model == "test-model"
+    assert params.temperature == 0.5
+
+
+def test_run_chat_derive_settings_path(tmp_path: Path) -> None:
+    """Test run_chat derives settings path from .messages.gz."""
+    log_file = tmp_path / "game.messages.gz"
+    settings_file = tmp_path / "game.model-settings.json"
+    settings_file.write_text('{"model": "derived-model", "params": {}}')
+
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    with (
+        patch("mad_world.ollama_chat.ollama.Client"),
+        patch("mad_world.ollama_chat.PromptSession"),
+        patch("mad_world.ollama_chat.prompt_loop", side_effect=QuitProgram(0)),
+        pytest.raises(QuitProgram),
+    ):
+        run_chat(log_file)
+
+
+def test_run_chat_derive_settings_path_no_gz(tmp_path: Path) -> None:
+    """Test run_chat derives settings path from other extension."""
+    log_file = tmp_path / "game.log"
+    settings_file = tmp_path / "game.model-settings.json"
+    settings_file.write_text('{"model": "derived-model", "params": {}}')
+
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    with (
+        patch("mad_world.ollama_chat.ollama.Client"),
+        patch("mad_world.ollama_chat.PromptSession"),
+        patch("mad_world.ollama_chat.prompt_loop", side_effect=QuitProgram(0)),
+        pytest.raises(QuitProgram),
+    ):
+        run_chat(log_file)
+
+
+def test_run_chat_explicit_settings(tmp_path: Path) -> None:
+    """Test run_chat with explicit settings path."""
+    log_file = tmp_path / "game.log"
+    settings_file = tmp_path / "explicit-settings.json"
+    settings_file.write_text('{"model": "derived-model", "params": {}}')
+
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    with (
+        patch("mad_world.ollama_chat.ollama.Client"),
+        patch("mad_world.ollama_chat.PromptSession"),
+        patch("mad_world.ollama_chat.prompt_loop", side_effect=QuitProgram(0)),
+        pytest.raises(QuitProgram),
+    ):
+        run_chat(log_file, settings=settings_file)
