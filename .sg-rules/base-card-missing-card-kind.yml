@@ -1,5 +1,6 @@
 id: base-card-missing-card-kind
 language: python
+severity: error
 rule:
   kind: class_definition
   all:
@@ -44,9 +45,15 @@ rule:
                 - has:
                     kind: identifier
                     pattern: card_kind
-                - has:
-                    kind: string
-                    regex: ^['"][^'"]+['"]$
+                - any:
+                    - has:
+                        kind: string
+                        regex: ^['"][^'"]+['"]$
+                    - has:
+                        kind: parenthesized_expression
+                        has:
+                          kind: string
+                          regex: ^['"][^'"]+['"]$
 message: |
   Concrete subclasses of BaseCard must define a ClassVar Literal called card_kind which contains a single (non-empty) string.
   Example: card_kind: ClassVar[Literal["my-card"]] = "my-card"
