@@ -91,9 +91,9 @@ class GameState(BaseModel):
     crisis_deck: Deck[BaseCrisis] = Field(
         description="The deck from which to deal crises."
     )
-    pending_crises: list[BaseCrisis] = Field(
-        default_factory=list,
-        description="The list of crises remaining to resolve.",
+    pending_crisis: BaseCrisis | None = Field(
+        default=None,
+        description="The pending crisis to resolve.",
     )
     last_round: int = Field(
         default=0,
@@ -280,7 +280,8 @@ class GameState(BaseModel):
         if self.current_phase.is_crisis():
             return False
 
-        self.pending_crises.insert(0, self.crisis_deck.draw(self.rng))
+        assert self.pending_crisis is None
+        self.pending_crisis = self.crisis_deck.draw(self.rng)
 
         return True
 
@@ -310,7 +311,7 @@ class GameState(BaseModel):
             case GamePhase.CRISIS:
                 # This will need to be updated when crises can have
                 # multiple phases/trigger follow-up crises.
-                assert len(self.pending_crises) == 0
+                assert self.pending_crisis is None
                 assert self.post_crisis_phase is not None
                 assert self.post_crisis_round is not None
                 self.current_phase, self.current_round = (
@@ -553,7 +554,8 @@ async def resolve_messaging(
 
     async def callback(player: GamePlayer) -> MessagingAction:
         if game.current_phase.is_crisis():
-            return await player.crisis_message(game, game.pending_crises[-1])
+            assert game.pending_crisis is not None
+            return await player.crisis_message(game, game.pending_crisis)
 
         return await player.message(game)
 
@@ -597,7 +599,8 @@ async def resolve_crisis(
 ) -> GameState:
 
     new_game = copy.deepcopy(game)
-    next_crisis = new_game.pending_crises.pop()
+    next_crisis, new_game.pending_crisis = new_game.pending_crisis, None
+    assert next_crisis is not None
     events = await next_crisis.run(game, players)
     for e in events:
         new_game.apply_event(e)
