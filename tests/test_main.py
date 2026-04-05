@@ -212,7 +212,9 @@ def test_run_game_keyboard_interrupt(
 
 @patch("mad_world.__main__.amain", new_callable=AsyncMock)
 def test_run_game_defaults(mock_amain: AsyncMock, tmp_path: Path) -> None:
-    run_game()
+    run_game(
+        log_dir=tmp_path,
+    )
     assert mock_amain.called
 
     kwargs = mock_amain.call_args.kwargs
