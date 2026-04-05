@@ -34,6 +34,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
+    extract_json_from_response,
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
@@ -363,14 +364,13 @@ class OllamaPlayer(GamePlayer):
         self.model = config.model
         self.client = ollama.AsyncClient()
         self.messages: list[dict[str, str]] = []
-        self.config = config
+        self.params = config.params
         self.prompt_options = {
-            "num_predict": config.token_limit,
-            "num_ctx": config.context_size,
-            "temperature": config.temperature,
-            "repeat_penalty": config.repeat_penalty,
-            "repeat_last_n": config.repeat_last_n,
-            "think": False,
+            "num_predict": config.params.token_limit,
+            "num_ctx": config.params.context_size,
+            "temperature": config.params.temperature,
+            "repeat_penalty": config.params.repeat_penalty,
+            "repeat_last_n": config.params.repeat_last_n,
         }
         self.grand_strategy: GrandStrategy | None = None
         self.log_base = (
@@ -479,7 +479,11 @@ class OllamaPlayer(GamePlayer):
         settings_path = self.log_base.with_suffix(".model-settings.json")
         with settings_path.open("w", encoding="utf-8") as f:
             json.dump(
-                self.config.model_dump(mode="json"),
+                {
+                    "model": self.model,
+                    "persona": self.persona,
+                    "params": self.params.model_dump(mode="json"),
+                },
                 indent=2,
                 ensure_ascii=False,
                 fp=f,
@@ -621,17 +625,20 @@ class OllamaPlayer(GamePlayer):
                 messages=self.messages,
                 format=schema,
                 options=self.prompt_options,
+                think=False,
             )
             result = result_obj.message.content
 
             try:
-                response = response_model.model_validate_json(result or "{}")
+                response = response_model.model_validate_json(
+                    extract_json_from_response(result or "{}")
+                )
             except ValidationError as e:
                 self.logger.debug(
-                    wrap_text(
-                        f"{log_header}Failed: {e}\nModel Response: {result}\n"
-                        f"Model done reason: {result_obj.done_reason}\n",
-                    ),
+                    "%s\n%s\n%s\n",
+                    wrap_text(f"{log_header}Failed: {e}"),
+                    f"Model Response: {result}",
+                    f"Model done reason: {result_obj.done_reason}\n",
                 )
                 self.messages.append(
                     {
@@ -743,6 +750,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=temp_messages,
             options=self.prompt_options,
+            think=False,
         )
 
         summary = summary_response.message.content or ""
@@ -791,12 +799,12 @@ class OllamaPlayer(GamePlayer):
         eval_count = getattr(response_obj, "eval_count", 0) or 0
         total_tokens = prompt_eval_count + eval_count
 
-        usage = total_tokens / self.config.context_size
+        usage = total_tokens / self.params.context_size
         self.logger.debug(
             "[%s] Context usage: %s/%s (%s)",
             self.name,
             total_tokens,
-            self.config.context_size,
+            self.params.context_size,
             f"{usage:.1%}",
         )
         if usage > self.compression_threshold:
@@ -1119,6 +1127,7 @@ class OllamaPlayer(GamePlayer):
             model=self.model,
             messages=self.messages,
             options=self.prompt_options,
+            think=False,
         )
         self.messages.append(
             {"role": "assistant", "content": result.message.content or ""},

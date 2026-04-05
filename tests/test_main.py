@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from mad_world.__main__ import (
+    _get_explicitly_set_params,
     amain,
     coerce_bool_response,
     create_log_session_dir,
@@ -23,8 +24,10 @@ from mad_world.__main__ import (
 )
 from mad_world.config import (
     HumanPlayerConfig,
+    LLMParams,
     LLMPlayerConfig,
     TrivialPlayerConfig,
+    _load_model_defaults,
 )
 from mad_world.enums import GameOverReason
 from mad_world.human_player import HumanPlayer
@@ -263,6 +266,109 @@ def test_cli_parsing(tmp_path: Path) -> None:
         assert omega.bot_name == "Pacifist"
 
 
+@patch("mad_world.config.files")
+def test_cli_parsing_uses_model_defaults(
+    mock_files: MagicMock, tmp_path: Path
+) -> None:
+    argv = [
+        "mad_world",
+        "--alpha.kind",
+        "llm",
+        "--alpha.model",
+        "not_my_model",
+        "--alpha.params.temperature",
+        "2.0",
+        "--alpha.params.token_limit=1234",
+        "--omega.kind",
+        "llm",
+        "--omega.name",
+        "Omega",
+        "--omega.model",
+        "my_model",
+        "--omega.params.temperature",
+        str(LLMParams().temperature),
+        "--log_dir",
+        str(tmp_path),
+    ]
+    _load_model_defaults.cache_clear()
+    mock_files.return_value.joinpath.return_value.read_text.return_value = (
+        '{"my_model": {    "temperature": -1.0,'
+        '                 "context_size": 12345,'
+        '                  "token_limit": 4321,'
+        '               "repeat_penalty": 2.0,'
+        '                "repeat_last_n": 1234 }}'
+    )
+    with (
+        patch("mad_world.__main__.amain", new_callable=AsyncMock) as mock_amain,
+        patch("sys.argv", argv),
+    ):
+        main()
+        assert mock_amain.called
+        kwargs = mock_amain.call_args.kwargs
+        alpha = kwargs["alpha_config"]
+        omega = kwargs["omega_config"]
+
+        assert isinstance(alpha, LLMPlayerConfig)
+        assert alpha.params == LLMParams(temperature=2.0, token_limit=1234)
+        assert isinstance(omega, LLMPlayerConfig)
+        assert omega.name == "Omega"
+        assert omega.params == LLMParams(
+            # The explicit parameter option should override the
+            # custom default, even though the explicit option matches
+            # the universal default.
+            temperature=LLMParams().temperature,
+            # The rest, however, are unspecified, so they should use the
+            # model-specific defaults.
+            context_size=12345,
+            token_limit=4321,
+            repeat_penalty=2.0,
+            repeat_last_n=1234,
+        )
+
+
+@patch("mad_world.config.files")
+def test_cli_parsing_no_user_options(
+    mock_files: MagicMock, tmp_path: Path
+) -> None:
+    """Tests for a previous regression where specifying *no* model parameters
+    was interpreted as the caller of `with_model_defaults` passing None.
+    """
+    argv = [
+        "mad_world",
+        "--omega.kind",
+        "llm",
+        "--omega.model",
+        "my_model",
+        "--log_dir",
+        str(tmp_path),
+    ]
+    _load_model_defaults.cache_clear()
+    mock_files.return_value.joinpath.return_value.read_text.return_value = (
+        '{"my_model": {    "temperature": -1.0,'
+        '                 "context_size": 12345,'
+        '                  "token_limit": 4321,'
+        '               "repeat_penalty": 2.0,'
+        '                "repeat_last_n": 1234 }}'
+    )
+    with (
+        patch("mad_world.__main__.amain", new_callable=AsyncMock) as mock_amain,
+        patch("sys.argv", argv),
+    ):
+        main()
+        assert mock_amain.called
+        kwargs = mock_amain.call_args.kwargs
+        omega = kwargs["omega_config"]
+
+        assert isinstance(omega, LLMPlayerConfig)
+        assert omega.params == LLMParams(
+            temperature=-1.0,
+            context_size=12345,
+            token_limit=4321,
+            repeat_penalty=2.0,
+            repeat_last_n=1234,
+        )
+
+
 def test_cli_parsing_invalid() -> None:
     argv_1 = [
         "mad_world",
@@ -289,6 +395,39 @@ def test_coerce_bool_response() -> None:
     assert coerce_bool_response("YES", default_val=False) is True
     assert coerce_bool_response("YE", default_val=False) is True
     assert coerce_bool_response("invalid", default_val=True) is None
+
+
+def test_get_explicitly_set_params() -> None:
+    # Basic usage with =
+    args = [
+        "mad_world",
+        "--alpha.params.temperature=0.5",
+        "--alpha.params.repeat_penalty=1.5",
+    ]
+    assert _get_explicitly_set_params(args, "alpha") == {
+        "temperature",
+        "repeat_penalty",
+    }
+    assert _get_explicitly_set_params(args, "omega") == set()
+
+    # Mix of players
+    args = [
+        "--alpha.params.temperature=0.5",
+        "--omega.params.context_size=1024",
+    ]
+    assert _get_explicitly_set_params(args, "alpha") == {"temperature"}
+    assert _get_explicitly_set_params(args, "omega") == {"context_size"}
+
+    # No relevant args
+    assert _get_explicitly_set_params(["--alpha.name", "Foo"], "alpha") == set()
+
+    # Edge case: Space instead of =
+    args = ["--alpha.params.temperature", "0.5"]
+    assert _get_explicitly_set_params(args, "alpha") == {"temperature"}
+
+    # Edge case: No value at all
+    args = ["--alpha.params.some_flag"]
+    assert _get_explicitly_set_params(args, "alpha") == {"some_flag"}
 
 
 @pytest.mark.asyncio

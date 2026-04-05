@@ -17,6 +17,9 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+from pydantic import ValidationError
+
+from mad_world.config import LLMParams
 
 # Define styles for the prompt
 style = Style.from_dict(
@@ -101,6 +104,7 @@ def prompt_loop(
     client: ollama.Client,
     model: str,
     messages: list[dict[str, Any]],
+    llm_params: LLMParams,
 ) -> None:
     user_input = session.prompt(
         [("class:user", "User > ")],
@@ -126,10 +130,19 @@ def prompt_loop(
 
     full_response = ""
     try:
+        prompt_options = {
+            "num_predict": llm_params.token_limit,
+            "num_ctx": llm_params.context_size,
+            "temperature": llm_params.temperature,
+            "repeat_penalty": llm_params.repeat_penalty,
+            "repeat_last_n": llm_params.repeat_last_n,
+        }
         for part in client.chat(
             model=model,
             messages=messages,
             stream=True,
+            options=prompt_options,
+            think=True,
         ):
             content = part["message"]["content"]
             click.echo(content, nl=False)
@@ -146,7 +159,49 @@ def prompt_loop(
     click.echo("\n")
 
 
-def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
+def load_settings_from_file(settings_path: Path) -> tuple[LLMParams, str]:
+    with settings_path.open("rt", encoding="utf-8") as f:
+        settings_data = json.load(f)
+
+    params = LLMParams()
+    if params_obj := settings_data.get("params"):
+        params = LLMParams.model_validate(params_obj)
+
+    return params, settings_data.get("model")
+
+
+def load_settings(settings_path: Path) -> tuple[LLMParams, str | None]:
+    def warn(msg: str) -> None:
+        click.secho(
+            f"Warning: {msg} Using default LLM parameters.",
+            fg="yellow",
+            err=True,
+        )
+
+    try:
+        return load_settings_from_file(settings_path)
+
+    except FileNotFoundError:
+        warn(f"Settings file {settings_path} not found.")
+
+    except PermissionError:
+        warn(f"Permissions do not allow reading from {settings_path}.")
+
+    except IsADirectoryError:
+        warn(f"{settings_path} is a directory.")
+
+    except (json.JSONDecodeError, ValidationError) as e:
+        warn(f"Failed to load settings: {e}")
+
+    return LLMParams(), None
+
+
+def run_chat(
+    log_file: Path,
+    model: str | None = None,
+    host: str | None = None,
+    settings: Path | None = None,
+) -> int:
     """Run the interactive chat session."""
     try:
         with gzip.open(log_file, "rt", encoding="utf-8") as f:
@@ -163,8 +218,23 @@ def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
         )
         return 1
 
+    if settings is None:
+        if log_file.name.endswith(".messages.gz"):
+            settings_name = (
+                log_file.name[: -len(".messages.gz")] + ".model-settings.json"
+            )
+            settings_path = log_file.with_name(settings_name)
+        else:
+            settings_path = log_file.with_suffix(".model-settings.json")
+    else:
+        settings_path = settings
+
+    llm_params, loaded_model = load_settings(settings_path)
+
+    final_model = model or loaded_model or "gemma3:12b"
+
     click.secho(f"Loaded {len(messages)} messages from {log_file}", fg="yellow")
-    click.secho(f"Using model: {model}", fg="yellow")
+    click.secho(f"Using model: {final_model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
     client = ollama.Client(host=host)
@@ -176,7 +246,7 @@ def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
     )
 
     while True:
-        prompt_loop(session, client, model, messages)
+        prompt_loop(session, client, final_model, messages, llm_params)
 
 
 @click.command()
@@ -186,8 +256,11 @@ def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
 )
 @click.option(
     "--model",
-    default="gemma3:12b",
-    help="The name of the Ollama model to use.",
+    default=None,
+    help=(
+        "The name of the Ollama model to use. Defaults to the one in "
+        "settings, or gemma3:12b."
+    ),
 )
 @click.option(
     "-h",
@@ -195,14 +268,28 @@ def run_chat(log_file: Path, model: str, host: str | None = None) -> int:
     default=None,
     help="The URL for the ollama instance.",
 )
-def main(log_file: Path, model: str, ollama_host: str | None = None) -> None:
+@click.option(
+    "--settings",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help=(
+        "Path to the model-settings.json file. Defaults to deriving from "
+        "log_file."
+    ),
+)
+def main(
+    log_file: Path,
+    model: str | None = None,
+    ollama_host: str | None = None,
+    settings: Path | None = None,
+) -> None:
     """
     Chat with an Ollama model using history from a gzipped JSON log file.
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        sys.exit(run_chat(log_file, model, host=ollama_host))
+        sys.exit(run_chat(log_file, model, host=ollama_host, settings=settings))
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):

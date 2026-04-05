@@ -6,6 +6,7 @@ import asyncio
 import logging
 import random
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -241,12 +242,28 @@ DEFAULT_OMEGA = LLMPlayerConfig(
 )
 
 
-def _default_config(config: PlayerConfig) -> PlayerConfig:
+def _default_config(
+    config: PlayerConfig, explicit_params: set[str] | None = None
+) -> PlayerConfig:
     updates = {}
     if config.kind == PlayerKind.LLM and config.persona is None:
         updates["persona"] = random_persona()
 
+    if config.kind == PlayerKind.LLM:
+        config.with_model_defaults(explicit_params)
+
     return config.model_copy(update=updates, deep=True)
+
+
+def _get_explicitly_set_params(
+    args: list[str], player: Literal["alpha", "omega"]
+) -> set[str]:
+    prefix = f"--{player}.params."
+    return {
+        arg.split("=")[0].replace(prefix, "")
+        for arg in args
+        if arg.startswith(prefix)
+    }
 
 
 def run_game(
@@ -264,8 +281,12 @@ def run_game(
         log_dir: Base directory for storing session logs.
         verbosity: Logging verbosity level.
     """
-    alpha = _default_config(alpha)
-    omega = _default_config(omega)
+    alpha = _default_config(
+        alpha, _get_explicitly_set_params(sys.argv, "alpha")
+    )
+    omega = _default_config(
+        omega, _get_explicitly_set_params(sys.argv, "omega")
+    )
 
     specific_log_dir = create_log_session_dir(
         log_dir,

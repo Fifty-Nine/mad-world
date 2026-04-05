@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 mad_world = "mad_world.__main__:main"
+mad_world_chat = "mad_world.ollama_chat:main"
 
 [build-system]
 requires = ["hatchling"]

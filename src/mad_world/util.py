@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import textwrap
 from abc import ABC
@@ -313,3 +314,47 @@ def escalation_bar(tracker: list[AnyActor], *, defrag: bool) -> str:
 
     wrapper = "+" + ("-" * len(tracker)) + "+"
     return f"{wrapper}\n|{track_text}|\n{wrapper}\n"
+
+
+def extract_json_from_response(response: str) -> str:
+    """Extract JSON from the last code block in a model response.
+
+    Handles markdown-formatted JSON blocks like:
+    ```json
+    {...}
+    ```
+
+    Returns the JSON content from the last code block found, or the last
+    instance of a JSON object if no code blocks are present. Returns the
+    original string if no code blocks or JSON objects are found.
+
+    Args:
+        response: The raw model response string.
+
+    Returns:
+        The JSON content from the last code block, or the original string
+        if no code blocks or JSON objects are found.
+    """
+    # 1. Try to find markdown code blocks first
+    pattern = r"```(?:\w+)?\s*\n?(.*?)\n?```"
+    if matches := re.findall(pattern, response, re.DOTALL):
+        match = cast("str", matches[-1])
+        return match.strip()
+
+    # 2. Fallback: find the last valid JSON object {...}
+    decoder = json.JSONDecoder()
+    idx = response.find("{")
+    last_valid = None
+
+    while idx != -1:
+        try:
+            _, end_idx = decoder.raw_decode(response, idx)
+            last_valid = response[idx:end_idx].strip()
+            idx = response.find("{", end_idx)
+        except json.JSONDecodeError:
+            idx = response.find("{", idx + 1)
+
+    if last_valid is not None:
+        return last_valid
+
+    return response
