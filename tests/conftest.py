@@ -61,6 +61,18 @@ def forbid_write(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(io, "open", patched_open)
 
 
+@pytest.fixture(autouse=True)
+def mock_random(monkeypatch: pytest.MonkeyPatch) -> None:
+    random.seed(0)
+
+    orig_random = random.Random
+
+    def patched_random(x: Any = 0) -> random.Random:
+        return orig_random(x)
+
+    monkeypatch.setattr(random, "Random", patched_random)
+
+
 @pytest.fixture
 def basic_game() -> GameState:
     """Provides a basic game state for testing."""

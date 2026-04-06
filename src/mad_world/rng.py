@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import random
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import PlainSerializer, PlainValidator
 from pydantic.json_schema import SkipJsonSchema
 
 
 def deserialize_random_state(state: Any) -> random.Random:
-    if isinstance(state, random.Random):
-        return state
+    if getattr(state, "seed", None) is not None and callable(
+        getattr(state, "getstate", None)
+    ):
+        return cast("random.Random", state)
 
     result = random.Random()
     result.setstate(state)
