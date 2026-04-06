@@ -22,6 +22,10 @@ from mad_world.core import (
     iterate_game,
     resolve_operation,
 )
+from mad_world.crises import (
+    SANCTIONS_TIE_GDP_EFFECT,
+    InternationalSanctionsCrisis,
+)
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import (
     ActorKind,
@@ -255,6 +259,45 @@ async def test_survived_crisis(stable_rules: GameRules) -> None:
     )
 
     assert winner is None
+    assert reason == GameOverReason.STALEMATE
+
+
+@pytest.mark.asyncio
+async def test_international_sanctions_integration(
+    stable_rules: GameRules,
+) -> None:
+    """Test an InternationalSanctionsCrisis through the full game loop."""
+    stable_rules.initial_clock_state = 48
+    stable_rules.max_clock_state = 50
+    stable_rules.round_count = 1
+    stable_rules.initial_crisis_deck = [InternationalSanctionsCrisis()]
+
+    # Diplomats tend to bid 1.
+    # Round 1:
+    # BIDDING: Alpha bids 1, Omega bids 1.
+    # Clock impact: 1 + 1 = 2.
+    # Clock: 48 -> 50.
+    # Crisis triggers!
+    # Both players have 1 escalation token.
+    # InternationalSanctionsCrisis (Tie): Clock -10, GDP -10 each.
+    # Clock: 50 -> 40.
+    # GDP: 50 -> 40.
+    # After crisis, returns to OPERATIONS phase.
+    # Clock is 40, so they can still do operations.
+    # Diplomat has 5 + 1 = 6 influence.
+    # unilateral-drawdown costs 6.
+    # Round ends after operations.
+    _, reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+    )
+
+    # Sanctions reduce clock/GDP by 10 each.
+    # Drawdowns reduce clock by 9 each.
+    assert game.doomsday_clock == 22
+    assert game.players["Alpha"].gdp == 50 + SANCTIONS_TIE_GDP_EFFECT
+    assert game.players["Omega"].gdp == 50 + SANCTIONS_TIE_GDP_EFFECT
+
     assert reason == GameOverReason.STALEMATE
 
 

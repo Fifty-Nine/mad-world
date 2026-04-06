@@ -325,7 +325,12 @@ class GameState(BaseModel):
         if self.trigger_crisis():
             self.post_crisis_phase = self.current_phase
             self.post_crisis_round = self.current_round
-            self.current_phase = GamePhase.CRISIS_MESSAGING
+            assert self.pending_crisis is not None
+            self.current_phase = (
+                GamePhase.CRISIS_MESSAGING
+                if self.pending_crisis.has_messaging_phase
+                else GamePhase.CRISIS
+            )
 
         self.apply_event(
             GameEvent(
