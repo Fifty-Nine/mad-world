@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from mad_world.crises import BaseCrisis
 from mad_world.util import cost_or_gain, get_doomsday_bids, increase_or_decrease
 
 if TYPE_CHECKING:
@@ -196,6 +197,10 @@ class GameRules(BaseModel):
     allowed_bids: list[int] = Field(
         default=[0, 1, 3, 5, 10],
         description="The set of bids allowed in the game.",
+    )
+    initial_crisis_deck: list[BaseCrisis] | None = Field(
+        default=None,
+        description="The initial deck of crises to use.",
     )
 
     def get_doomsday_bids(

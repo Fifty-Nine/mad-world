@@ -341,14 +341,13 @@ async def test_diplomat_message() -> None:
 )
 @pytest.mark.asyncio
 async def test_generic_crisis_resolution(
-    name: str,
-    posture: StandoffPosture,
+    name: str, posture: StandoffPosture, stable_rules: GameRules
 ) -> None:
     player = get_trivial_player(name, name)
 
     assert player is not None
 
-    game = GameState.new_game(players=[player.name], rules=GameRules())
+    game = GameState.new_game(players=[player.name], rules=stable_rules)
     crisis = StandoffCrisis()
     action = await player.crisis(game, crisis)
 

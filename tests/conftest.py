@@ -15,6 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from mad_world.core import GameState
+from mad_world.crises import StandoffCrisis
 from mad_world.enums import GamePhase
 from mad_world.rules import GameRules
 
@@ -74,12 +75,16 @@ def mock_random(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def basic_game() -> GameState:
+def stable_rules() -> GameRules:
+    return GameRules(seed=0, initial_crisis_deck=[StandoffCrisis()])
+
+
+@pytest.fixture
+def basic_game(stable_rules: GameRules) -> GameState:
     """Provides a basic game state for testing."""
-    rules = GameRules()
     return GameState.new_game(
         players=["Alpha", "Omega"],
-        rules=rules,
+        rules=stable_rules,
         current_round=1,
         current_phase=GamePhase.BIDDING,
     )

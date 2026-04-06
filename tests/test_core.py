@@ -29,7 +29,6 @@ from mad_world.events import (
     PlayerActor,
     SystemActor,
 )
-from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,
@@ -43,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from mad_world.players import GamePlayer
+    from mad_world.rules import GameRules
 
 
 @dataclass
@@ -108,9 +108,11 @@ TEST_CASES = [
     TEST_CASES,
     ids=[f"{tc.alpha.__name__}_vs_{tc.omega.__name__}" for tc in TEST_CASES],
 )
-async def test_game_outcomes(scenario: Scenario) -> None:
+async def test_game_outcomes(
+    scenario: Scenario, stable_rules: GameRules
+) -> None:
     winner, reason, _event_log = await game_loop(
-        GameRules(),
+        stable_rules,
         [scenario.alpha("Alpha"), scenario.omega("Omega")],
     )
 
@@ -244,9 +246,11 @@ def test_base_action_validate_semantics(basic_game: GameState) -> None:
 
 
 @pytest.mark.asyncio
-async def test_survived_crisis() -> None:
+async def test_survived_crisis(stable_rules: GameRules) -> None:
+    stable_rules.initial_clock_state = 29
+    stable_rules.max_clock_state = 30
     winner, reason, _game = await game_loop(
-        GameRules(initial_clock_state=29, max_clock_state=30),
+        stable_rules,
         [Diplomat("Alpha"), Diplomat("Omega")],
     )
 
