@@ -66,12 +66,11 @@ def forbid_write(monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_random(monkeypatch: pytest.MonkeyPatch) -> None:
     random.seed(0)
 
-    orig_random = random.Random
+    class PatchedRandom(random.Random):
+        def __init__(self, x: Any = 0) -> None:
+            super().__init__(x)
 
-    def patched_random(x: Any = 0) -> random.Random:
-        return orig_random(x)
-
-    monkeypatch.setattr(random, "Random", patched_random)
+    monkeypatch.setattr(random, "Random", PatchedRandom)
 
 
 @pytest.fixture

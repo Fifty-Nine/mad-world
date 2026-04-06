@@ -214,7 +214,7 @@ class InternationalSanctionsCrisis(BaseCrisis):
         "Global tensions are at an all-time high. In an attempt to punish the "
         "warmongers and discourage them from future escalation, a group of non-"
         "aligned nations have come together and issued comprehensive sanctions "
-        "against the percieved instigators of the crisis."
+        "against the perceived instigators of the crisis."
     )
     mechanics: ClassVar[str] = (
         "Count the number of escalation tokens in the escalation tracker for "
@@ -268,8 +268,8 @@ class InternationalSanctionsCrisis(BaseCrisis):
         self, game: GameState, players: list[GamePlayer]
     ) -> list[GameEvent]:
         player1, player2 = game.player_names()
-        debt1 = game.escalation_track.count(PlayerActor(name=player1))
-        debt2 = game.escalation_track.count(PlayerActor(name=player2))
+        debt1 = game.escalation_debt(player1)
+        debt2 = game.escalation_debt(player2)
 
         return (
             [self.both_players_sanctioned(game)]
@@ -282,9 +282,9 @@ class InternationalSanctionsCrisis(BaseCrisis):
         )
 
 
-INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()] * 3 + [
-    InternationalSanctionsCrisis()
-] * 2
+INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis() for _ in range(3)] + [
+    InternationalSanctionsCrisis() for _ in range(2)
+]
 
 
 def create_crisis_deck(rng: random.Random) -> Deck[BaseCrisis]:
