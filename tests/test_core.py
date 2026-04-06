@@ -295,8 +295,14 @@ async def test_international_sanctions_integration(
     # Sanctions reduce clock/GDP by 10 each.
     # Drawdowns reduce clock by 9 each.
     assert game.doomsday_clock == 22
-    assert game.players["Alpha"].gdp == 50 + SANCTIONS_TIE_GDP_EFFECT
-    assert game.players["Omega"].gdp == 50 + SANCTIONS_TIE_GDP_EFFECT
+    assert (
+        game.players["Alpha"].gdp
+        == stable_rules.initial_gdp + SANCTIONS_TIE_GDP_EFFECT
+    )
+    assert (
+        game.players["Omega"].gdp
+        == stable_rules.initial_gdp + SANCTIONS_TIE_GDP_EFFECT
+    )
 
     assert reason == GameOverReason.STALEMATE
 
