@@ -27,6 +27,9 @@ STANDOFF_LOSER_GDP_EFFECT = -15
 STANDOFF_TIE_INF_EFFECT = -10
 STANDOFF_TIE_GDP_EFFECT = -5
 STANDOFF_TIE_CLOCK_EFFECT = -15
+SANCTIONS_TIE_GDP_EFFECT = -10
+SANCTIONS_TIE_CLOCK_EFFECT = -10
+SANCTIONS_MIN_EFFECT = -5
 
 
 class BaseCrisis(BaseCard, ABC):
@@ -45,6 +48,7 @@ class BaseCrisis(BaseCard, ABC):
     description: ClassVar[str]
     mechanics: ClassVar[str]
     additional_prompt: ClassVar[str | None] = None
+    has_messaging_phase: ClassVar[bool] = True
 
     action_type: ClassVar[type[BaseAction]]
 
@@ -201,7 +205,86 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         return [self._winner(game, winner, loser)]
 
 
-INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis()]
+class InternationalSanctionsCrisis(BaseCrisis):
+    card_kind: ClassVar[Literal["international-sanctions"]] = (
+        "international-sanctions"
+    )
+    title: ClassVar[str] = "International Sanctions"
+    description: ClassVar[str] = (
+        "Global tensions are at an all-time high. In an attempt to punish the "
+        "warmongers and discourage them from future escalation, a group of non-"
+        "aligned nations have come together and issued comprehensive sanctions "
+        "against the perceived instigators of the crisis."
+    )
+    mechanics: ClassVar[str] = (
+        "Count the number of escalation tokens in the escalation tracker for "
+        "each player; this is that player's escalation debt. If one player has "
+        "more debt than the other, this player loses GDP equivalent to the "
+        "difference in debt between the players or "
+        f"{abs(SANCTIONS_MIN_EFFECT)}, whichever is greater (e.g., if player "
+        "1 has 18 debt and player 2 has 14, player 1 loses "
+        f"{abs(SANCTIONS_MIN_EFFECT)} GDP since 4 < "
+        f"{abs(SANCTIONS_MIN_EFFECT)}). The clock also decreases by this "
+        "amount.\nIf both players have equivalent escalation debt, each loses "
+        f"{abs(SANCTIONS_TIE_GDP_EFFECT)} and the clock is reduced by "
+        f"{abs(SANCTIONS_TIE_CLOCK_EFFECT)} points."
+    )
+    has_messaging_phase: ClassVar[bool] = False
+
+    @classmethod
+    def both_players_sanctioned(cls, game: GameState) -> GameEvent:
+        return GameEvent(
+            actor=SystemActor(),
+            description=(
+                f"{cls.description}\nBoth players have contributed equally "
+                "to current tensions, and so both players will lose "
+                f"{abs(SANCTIONS_TIE_GDP_EFFECT)} and the clock will be "
+                f"reduced by {abs(SANCTIONS_TIE_CLOCK_EFFECT)}."
+            ),
+            clock_delta=SANCTIONS_TIE_CLOCK_EFFECT,
+            gdp_delta=dict.fromkeys(
+                game.player_names(), SANCTIONS_TIE_GDP_EFFECT
+            ),
+        )
+
+    @classmethod
+    def one_player_sanctioned(cls, player: str, amount: int) -> GameEvent:
+        amount = max(amount, abs(SANCTIONS_MIN_EFFECT))
+        return GameEvent(
+            actor=SystemActor(),
+            description=(
+                f"{cls.description}\n{player} has contributed the most to "
+                "current global tensions, and so they have been sanctioned and "
+                f"lose {amount} GDP. The clock has also decreased by {amount}."
+            ),
+            clock_delta=-amount,
+            gdp_delta={
+                player: -amount,
+            },
+        )
+
+    @override
+    async def run(
+        self, game: GameState, players: list[GamePlayer]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names()
+        debt1 = game.escalation_debt(player1)
+        debt2 = game.escalation_debt(player2)
+
+        return (
+            [self.both_players_sanctioned(game)]
+            if debt1 == debt2
+            else [
+                self.one_player_sanctioned(
+                    player1 if debt1 > debt2 else player2, abs(debt2 - debt1)
+                )
+            ]
+        )
+
+
+INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis() for _ in range(3)] + [
+    InternationalSanctionsCrisis() for _ in range(2)
+]
 
 
 def create_crisis_deck(rng: random.Random) -> Deck[BaseCrisis]:

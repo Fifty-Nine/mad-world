@@ -131,7 +131,9 @@ class GameState(BaseModel):
                 for player in players
             },
             escalation_track=[None] * rules.max_clock_state,
-            crisis_deck=create_crisis_deck(rng),
+            crisis_deck=create_crisis_deck(rng)
+            if rules.initial_crisis_deck is None
+            else Deck[BaseCrisis].create(rules.initial_crisis_deck, rng),
             **kwargs,
         )
         result.escalate(SystemActor(), rules.initial_clock_state)
@@ -323,7 +325,12 @@ class GameState(BaseModel):
         if self.trigger_crisis():
             self.post_crisis_phase = self.current_phase
             self.post_crisis_round = self.current_round
-            self.current_phase = GamePhase.CRISIS_MESSAGING
+            assert self.pending_crisis is not None
+            self.current_phase = (
+                GamePhase.CRISIS_MESSAGING
+                if self.pending_crisis.has_messaging_phase
+                else GamePhase.CRISIS
+            )
 
         self.apply_event(
             GameEvent(
