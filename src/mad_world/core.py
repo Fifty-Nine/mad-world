@@ -612,7 +612,11 @@ async def resolve_crisis(
     for e in events:
         new_game.apply_event(e)
 
-    new_game.crisis_deck.discard(next_crisis)
+    if next_crisis.consumable:
+        new_game.crisis_deck.trash(next_crisis)
+    else:
+        new_game.crisis_deck.discard(next_crisis)
+
     new_game.advance_phase()
 
     return new_game

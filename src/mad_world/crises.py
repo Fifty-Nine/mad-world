@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, ClassVar, Literal, override
 
 from pydantic import Field
 
-from mad_world.actions import BaseAction
+from mad_world.actions import (
+    BaseAction,
+    InsufficientGDPError,
+    InvalidGDPAmountError,
+)
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import BlameGamePosture, StandoffPosture
@@ -56,6 +60,7 @@ class BaseCrisis(BaseCard, ABC):
     mechanics: ClassVar[str]
     additional_prompt: ClassVar[str | None] = None
     has_messaging_phase: ClassVar[bool] = True
+    consumable: ClassVar[bool] = False
 
     action_type: ClassVar[type[BaseAction]]
 
@@ -81,7 +86,9 @@ class GenericCrisis[T: BaseAction](BaseCrisis):
         ...
 
     @abstractmethod
-    def get_default_action(self, *, aggressive: bool) -> T:
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> T:
         """Returns a 'cautious' or 'aggressive' default action for this crisis
         depending on the value of the aggressive flag."""
         ...
@@ -143,7 +150,9 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
     )
 
     @override
-    def get_default_action(self, aggressive: bool) -> StandoffAction:
+    def get_default_action(
+        self, _player: str, _game: GameState, *, aggressive: bool
+    ) -> StandoffAction:
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
             if aggressive
@@ -325,7 +334,9 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
     )
 
     @override
-    def get_default_action(self, *, aggressive: bool) -> BlameGameAction:
+    def get_default_action(
+        self, _player: str, _game: GameState, *, aggressive: bool
+    ) -> BlameGameAction:
         return BlameGameAction(
             posture=(
                 BlameGamePosture.DEFLECT
@@ -422,10 +433,159 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
         ]
 
 
+class DoomsdayAsteroidAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of GDP you are willing to invest to resolve the "
+            "crisis. This must be less than or equal to your current GDP."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        gdp = game.players[player_name].gdp
+        if gdp < self.investment:
+            raise InsufficientGDPError(available=gdp, cost=self.investment)
+
+        if self.investment < 0:
+            raise InvalidGDPAmountError
+
+
+class DoomsdayAsteroidDefs:
+    GDP_THRESHOLD: ClassVar[int] = 30
+    WINNER_GDP: ClassVar[int] = 10
+    WINNER_INF: ClassVar[int] = 10
+    CLOCK_IMPACT: ClassVar[int] = -20
+
+
+class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
+    card_kind: ClassVar[Literal["doomsday-asteroid"]] = "doomsday-asteroid"
+    action_type: ClassVar[type[DoomsdayAsteroidAction]] = DoomsdayAsteroidAction
+
+    title: ClassVar[str] = "Project Aegis"
+    description: ClassVar[str] = (
+        "With global tensions at a boiling point, the hits just keep coming as "
+        "humanity has learned of an imminent strike by a doomsday asteroid. "
+        "The last great hope for survival requires that the factions which "
+        "now stand opposed to each other must now set aside their differences "
+        "and make a massive investment of resources to save the world. Failure "
+        "to meet the moment means the imminent extinction of the human race, "
+        "but will the factions rise to meet the moment?"
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of GDP to expend towards a joint "
+        "mission to deflect the asteroid. If the sum of you and your "
+        "opponent's bid do not meet the minimum investment threshold ("
+        f"{DoomsdayAsteroidDefs.GDP_THRESHOLD} GDP) the world will be "
+        "destroyed. If you survive, each player's bid will be removed from "
+        "their current GDP. The player that contributes the most will receive "
+        f"a bonus of {DoomsdayAsteroidDefs.WINNER_GDP} GDP and "
+        f"{DoomsdayAsteroidDefs.WINNER_INF} Inf, representing the "
+        "technological and political benefits of being the savior of humanity. "
+        "If both players bid equally, the amount will be distributed evenly. "
+        "Finally, if humanity survives, the doomsday clock will recede by "
+        f"{abs(DoomsdayAsteroidDefs.CLOCK_IMPACT)} points as humanity breathes "
+        "a sigh of relief."
+    )
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> DoomsdayAsteroidAction:
+        half_bid = DoomsdayAsteroidDefs.GDP_THRESHOLD // 2
+        max_bid = game.players[player].gdp
+
+        # Aggressive players only bid ~25% of the goal, while diplomatic
+        # players pay their fair share of ~50% of the cost.
+        bid = min(max_bid, half_bid // 2 if aggressive else half_bid)
+        return DoomsdayAsteroidAction(investment=bid)
+
+    @staticmethod
+    def _investment_event(player: str, amount: int) -> GameEvent:
+        return GameEvent(
+            actor=PlayerActor(name=player),
+            description=(
+                f"{player} has invested {amount} GDP into the joint mission to "
+                "deflect the planet-killer asteroid."
+            ),
+            gdp_delta={player: -amount},
+        )
+
+    @staticmethod
+    def _payoff(p1: str, p2: str, p1_amount: int, p2_amount: int) -> GameEvent:
+        description = (
+            "Humanity has come together in a last desperate act to escape "
+            "doom. The factions have successfully conducted a joint mission "
+            "to deflect the doomsday asteroid. "
+        )
+        gdp = DoomsdayAsteroidDefs.WINNER_GDP
+        inf = DoomsdayAsteroidDefs.WINNER_INF
+        if p1_amount == p2_amount:
+            description += (
+                "Both factions have contributed equally and, thus, they will "
+                "split the rewards."
+            )
+            return GameEvent(
+                actor=SystemActor(),
+                description=description,
+                gdp_delta={p1: gdp // 2, p2: gdp // 2},
+                influence_delta={p1: inf // 2, p2: inf // 2},
+                clock_delta=DoomsdayAsteroidDefs.CLOCK_IMPACT,
+            )
+
+        winner = p2 if p2_amount > p1_amount else p1
+
+        description += (
+            f"{winner} contributed the most to the project and, thus, they "
+            "will reap the rewards."
+        )
+
+        return GameEvent(
+            actor=SystemActor(),
+            description=description,
+            gdp_delta={winner: gdp},
+            influence_delta={winner: inf},
+            clock_delta=DoomsdayAsteroidDefs.CLOCK_IMPACT,
+        )
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, DoomsdayAsteroidAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.players
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        result = [
+            self._investment_event(player1, p1_amount),
+            self._investment_event(player2, p2_amount),
+        ]
+
+        if p1_amount + p2_amount < DoomsdayAsteroidDefs.GDP_THRESHOLD:
+            result.append(
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        "The world powers have failed to deflect the incoming "
+                        "asteroid. The world watches on in horror as the "
+                        "asteroid barrels towards earth unimpeded. No one "
+                        "survives."
+                    ),
+                    world_ending=True,
+                )
+            )
+        else:
+            result.append(self._payoff(player1, player2, p1_amount, p2_amount))
+
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
+    DoomsdayAsteroidCrisis(),
 ]
 
 

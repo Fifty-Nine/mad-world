@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from mad_world.actions import BaseAction
-from mad_world.core import GameState
+from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
     SANCTIONS_MIN_EFFECT,
     SANCTIONS_TIE_CLOCK_EFFECT,
@@ -34,7 +34,7 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
     """Base class for testing crises."""
 
     @pytest.fixture
-    def mock_game_state(self) -> GameState:
+    def basic_game(self) -> GameState:
         return GameState.new_game(
             rules=GameRules(max_clock_state=100),
             players=["Player1", "Player2"],
@@ -48,24 +48,28 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
     async def test_run_generic(
         self,
         crisis: C,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test the run method which gathers player actions."""
         p1 = MagicMock()
         p1.name = "Player1"
-        p1_action = crisis.get_default_action(aggressive=True)
+        p1_action = crisis.get_default_action(
+            p1.name, basic_game, aggressive=True
+        )
         p1.crisis = AsyncMock(return_value=p1_action)
 
         p2 = MagicMock()
         p2.name = "Player2"
-        p2_action = crisis.get_default_action(aggressive=False)
+        p2_action = crisis.get_default_action(
+            p2.name, basic_game, aggressive=False
+        )
         p2.crisis = AsyncMock(return_value=p2_action)
 
-        events = await crisis.run(mock_game_state, [p1, p2])
+        events = await crisis.run(basic_game, [p1, p2])
 
         assert isinstance(events, list)
-        p1.crisis.assert_called_once_with(mock_game_state, crisis)
-        p2.crisis.assert_called_once_with(mock_game_state, crisis)
+        p1.crisis.assert_called_once_with(basic_game, crisis)
+        p2.crisis.assert_called_once_with(basic_game, crisis)
 
 
 class TestInternationalSanctionsCrisis:
@@ -76,7 +80,7 @@ class TestInternationalSanctionsCrisis:
         return InternationalSanctionsCrisis()
 
     @pytest.fixture
-    def mock_game_state(self) -> GameState:
+    def basic_game(self) -> GameState:
         return GameState.new_game(
             rules=GameRules(max_clock_state=100),
             players=["Player1", "Player2"],
@@ -86,13 +90,13 @@ class TestInternationalSanctionsCrisis:
     async def test_run_tie(
         self,
         crisis: InternationalSanctionsCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when both players have equal debt."""
-        mock_game_state.escalate(PlayerActor(name="Player1"), 1)
-        mock_game_state.escalate(PlayerActor(name="Player2"), 1)
+        basic_game.escalate(PlayerActor(name="Player1"), 1)
+        basic_game.escalate(PlayerActor(name="Player2"), 1)
 
-        events = await crisis.run(mock_game_state, [])
+        events = await crisis.run(basic_game, [])
 
         assert len(events) == 1
         event = events[0]
@@ -106,14 +110,14 @@ class TestInternationalSanctionsCrisis:
     async def test_run_p1_sanctioned(
         self,
         crisis: InternationalSanctionsCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when Player1 has more debt."""
         debt1, debt2 = 3, 1
-        mock_game_state.escalate(PlayerActor(name="Player1"), debt1)
-        mock_game_state.escalate(PlayerActor(name="Player2"), debt2)
+        basic_game.escalate(PlayerActor(name="Player1"), debt1)
+        basic_game.escalate(PlayerActor(name="Player2"), debt2)
 
-        events = await crisis.run(mock_game_state, [])
+        events = await crisis.run(basic_game, [])
 
         assert len(events) == 1
         event = events[0]
@@ -128,14 +132,14 @@ class TestInternationalSanctionsCrisis:
     async def test_run_p2_sanctioned_large_debt(
         self,
         crisis: InternationalSanctionsCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when Player2 has much more debt."""
         debt1, debt2 = 1, 15
-        mock_game_state.escalate(PlayerActor(name="Player2"), debt2)
-        mock_game_state.escalate(PlayerActor(name="Player1"), debt1)
+        basic_game.escalate(PlayerActor(name="Player2"), debt2)
+        basic_game.escalate(PlayerActor(name="Player1"), debt1)
 
-        events = await crisis.run(mock_game_state, [])
+        events = await crisis.run(basic_game, [])
 
         assert len(events) == 1
         event = events[0]
@@ -156,16 +160,20 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
 
     def test_get_default_action(self, crisis: StandoffCrisis) -> None:
         """Test that default actions are correctly returned."""
-        aggressive = crisis.get_default_action(aggressive=True)
+        aggressive = crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=True
+        )
         assert aggressive.posture == StandoffPosture.STAND_FIRM
 
-        cautious = crisis.get_default_action(aggressive=False)
+        cautious = crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=False
+        )
         assert cautious.posture == StandoffPosture.BACK_DOWN
 
     def test_resolve_doomsday(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when both players stand firm."""
         actions = {
@@ -173,7 +181,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
             "Player2": StandoffAction(posture=StandoffPosture.STAND_FIRM),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
 
         assert len(events) == 1
         event = events[0]
@@ -184,7 +192,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     def test_resolve_tie(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when both players back down."""
         actions = {
@@ -192,7 +200,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
             "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
 
         assert len(events) == 1
         event = events[0]
@@ -207,47 +215,47 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     def test_resolve_tie_clamping(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when both players back down, but clock is high."""
-        mock_game_state.escalation_track = [SystemActor()] * 150
+        basic_game.escalation_track = [SystemActor()] * 150
         actions = {
             "Player1": StandoffAction(posture=StandoffPosture.BACK_DOWN),
             "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
         assert len(events) == 1
         event = events[0]
         # Target clock is max_clock_state - 1.
-        target_clock = mock_game_state.rules.max_clock_state - 1
-        expected_delta = target_clock - mock_game_state.doomsday_clock
+        target_clock = basic_game.rules.max_clock_state - 1
+        expected_delta = target_clock - basic_game.doomsday_clock
         assert event.clock_delta == expected_delta
 
     def test_resolve_winner_clamping(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when one player stands firm, and clock is high."""
-        mock_game_state.escalation_track = [SystemActor()] * 150
+        basic_game.escalation_track = [SystemActor()] * 150
         actions = {
             "Player1": StandoffAction(posture=StandoffPosture.STAND_FIRM),
             "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
         assert len(events) == 1
         event = events[0]
         # Target clock is max_clock_state - 1.
-        target_clock = mock_game_state.rules.max_clock_state - 1
-        expected_delta = target_clock - mock_game_state.doomsday_clock
+        target_clock = basic_game.rules.max_clock_state - 1
+        expected_delta = target_clock - basic_game.doomsday_clock
         assert event.clock_delta == expected_delta
 
     def test_resolve_winner_p1(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when Player1 stands firm and Player2 backs down."""
         actions = {
@@ -255,7 +263,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
             "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
 
         assert len(events) == 1
         event = events[0]
@@ -268,7 +276,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     def test_resolve_winner_p2(
         self,
         crisis: StandoffCrisis,
-        mock_game_state: GameState,
+        basic_game: GameState,
     ) -> None:
         """Test resolution when Player2 stands firm and Player1 backs down."""
         actions = {
@@ -276,7 +284,7 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
             "Player2": StandoffAction(posture=StandoffPosture.STAND_FIRM),
         }
 
-        events = crisis.resolve(mock_game_state, actions)
+        events = crisis.resolve(basic_game, actions)
 
         assert len(events) == 1
         event = events[0]
@@ -297,3 +305,35 @@ def test_crisis_default_additional_prompt() -> None:
     # Ensure no attribute errors when subclasses do not define additional_prompt
     assert DummyCrisis.additional_prompt is None
     assert DummyCrisis().additional_prompt is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_crisis_consumable(basic_game: GameState) -> None:
+    class ConsumableCrisis(BaseCrisis):
+        card_kind: ClassVar[Literal["consumable-dummy"]] = "consumable-dummy"
+        consumable: ClassVar[bool] = True
+
+        @override
+        async def run(self, *_args: Any, **_kwargs: Any) -> list[GameEvent]:
+            return [
+                GameEvent(
+                    actor=SystemActor(),
+                    description="Test consumable",
+                    clock_delta=0,
+                )
+            ]
+
+    crisis_instance = ConsumableCrisis()
+    basic_game.pending_crisis = crisis_instance
+    basic_game.crisis_deck.in_play.append(crisis_instance)
+
+    p1 = MagicMock()
+    p1.name = "Player1"
+    p2 = MagicMock()
+    p2.name = "Player2"
+
+    new_game = await resolve_crisis(basic_game, [p1, p2])
+
+    assert crisis_instance not in new_game.crisis_deck.discard_pile
+    assert crisis_instance not in new_game.crisis_deck.in_play
+    assert crisis_instance not in new_game.crisis_deck.draw_pile

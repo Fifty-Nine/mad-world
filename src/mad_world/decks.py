@@ -34,6 +34,10 @@ class Deck[T](BaseModel):
         description="The list of cards currently missing from the deck because "
         "they are in play.",
     )
+    trash_pile: list[T] = Field(
+        default_factory=list,
+        description="The deck to which trashed cards are added.",
+    )
 
     @classmethod
     def create(cls, initial_cards: list[T], rng: random.Random) -> Self:
@@ -62,6 +66,10 @@ class Deck[T](BaseModel):
     def discard(self, card: T) -> None:
         self.in_play.remove(card)
         self.discard_pile.append(card)
+
+    def trash(self, card: T) -> None:
+        self.in_play.remove(card)
+        self.trash_pile.append(card)
 
     def available_to_draw(self) -> int:
         return len(self.draw_pile) + len(self.discard_pile)

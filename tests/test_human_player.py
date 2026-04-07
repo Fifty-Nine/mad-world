@@ -189,7 +189,9 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
             return []
 
         @override
-        def get_default_action(self, *, aggressive: bool) -> DummyAction:
+        def get_default_action(
+            self, _player: str, _game: GameState, *, aggressive: bool
+        ) -> DummyAction:
             return DummyAction(text_field="default")
 
     crisis = DummyCrisis()
