@@ -45,7 +45,7 @@ class InsufficientGDPError(InvalidActionError):
     def __init__(self, *, available: int, cost: int) -> None:
         super().__init__(
             f"INSUFFICIENT GDP: The submitted bid requires {cost} GDP, but "
-            "you only have {available}."
+            f"you only have {available}."
         )
 
 
