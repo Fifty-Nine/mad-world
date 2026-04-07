@@ -56,6 +56,7 @@ class BaseCrisis(BaseCard, ABC):
     mechanics: ClassVar[str]
     additional_prompt: ClassVar[str | None] = None
     has_messaging_phase: ClassVar[bool] = True
+    consumable: ClassVar[bool] = False
 
     action_type: ClassVar[type[BaseAction]]
 
