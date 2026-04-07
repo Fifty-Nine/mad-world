@@ -35,3 +35,8 @@ class GameOverReason(Enum):
 class StandoffPosture(StrEnum):
     BACK_DOWN = "back down"
     STAND_FIRM = "stand firm"
+
+
+class BlameGamePosture(StrEnum):
+    SHOULDER = "shoulder"
+    DEFLECT = "deflect"

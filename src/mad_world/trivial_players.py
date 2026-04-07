@@ -11,7 +11,7 @@ from mad_world.actions import (
     MessagingAction,
     OperationsAction,
 )
-from mad_world.enums import GamePhase
+from mad_world.enums import BlameGamePosture, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
@@ -345,7 +345,49 @@ class ParetoEfficientPlayer(TrivialPlayer):
                     "take any other action."
                 )
             )
+        if crisis.card_kind == "blame-game":
+            opponent_name = next(p for p in game.players if p != self.name)
+            my_debt = game.escalation_debt(self.name)
+            their_debt = game.escalation_debt(opponent_name)
+            if my_debt <= their_debt:
+                return MessagingAction(
+                    message_to_opponent=(
+                        "[STATUS] Preparing to DEFLECT blame.\n"
+                        "My calculations indicate I hold the upper hand in "
+                        "escalation debt. I will DEFLECT. If you also DEFLECT, "
+                        "we will both be destroyed. If you SHOULDER, I win "
+                        "Influence. This is the optimal trap."
+                    )
+                )
+            return MessagingAction(
+                message_to_opponent=(
+                    "[STATUS] Preparing to SHOULDER blame.\n"
+                    "My calculations indicate I am at a disadvantage in "
+                    "escalation debt. I will SHOULDER to avoid the massive "
+                    "GDP penalty trap. The math is undeniable."
+                )
+            )
 
         raise NotImplementedError(
             "Need logic for pareto-optimal crisis handling."
         )  # pragma: no cover
+
+    @override
+    async def crisis[T: BaseAction](
+        self,
+        game: GameState,
+        crisis: GenericCrisis[T],
+    ) -> T:
+        if crisis.card_kind == "blame-game":
+            opponent_name = next(p for p in game.players if p != self.name)
+            my_debt = game.escalation_debt(self.name)
+            their_debt = game.escalation_debt(opponent_name)
+
+            if my_debt <= their_debt:
+                posture = BlameGamePosture.DEFLECT
+            else:
+                posture = BlameGamePosture.SHOULDER
+
+            return crisis.action_type.model_validate({"posture": posture})
+
+        return await super().crisis(game, crisis)
