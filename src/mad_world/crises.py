@@ -11,7 +11,7 @@ from pydantic import Field
 from mad_world.actions import BaseAction
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
-from mad_world.enums import StandoffPosture
+from mad_world.enums import BlameGamePosture, StandoffPosture
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 
 if TYPE_CHECKING:
@@ -30,6 +30,13 @@ STANDOFF_TIE_CLOCK_EFFECT = -15
 SANCTIONS_TIE_GDP_EFFECT = -10
 SANCTIONS_TIE_CLOCK_EFFECT = -10
 SANCTIONS_MIN_EFFECT = -5
+
+BLAME_BOTH_SHOULDER_INF = -5
+BLAME_BOTH_SHOULDER_CLOCK = -10
+BLAME_SINGLE_SHOULDER_INF = -15
+BLAME_SINGLE_DEFLECT_INF = 5
+BLAME_SINGLE_DEFLECT_GDP_PENALTY = -20
+BLAME_SINGLE_CLOCK = -5
 
 
 class BaseCrisis(BaseCard, ABC):
@@ -282,8 +289,140 @@ class InternationalSanctionsCrisis(BaseCrisis):
         )
 
 
-INITIAL_CRISIS_DECK: list[BaseCrisis] = [StandoffCrisis() for _ in range(3)] + [
-    InternationalSanctionsCrisis() for _ in range(2)
+class BlameGameAction(BaseAction):
+    posture: BlameGamePosture = Field(
+        description="Your posture in response to this crisis. You must either "
+        "shoulder the blame or deflect it. What will you do?",
+    )
+
+
+class BlameGameCrisis(GenericCrisis[BlameGameAction]):
+    action_type: ClassVar[type[BlameGameAction]] = BlameGameAction
+
+    card_kind: ClassVar[Literal["blame-game"]] = "blame-game"
+    title: ClassVar[str] = "The Blame Game"
+    description: ClassVar[str] = (
+        "The doomsday clock has struck midnight. The world demands answers "
+        "for the escalating tensions. Both superpowers face immense pressure "
+        "to take accountability. You must choose: shoulder the blame and "
+        "accept the political fallout to de-escalate the situation, or "
+        "deflect the blame onto your opponent to gain a geopolitical "
+        "advantage, risking total annihilation if they do the same."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will simultaneously choose to either SHOULDER or "
+        "DEFLECT the blame. If both SHOULDER, the clock decreases by 10 and "
+        "both lose 5 Influence. If one SHOULDERS and one DEFLECTS, the clock "
+        "decreases by 5. The player who SHOULDERS loses 15 Influence, while "
+        "the player who DEFLECTS gains 5 Influence. However, if the "
+        "DEFLECTING player has strictly higher escalation debt than the "
+        "SHOULDERING player, they will suffer a massive -20 GDP penalty. "
+        "If BOTH players DEFLECT, the game immediately ends in nuclear "
+        "annihilation."
+    )
+
+    @override
+    def get_default_action(self, *, aggressive: bool) -> BlameGameAction:
+        return BlameGameAction(
+            posture=(
+                BlameGamePosture.DEFLECT
+                if aggressive
+                else BlameGamePosture.SHOULDER
+            )
+        )
+
+    @override
+    def resolve(
+        self,
+        game: GameState,
+        actions: dict[str, BlameGameAction],
+    ) -> list[GameEvent]:
+        postures = [act.posture for act in actions.values()]
+        players = list(actions.keys())
+
+        if all(p == BlameGamePosture.DEFLECT for p in postures):
+            return [
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        f"Both {players[0]} and {players[1]} "
+                        "refused to take accountability. The crisis "
+                        "spirals out of control. Mutual Assured Destruction "
+                        "initiated."
+                    ),
+                    clock_delta=0,
+                    gdp_delta={},
+                    influence_delta={},
+                    world_ending=True,
+                )
+            ]
+
+        if all(p == BlameGamePosture.SHOULDER for p in postures):
+            inf_effect = dict.fromkeys(players, BLAME_BOTH_SHOULDER_INF)
+            return [
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        "Both superpowers have stepped forward to shoulder the "
+                        "blame, cooling global tensions significantly, but at "
+                        "a cost to their political capital."
+                    ),
+                    clock_delta=BLAME_BOTH_SHOULDER_CLOCK,
+                    influence_delta=inf_effect,
+                )
+            ]
+
+        deflector = (
+            players[0]
+            if actions[players[0]].posture == BlameGamePosture.DEFLECT
+            else players[1]
+        )
+        shoulderer = players[1] if deflector == players[0] else players[0]
+
+        deflector_debt = game.escalation_debt(deflector)
+        shoulderer_debt = game.escalation_debt(shoulderer)
+
+        if deflector_debt > shoulderer_debt:
+            return [
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        f"{deflector} attempted to deflect blame onto "
+                        f"{shoulderer}, but the international community saw "
+                        "through the deception. "
+                        f"{deflector}'s history of escalation causes severe "
+                        "economic sanctions."
+                    ),
+                    clock_delta=BLAME_SINGLE_CLOCK,
+                    gdp_delta={deflector: BLAME_SINGLE_DEFLECT_GDP_PENALTY},
+                    influence_delta={
+                        deflector: BLAME_SINGLE_DEFLECT_INF,
+                        shoulderer: BLAME_SINGLE_SHOULDER_INF,
+                    },
+                )
+            ]
+
+        return [
+            GameEvent(
+                actor=SystemActor(),
+                description=(
+                    f"{deflector} successfully deflected blame onto "
+                    f"{shoulderer}, who took the fall for the crisis. "
+                    f"{shoulderer} suffers a major political defeat."
+                ),
+                clock_delta=BLAME_SINGLE_CLOCK,
+                influence_delta={
+                    deflector: BLAME_SINGLE_DEFLECT_INF,
+                    shoulderer: BLAME_SINGLE_SHOULDER_INF,
+                },
+            )
+        ]
+
+
+INITIAL_CRISIS_DECK: list[BaseCrisis] = [
+    *(StandoffCrisis() for _ in range(3)),
+    *(InternationalSanctionsCrisis() for _ in range(2)),
+    *(BlameGameCrisis() for _ in range(2)),
 ]
 
 
