@@ -311,14 +311,17 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
     )
     mechanics: ClassVar[str] = (
         "Both players will simultaneously choose to either SHOULDER or "
-        "DEFLECT the blame. If both SHOULDER, the clock decreases by 10 and "
-        "both lose 5 Influence. If one SHOULDERS and one DEFLECTS, the clock "
-        "decreases by 5. The player who SHOULDERS loses 15 Influence, while "
-        "the player who DEFLECTS gains 5 Influence. However, if the "
+        "DEFLECT the blame. If both SHOULDER, the clock decreases by "
+        f"{abs(BLAME_BOTH_SHOULDER_CLOCK)} and both lose "
+        f"{abs(BLAME_BOTH_SHOULDER_INF)} Influence. If one SHOULDERS and "
+        f"one DEFLECTS, the clock decreases by {abs(BLAME_SINGLE_CLOCK)}. "
+        f"The player who SHOULDERS loses {abs(BLAME_SINGLE_SHOULDER_INF)} "
+        "Influence, while the player who DEFLECTS gains "
+        f"{abs(BLAME_SINGLE_DEFLECT_INF)} Influence. However, if the "
         "DEFLECTING player has strictly higher escalation debt than the "
-        "SHOULDERING player, they will suffer a massive -20 GDP penalty. "
-        "If BOTH players DEFLECT, the game immediately ends in nuclear "
-        "annihilation."
+        "SHOULDERING player, they will suffer a massive "
+        f"{BLAME_SINGLE_DEFLECT_GDP_PENALTY} GDP penalty. If BOTH players "
+        "DEFLECT, the game immediately ends in nuclear annihilation."
     )
 
     @override
