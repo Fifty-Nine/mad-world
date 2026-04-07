@@ -35,6 +35,7 @@ from mad_world.events import (
     PlayerActor,
     SystemActor,
 )
+from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,
@@ -48,7 +49,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from mad_world.players import GamePlayer
-    from mad_world.rules import GameRules
 
 
 @dataclass
@@ -419,3 +419,37 @@ async def test_doomsday_asteroid_integration(
     )
 
     assert reason == GameOverReason.STALEMATE
+
+
+def test_crisis_trigger_logging() -> None:
+    """Test that a crisis trigger is correctly logged."""
+    rules = GameRules(max_clock_state=10)
+    game = GameState.new_game(rules=rules, players=["Alpha", "Omega"])
+
+    # Manually set the clock to trigger a crisis on next advance_phase
+    game.escalate(SystemActor(), 10)
+
+    # The crisis deck should have at least one crisis
+    assert len(game.crisis_deck) > 0
+
+    game.advance_phase()
+
+    assert game.pending_crisis is not None
+    crisis_title = game.pending_crisis.title
+
+    # Check the event in the log. advance_phase appends a state description
+    # event at the end, so the crisis event should be second to last.
+    crisis_event = game.event_log[-2]
+
+    assert isinstance(crisis_event.actor, SystemActor)
+    expected_description = (
+        "Time has run out and a global crisis has been "
+        f"triggered: {crisis_title}"
+    )
+    assert crisis_event.description == expected_description
+
+    # Also check the very last event is indeed the state description
+    last_event = game.event_log[-1]
+    assert "ROUND" in last_event.description
+    assert "PHASE" in last_event.description
+    assert last_event.secret is True

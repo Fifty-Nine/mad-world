@@ -273,6 +273,12 @@ class GameState(BaseModel):
                 f"{player.influence} Inf\n"
             )
 
+        if self.pending_crisis is not None:
+            result += (
+                f"ONGOING CRISIS: {self.pending_crisis.title}\n"
+                f"{self.pending_crisis.description}\n"
+            )
+
         return result
 
     def trigger_crisis(self) -> bool:
@@ -330,6 +336,16 @@ class GameState(BaseModel):
                 GamePhase.CRISIS_MESSAGING
                 if self.pending_crisis.has_messaging_phase
                 else GamePhase.CRISIS
+            )
+
+            self.apply_event(
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        "Time has run out and a global crisis has been "
+                        f"triggered: {self.pending_crisis.title}"
+                    ),
+                )
             )
 
         self.apply_event(
