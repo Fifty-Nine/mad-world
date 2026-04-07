@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from mad_world.core import GameState
-from mad_world.crises import StandoffAction, StandoffCrisis
+from mad_world.crises import (
+    DoomsdayAsteroidCrisis,
+    StandoffAction,
+    StandoffCrisis,
+)
 from mad_world.enums import GamePhase, StandoffPosture
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
@@ -13,6 +17,7 @@ from mad_world.trivial_players import (
     CrazyIvan,
     Diplomat,
     Pacifist,
+    ParetoEfficientPlayer,
     Saboteur,
     get_trivial_player,
 )
@@ -352,3 +357,47 @@ async def test_generic_crisis_resolution(
     action = await player.crisis(game, crisis)
 
     assert action == StandoffAction(posture=posture)
+
+
+@pytest.mark.asyncio
+async def test_pareto_doomsday_asteroid_crisis_action(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = DoomsdayAsteroidCrisis()
+
+    # If opponent has 30 GDP, we bid 0.
+    game.players["Omega"].gdp = 30
+    action = await player.crisis(game, crisis)
+    assert action.investment == 0
+
+    # If opponent has 10 GDP, we bid 20.
+    game.players["Omega"].gdp = 10
+    action = await player.crisis(game, crisis)
+    assert action.investment == 20
+
+    # If opponent has 0 GDP, we bid 30, but bounded by our GDP (50).
+    game.players["Omega"].gdp = 0
+    game.players["Alpha"].gdp = 50
+    action = await player.crisis(game, crisis)
+    assert action.investment == 30
+
+    # If opponent has 0 GDP and we have 15 GDP, we bid 15.
+    game.players["Alpha"].gdp = 15
+    action = await player.crisis(game, crisis)
+    assert action.investment == 15
+
+
+@pytest.mark.asyncio
+async def test_pareto_doomsday_asteroid_crisis_message(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = DoomsdayAsteroidCrisis()
+
+    game.players["Omega"].gdp = 10
+    action = await player.crisis_message(game, crisis)
+    assert action.message_to_opponent is not None
+    assert "minimal survival bid of 20" in action.message_to_opponent

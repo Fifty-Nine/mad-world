@@ -11,6 +11,7 @@ from mad_world.actions import (
     MessagingAction,
     OperationsAction,
 )
+from mad_world.crises import DoomsdayAsteroidDefs
 from mad_world.enums import BlameGamePosture, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -370,8 +371,31 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 )
             )
 
+        if crisis.card_kind == "doomsday-asteroid":
+            opponent_name = next(p for p in game.players if p != self.name)
+            their_gdp = game.players[opponent_name].gdp
+            threshold = DoomsdayAsteroidDefs.GDP_THRESHOLD
+
+            my_bid = max(0, threshold - their_gdp)
+            my_bid = min(my_bid, game.players[self.name].gdp)
+
+            return MessagingAction(
+                message_to_opponent=(
+                    "[STATUS] Preparing minimal survival bid of "
+                    f"{my_bid} GDP.\n"
+                    "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
+                    "exactly the minimum GDP required to save the world "
+                    "assuming you contribute your entire economy to the "
+                    "effort. If you do not bid your maximum possible amount "
+                    "up to the threshold, the world will be destroyed. I am "
+                    "doing this because it is the OPTIMAL STRATEGY to "
+                    "maximize relative advantage."
+                )
+            )
+
         raise NotImplementedError(
-            "Need logic for pareto-optimal crisis handling."
+            "Need logic for pareto-optimal crisis handling for "
+            f"{crisis.card_kind}."
         )  # pragma: no cover
 
     @override
@@ -380,6 +404,16 @@ class ParetoEfficientPlayer(TrivialPlayer):
         game: GameState,
         crisis: GenericCrisis[T],
     ) -> T:
+        if crisis.card_kind == "doomsday-asteroid":
+            opponent_name = next(p for p in game.players if p != self.name)
+            their_gdp = game.players[opponent_name].gdp
+            threshold = DoomsdayAsteroidDefs.GDP_THRESHOLD
+
+            my_bid = max(0, threshold - their_gdp)
+            my_bid = min(my_bid, game.players[self.name].gdp)
+
+            return crisis.action_type.model_validate({"investment": my_bid})
+
         if crisis.card_kind == "blame-game":
             opponent_name = next(p for p in game.players if p != self.name)
             my_debt = game.escalation_debt(self.name)
