@@ -41,6 +41,21 @@ class InsufficientInfluenceError(InvalidActionError):
         super().__init__(f"INSUFFICIENT INFLUENCE: {text}")
 
 
+class InsufficientGDPError(InvalidActionError):
+    def __init__(self, *, available: int, cost: int) -> None:
+        super().__init__(
+            f"INSUFFICIENT GDP: The submitted bid requires {cost} GDP, but "
+            "you only have {available}."
+        )
+
+
+class InvalidGDPAmountError(InvalidActionError):
+    def __init__(self) -> None:
+        super().__init__(
+            "INVALID GDP AMOUNT: GDP investment amount cannot be negative."
+        )
+
+
 class InvalidOperationError(InvalidActionError):
     def __init__(self, *, operation: str, allowed: list[str]) -> None:
         super().__init__(

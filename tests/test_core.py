@@ -24,6 +24,8 @@ from mad_world.core import (
 )
 from mad_world.crises import (
     SANCTIONS_TIE_GDP_EFFECT,
+    DoomsdayAsteroidCrisis,
+    DoomsdayAsteroidDefs,
     InternationalSanctionsCrisis,
 )
 from mad_world.enums import GameOverReason, GamePhase
@@ -373,3 +375,47 @@ def test_escalation_debt(basic_game: GameState) -> None:
 
 def test_state_round_trip(basic_game: GameState) -> None:
     GameState.model_validate(basic_game.model_dump())
+
+
+@pytest.mark.asyncio
+async def test_doomsday_asteroid_integration(
+    stable_rules: GameRules,
+) -> None:
+    """Test a DoomsdayAsteroidCrisis through the full game loop."""
+    stable_rules.initial_clock_state = 48
+    stable_rules.max_clock_state = 50
+    stable_rules.round_count = 1
+    stable_rules.initial_crisis_deck = [DoomsdayAsteroidCrisis()]
+
+    # Diplomats tend to bid 1.
+    # Round 1:
+    # BIDDING: Alpha bids 1, Omega bids 1.
+    # Clock impact: 1 + 1 = 2.
+    # Clock: 48 -> 50.
+    # Crisis triggers!
+    # Both players are cautious, so they will default to 50% of threshold.
+    # 50% of threshold = 15
+    # Both bid 15. Sum is 30. Threshold is met.
+    # Clock is reduced by 20.
+    # 50 -> 30.
+    # GDP is reduced by 15 each, but increased by WINNER_GDP // 2 = 5.
+    # GDP: 50 -> 35 -> 40.
+    # After crisis, returns to OPERATIONS phase.
+    # Diplomat has 5 + 1 = 6 influence.
+    # unilateral-drawdown costs 6.
+    # Drawdowns reduce clock by 9 each.
+    # Round ends after operations.
+    _, reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+    )
+
+    assert game.doomsday_clock == 12
+    assert game.players["Alpha"].gdp == stable_rules.initial_gdp - 15 + (
+        DoomsdayAsteroidDefs.WINNER_GDP // 2
+    )
+    assert game.players["Omega"].gdp == stable_rules.initial_gdp - 15 + (
+        DoomsdayAsteroidDefs.WINNER_GDP // 2
+    )
+
+    assert reason == GameOverReason.STALEMATE

@@ -43,7 +43,12 @@ def is_tmpdir(file: Any) -> bool:
         return False
 
     temp_dir = Path(tempfile.gettempdir()).resolve()
-    return path.is_relative_to(temp_dir) or path == Path(os.devnull).resolve()
+    cache_dir = Path("./.pytest_cache").resolve()
+    return (
+        path.is_relative_to(temp_dir)
+        or path == Path(os.devnull).resolve()
+        or path.is_relative_to(cache_dir)
+    )
 
 
 @pytest.fixture(autouse=True)
