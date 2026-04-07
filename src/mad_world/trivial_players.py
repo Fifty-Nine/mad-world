@@ -36,7 +36,9 @@ class TrivialPlayer(GamePlayer):
         game: GameState,
         crisis: GenericCrisis[T],
     ) -> T:
-        return crisis.get_default_action(aggressive=self.aggressive)
+        return crisis.get_default_action(
+            self.name, game, aggressive=self.aggressive
+        )
 
 
 def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:

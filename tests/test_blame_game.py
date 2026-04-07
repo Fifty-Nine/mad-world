@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -114,11 +115,15 @@ def test_blame_game_both_deflect(basic_game: GameState) -> None:
 def test_blame_game_get_default_action() -> None:
     crisis = BlameGameCrisis()
     assert (
-        crisis.get_default_action(aggressive=True).posture
+        crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=True
+        ).posture
         == BlameGamePosture.DEFLECT
     )
     assert (
-        crisis.get_default_action(aggressive=False).posture
+        crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=False
+        ).posture
         == BlameGamePosture.SHOULDER
     )
 

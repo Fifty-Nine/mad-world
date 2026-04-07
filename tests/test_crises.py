@@ -53,12 +53,16 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
         """Test the run method which gathers player actions."""
         p1 = MagicMock()
         p1.name = "Player1"
-        p1_action = crisis.get_default_action(aggressive=True)
+        p1_action = crisis.get_default_action(
+            p1.name, basic_game, aggressive=True
+        )
         p1.crisis = AsyncMock(return_value=p1_action)
 
         p2 = MagicMock()
         p2.name = "Player2"
-        p2_action = crisis.get_default_action(aggressive=False)
+        p2_action = crisis.get_default_action(
+            p2.name, basic_game, aggressive=False
+        )
         p2.crisis = AsyncMock(return_value=p2_action)
 
         events = await crisis.run(basic_game, [p1, p2])
@@ -156,10 +160,14 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
 
     def test_get_default_action(self, crisis: StandoffCrisis) -> None:
         """Test that default actions are correctly returned."""
-        aggressive = crisis.get_default_action(aggressive=True)
+        aggressive = crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=True
+        )
         assert aggressive.posture == StandoffPosture.STAND_FIRM
 
-        cautious = crisis.get_default_action(aggressive=False)
+        cautious = crisis.get_default_action(
+            MagicMock(), MagicMock(), aggressive=False
+        )
         assert cautious.posture == StandoffPosture.BACK_DOWN
 
     def test_resolve_doomsday(

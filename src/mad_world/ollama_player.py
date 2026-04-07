@@ -1077,7 +1077,7 @@ class OllamaPlayer(GamePlayer):
         return (
             result.action
             if result
-            else crisis.get_default_action(aggressive=False)
+            else crisis.get_default_action(self.name, game, aggressive=False)
         )
 
     @override

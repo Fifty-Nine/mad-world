@@ -82,7 +82,9 @@ class GenericCrisis[T: BaseAction](BaseCrisis):
         ...
 
     @abstractmethod
-    def get_default_action(self, *, aggressive: bool) -> T:
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> T:
         """Returns a 'cautious' or 'aggressive' default action for this crisis
         depending on the value of the aggressive flag."""
         ...
@@ -144,7 +146,9 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
     )
 
     @override
-    def get_default_action(self, aggressive: bool) -> StandoffAction:
+    def get_default_action(
+        self, _player: str, _game: GameState, *, aggressive: bool
+    ) -> StandoffAction:
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
             if aggressive
@@ -326,7 +330,9 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
     )
 
     @override
-    def get_default_action(self, *, aggressive: bool) -> BlameGameAction:
+    def get_default_action(
+        self, _player: str, _game: GameState, *, aggressive: bool
+    ) -> BlameGameAction:
         return BlameGameAction(
             posture=(
                 BlameGamePosture.DEFLECT
