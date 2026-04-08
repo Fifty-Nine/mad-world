@@ -142,6 +142,12 @@ def test_validate_operation_insufficient_influence(
         basic_game.validate_operation("domestic-investment", "Alpha")
 
 
+def test_bidding_action_validate_semantics_valid(basic_game: GameState) -> None:
+    action = BiddingAction(bid=1)
+    # Should not raise
+    action.validate_semantics(basic_game, "Alpha")
+
+
 def test_bidding_action_validate_semantics_invalid_bid(
     basic_game: GameState,
 ) -> None:
@@ -149,6 +155,14 @@ def test_bidding_action_validate_semantics_invalid_bid(
     action = BiddingAction(bid=4)
     with pytest.raises(InvalidBiddingActionError, match="INVALID BID"):
         action.validate_semantics(basic_game, "Alpha")
+
+
+def test_operations_action_validate_semantics_valid(
+    basic_game: GameState,
+) -> None:
+    action = OperationsAction(operations=["domestic-investment"])
+    # Should not raise
+    action.validate_semantics(basic_game, "Alpha")
 
 
 def test_operations_action_validate_semantics_insufficient_influence(
