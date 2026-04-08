@@ -97,7 +97,7 @@ def summarize_log(
         )
         return 1
 
-    click.echo("\n")
+    click.echo()
     return 0
 
 
@@ -135,7 +135,11 @@ def main(
     """
     Summarize a Mad World debug log using an Ollama model.
     """
-    sys.exit(summarize_log(log_file, model, ollama_host, context_size))
+    try:
+        sys.exit(summarize_log(log_file, model, ollama_host, context_size))
+    except (KeyboardInterrupt, EOFError):
+        click.echo()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

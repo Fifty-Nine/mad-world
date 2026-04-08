@@ -110,3 +110,27 @@ def test_main_failure(tmp_path: Path) -> None:
     with patch("mad_world.log_summarizer.summarize_log", return_value=42):
         result = runner.invoke(main, [str(log_file)])
         assert result.exit_code == 42
+
+
+def test_main_keyboard_interrupt(tmp_path: Path) -> None:
+    """Test main handling KeyboardInterrupt."""
+    log_file = tmp_path / "log.txt"
+    log_file.write_text("Test line")
+
+    runner = CliRunner()
+    with patch(
+        "mad_world.log_summarizer.summarize_log", side_effect=KeyboardInterrupt
+    ):
+        result = runner.invoke(main, [str(log_file)])
+        assert result.exit_code == 0
+
+
+def test_main_eof_error(tmp_path: Path) -> None:
+    """Test main handling EOFError."""
+    log_file = tmp_path / "log.txt"
+    log_file.write_text("Test line")
+
+    runner = CliRunner()
+    with patch("mad_world.log_summarizer.summarize_log", side_effect=EOFError):
+        result = runner.invoke(main, [str(log_file)])
+        assert result.exit_code == 0
