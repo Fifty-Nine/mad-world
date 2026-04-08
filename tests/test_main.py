@@ -18,7 +18,6 @@ from mad_world.__main__ import (
     main,
     prompt_bool,
     prompt_bool_once,
-    random_persona,
     run_game,
     setup_logging,
 )
@@ -32,6 +31,7 @@ from mad_world.config import (
 from mad_world.enums import GameOverReason
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
+from mad_world.personas import random_persona
 from mad_world.trivial_players import CrazyIvan
 
 if TYPE_CHECKING:

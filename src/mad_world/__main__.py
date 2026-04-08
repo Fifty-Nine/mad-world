@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
 import shutil
 import sys
 from datetime import datetime
@@ -23,120 +22,12 @@ from mad_world.config import (
 from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
+from mad_world.personas import random_persona
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
 if TYPE_CHECKING:
     from mad_world.players import GamePlayer
-
-PERSONA_ADJECTIVES = (
-    "Amateurish",
-    "Belligerent",
-    "Bloodthirsty",
-    "Bureaucratic",
-    "Calculating",
-    "Careful",
-    "Cautious",
-    "Cold",
-    "Covert",
-    "Cynical",
-    "Defensive",
-    "Delusional",
-    "Devouring",
-    "Desperate",
-    "Dogmatic",
-    "Earnest",
-    "Elder",
-    "Erratic",
-    "Fanatical",
-    "Friendly",
-    "Heartless",
-    "Hellish",
-    "Holy",
-    "Horrid",
-    "Ideological",
-    "Ineffective",
-    "Inflexible",
-    "Inscrutable",
-    "Insular",
-    "Jeffersonian",
-    "Kafkaesque",
-    "Leninist",
-    "Machiavellian",
-    "Maoist",
-    "Marxist",
-    "Nervous",
-    "Nixonian",
-    "Opportunistic",
-    "Paranoid",
-    "Pragmatic",
-    "Pretentious",
-    "Principled",
-    "Quixotic",
-    "Rational",
-    "Reaganesque",
-    "Reckless",
-    "Reluctant",
-    "Silent",
-    "Smiling",
-    "Spiteful",
-    "Stalinist",
-    "Stoic",
-    "Theatrical",
-    "Trotskyist",
-    "Uncompromising",
-    "Unpredictable",
-    "Vengeful",
-    "Zealous",
-)
-
-PERSONA_NOUNS = (
-    "Apparatchik",
-    "Appeaser",
-    "Architect",
-    "Assassin",
-    "Autocrat",
-    "Backstabber",
-    "Bastard",
-    "Bore",
-    "Bungler",
-    "Brinksman",
-    "Builder",
-    "Bureaucrat",
-    "Calculator",
-    "Criminal",
-    "Crusader",
-    "Dictator",
-    "Diplomat",
-    "Dogmatist",
-    "Extremist",
-    "General",
-    "Idealist",
-    "Isolationist",
-    "Jackass",
-    "Martyr",
-    "Mastermind",
-    "Mirror",
-    "Monarch",
-    "Opportunist",
-    "Pacifist",
-    "Plotter",
-    "Predator",
-    "Premier",
-    "Profiteer",
-    "Realist",
-    "Rogue",
-    "Saboteur",
-    "Strongman",
-    "Subverter",
-    "Survivor",
-    "Tactician",
-    "Technocrat",
-    "Thug",
-    "Vanguard",
-    "Victor",
-    "Zealot",
-)
 
 
 def coerce_bool_response(response: str, *, default_val: bool) -> bool | None:
@@ -195,10 +86,6 @@ def should_preserve_logs(*, default_choice: bool) -> bool:
             "Do you want to preserve the logs?", default_val=default_choice
         )
     )
-
-
-def random_persona() -> str:
-    return f"{random.choice(PERSONA_ADJECTIVES)} {random.choice(PERSONA_NOUNS)}"
 
 
 def get_player(
