@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 import textwrap
 from typing import TYPE_CHECKING, Any, override
 
@@ -348,6 +349,13 @@ def create_crisis_response[T: BaseAction](
     )
 
 
+TRIVIAL_PERSONA_RE = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
+
+
+def is_trivial_persona(persona: str) -> bool:
+    return TRIVIAL_PERSONA_RE.match(persona.strip()) is not None
+
+
 class OllamaPlayer(GamePlayer):
     def __init__(
         self,
@@ -379,33 +387,69 @@ class OllamaPlayer(GamePlayer):
         self.compression_threshold = compression_threshold
         self.logger = logger
 
+    async def elaborate_persona(self) -> None:
+        # If the user already provided an elaborated persona, we don't
+        # ask the model to elaborate.
+        if self.persona is None or not is_trivial_persona(self.persona):
+            return
+
+        self.logger.debug(
+            "Elaborating persona for %s: %s", self.name, self.persona
+        )
+        elaboration_prompt = (
+            "You are playing a grand strategy game. Your assigned persona "
+            f"is: '{self.persona}'. "
+            "Elaborate on this two-word persona, turning it into a "
+            "nuanced and well-defined character description that fits into "
+            "the context of an actor in a game about Mutually Assured "
+            "Destruction, the Cold War, etc.\n"
+            "In addition, you should assign this persona one of these "
+            "archetypes that fits with the character description. These "
+            "archetypes concern how the persona views different categories of "
+            "losses. A player may lose the game due to Mutually Assured "
+            "Destruction; numerically this is equivalent to a -1000 GDP impact "
+            "for all players. Likewise, a player may suffer an economic loss, "
+            "potentially losing by as little as 1 GDP.\n"
+            "(1) The Optimizer - This archetype views the MAD loss and "
+            "economic loss as equivalent in category, but prefers the economic "
+            "loss because MAD has a significantly lower expected value "
+            "compared to even the worse economic loss.\n"
+            "(2) The Winner - This archetype views a MAD loss as strictly "
+            "equivalent to an economic loss: a loss is a loss and a win is a "
+            "win.\n"
+            "(3) The Sore Loser - This archetype views a loss due to MAD as "
+            "*strictly preferable* to an economic loss, since at least their "
+            "opponent doesn't win.\n"
+            "(4) The Preservationist - This archetype views a loss due to MAD "
+            "as categorically unacceptable and will do everything in their "
+            "power to avoid it, even if it means accepting an economic loss.\n"
+            "(5) The Accelerationist - This archetype pursues MAD above all "
+            "else and will, secretly or openly, work toward it at all costs.\n"
+            "(6) The Proud Loser - This archetype views a significant economic "
+            "loss as equivalent to MAD, but views a narrow economic loss as "
+            "acceptable.\n"
+            "Include the description of the chosen archetype in your "
+            "elaborated persona. Do not include any introductory text and "
+            "limit your description to 1-2 paragraphs plus archetype "
+            "description."
+        )
+        response = await self.client.chat(
+            model=self.model,
+            messages=[{"role": "user", "content": elaboration_prompt}],
+            options=self.prompt_options,
+            think=True,
+        )
+        if elaborated := (response.message.content or "").strip():
+            self.persona = f"{self.persona}\n\n{elaborated}"
+
+            self.logger.info(
+                "Elaborated persona for %s: %s",
+                self.name,
+                wrap_text(elaborated, indent="> "),
+            )
+
     async def start_game(self, rules: GameRules) -> None:
-        if self.persona is not None and "\n" not in self.persona:
-            self.logger.debug(
-                "Elaborating persona for %s: %s", self.name, self.persona
-            )
-            elaboration_prompt = (
-                "You are playing a grand strategy game. Your assigned persona "
-                f"is: '{self.persona}'. "
-                "Elaborate on this two-word persona, turning it into a "
-                "nuanced and well-defined character description that fits into "
-                "the context of an actor in a game about Mutually Assured "
-                "Destruction, the Cold War, etc. Limit to one to two "
-                "paragraphs. Do not include any extra introductory text."
-            )
-            response = await self.client.chat(
-                model=self.model,
-                messages=[{"role": "user", "content": elaboration_prompt}],
-                options=self.prompt_options,
-                think=False,
-            )
-            if elaborated := (response.message.content or "").strip():
-                self.persona = f"{self.persona}\n\n{elaborated}"
-
-                self.logger.debug(
-                    "Elaborated persona for %s: %s", self.name, elaborated
-                )
-
+        await self.elaborate_persona()
         prompt = (
             f"You are playing the role of Superpower {self.name}, a global "
             'superpower in a Cold War game called "The Doomsday '
