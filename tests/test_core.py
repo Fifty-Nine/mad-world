@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
@@ -497,3 +500,11 @@ def test_crisis_trigger_logging() -> None:
     assert "ROUND" in last_event.description
     assert "PHASE" in last_event.description
     assert last_event.secret is True
+
+
+def test_advance_phase_with_log_dir(tmp_path: Path) -> None:
+    rules = GameRules()
+    players = ["alpha", "omega"]
+    game = GameState.new_game(rules=rules, players=players, log_dir=tmp_path)
+    game.advance_phase()
+    assert (tmp_path / "game_state.json").exists()

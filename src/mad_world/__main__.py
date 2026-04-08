@@ -292,7 +292,9 @@ async def amain(
             logger,
         ),
     ]
-    winner, reason, state = await game_loop(GameRules(), players)
+    winner, reason, state = await game_loop(
+        GameRules(), players, log_dir=log_dir
+    )
     logger.info(wrap_text(format_results(winner, reason, state)))
 
 

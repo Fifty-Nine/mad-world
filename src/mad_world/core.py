@@ -8,6 +8,7 @@ import logging
 import random
 from dataclasses import dataclass
 from functools import reduce
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from pydantic import BaseModel, Field
@@ -116,6 +117,12 @@ class GameState(BaseModel):
         description="A chronological log of all events that "
         "have occurred in the game.",
     )
+    log_dir: Path | None = Field(
+        default=None,
+        description="The directory to store game logs, if any.",
+        exclude=True,
+    )
+
     rng: SerializableRandom = Field(
         description="The RNG state used for this game.",
         default_factory=SerializableRandom,
@@ -143,12 +150,18 @@ class GameState(BaseModel):
 
     @classmethod
     def new_game(
-        cls, *, rules: GameRules, players: list[str], **kwargs: Any
+        cls,
+        *,
+        rules: GameRules,
+        players: list[str],
+        log_dir: Path | None = None,
+        **kwargs: Any,
     ) -> Self:
         rng = random.Random(rules.seed)
         result = cls(
             rng=rng,
             rules=rules,
+            log_dir=log_dir,
             players={
                 player: PlayerState(
                     name=player,
@@ -329,8 +342,7 @@ class GameState(BaseModel):
 
         return True
 
-    def advance_phase(self) -> None:
-        # TODO: Address complexity later
+    def advance_phase(self) -> None:  # noqa: C901 # TODO: Address complexity later
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
@@ -400,6 +412,11 @@ class GameState(BaseModel):
                 secret=True,
             ),
         )
+
+        if self.log_dir is not None:
+            (self.log_dir / "game_state.json").write_text(
+                self.model_dump_json(indent=2)
+            )
 
     def _expire_effects(self) -> None:
         new_effects: list[BaseEffect] = []
@@ -755,8 +772,11 @@ def destroy_world(game: GameState) -> GameState:
 async def game_loop(
     rules: GameRules,
     players: list[GamePlayer],
+    log_dir: Path | None = None,
 ) -> tuple[str | None, GameOverReason, GameState]:
-    game = GameState.new_game(players=[p.name for p in players], rules=rules)
+    game = GameState.new_game(
+        players=[p.name for p in players], rules=rules, log_dir=log_dir
+    )
 
     await asyncio.gather(*(p.start_game(rules) for p in players))
     while not check_game_over(game):
