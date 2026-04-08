@@ -360,14 +360,17 @@ class GameState(BaseModel):
         )
 
     def recent_events(self) -> list[GameEvent]:
-        return [
-            e
-            for e in self.event_log
+        result = []
+        for e in reversed(self.event_log):
             if (
                 e.current_phase == self.last_phase
                 and e.current_round == self.last_round
-            )
-        ]
+            ):
+                result.append(e)
+            elif result:
+                break
+        result.reverse()
+        return result
 
     def escalation_debt(self, player: str) -> int:
         return self.escalation_track.count(PlayerActor(name=player))
