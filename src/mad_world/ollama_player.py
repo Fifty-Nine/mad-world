@@ -1085,7 +1085,7 @@ class OllamaPlayer(GamePlayer):
         pbid = pareto_optimal_bid(
             game.doomsday_clock,
             game.rules.max_clock_state,
-            game.rules.allowed_bids,
+            game.allowed_bids,
         )
         prompt += f"Your pareto optimal bid is {pbid}.\n"
         prompt += self.my_strategy()
@@ -1093,7 +1093,7 @@ class OllamaPlayer(GamePlayer):
         prompt += self.first_strike_warning(game)
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
-            f"{game.rules.allowed_bids}\n"
+            f"{game.allowed_bids}\n"
             "Remember that your opponent's bid will also affect the clock, "
             "and you WILL NOT learn of ther bid until after you submit yours.\n"
         )

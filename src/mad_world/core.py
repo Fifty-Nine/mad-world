@@ -20,11 +20,14 @@ from mad_world.actions import (
 )
 from mad_world.crises import BaseCrisis, create_crisis_deck
 from mad_world.decks import Deck
+from mad_world.effects import BaseOngoingEffect
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
+    OperationDefinition,
 )
 from mad_world.util import bannerize, escalation_bar, wrap_text
 
@@ -91,9 +94,16 @@ class GameState(BaseModel):
     crisis_deck: Deck[BaseCrisis] = Field(
         description="The deck from which to deal crises."
     )
+    event_deck: Deck[BaseEventCard] = Field(
+        description="The deck from which to draw round events."
+    )
     pending_crisis: BaseCrisis | None = Field(
         default=None,
         description="The pending crisis to resolve.",
+    )
+    active_effects: list[BaseOngoingEffect] = Field(
+        default_factory=list,
+        description="The active ongoing effects currently affecting the game.",
     )
     last_round: int = Field(
         default=0,
@@ -134,6 +144,9 @@ class GameState(BaseModel):
             crisis_deck=create_crisis_deck(rng)
             if rules.initial_crisis_deck is None
             else Deck[BaseCrisis].create(rules.initial_crisis_deck, rng),
+            event_deck=create_event_deck(rng)
+            if rules.initial_event_deck is None
+            else Deck[BaseEventCard].create(rules.initial_event_deck, rng),
             **kwargs,
         )
         result.escalate(SystemActor(), rules.initial_clock_state)
@@ -143,9 +156,25 @@ class GameState(BaseModel):
         assert len(self.players) == 2
         return cast("tuple[str, str]", tuple(self.players))
 
+    @property
+    def allowed_bids(self) -> list[int]:
+        """Returns the list of allowed bids for the current game state."""
+        bids = list(self.rules.allowed_bids)
+        for effect in self.active_effects:
+            bids = effect.modify_allowed_bids(bids)
+        return bids
+
+    @property
+    def allowed_operations(self) -> dict[str, OperationDefinition]:
+        """Returns allowed operations for the current game state."""
+        ops = dict(self.rules.allowed_operations)
+        for effect in self.active_effects:
+            ops = effect.modify_allowed_operations(ops)
+        return ops
+
     def op_cost(self, op: str) -> int:
         """Helper function for getting the Inf cost of a named operation."""
-        return self.rules.allowed_operations[op].influence_cost
+        return self.allowed_operations[op].influence_cost
 
     def validate_operation(self, operation_name: str, player_name: str) -> None:
         """Checks the validity of a single operation without enacting it.
@@ -158,11 +187,11 @@ class GameState(BaseModel):
             InvalidActionError: if the operation is invalid.
         """
         player_state = self.players[player_name]
-        op_def = self.rules.allowed_operations.get(operation_name)
+        op_def = self.allowed_operations.get(operation_name)
         if op_def is None:
             raise InvalidOperationError(
                 operation=operation_name,
-                allowed=list(self.rules.allowed_operations.keys()),
+                allowed=list(self.allowed_operations.keys()),
             )
 
         if player_state.influence < op_def.influence_cost:
@@ -293,11 +322,38 @@ class GameState(BaseModel):
 
         return True
 
+    def cleanup_effects(self) -> None:
+        expired_effects = []
+        new_effects = []
+        for effect in self.active_effects:
+            if effect.is_expired(self.current_round):
+                expired_effects.append(effect)
+            else:
+                new_effects.append(effect)
+
+        self.active_effects = new_effects
+
+        for effect in expired_effects:
+            self.apply_event(
+                GameEvent(
+                    actor=SystemActor(),
+                    description=(
+                        f"Ongoing effect '{effect.title}' has expired."
+                    ),
+                )
+            )
+
     def advance_phase(self) -> None:
         self.last_round = self.current_round
         self.last_phase = self.current_phase
+
+        self.cleanup_effects()
+
         match self.last_phase:
             case GamePhase.OPENING:
+                self.current_phase = GamePhase.ROUND_EVENTS
+
+            case GamePhase.ROUND_EVENTS:
                 self.current_phase = GamePhase.BIDDING_MESSAGING
 
             case GamePhase.BIDDING_MESSAGING:
@@ -310,7 +366,7 @@ class GameState(BaseModel):
                 self.current_phase = GamePhase.OPERATIONS
 
             case GamePhase.OPERATIONS:
-                self.current_phase = GamePhase.BIDDING_MESSAGING
+                self.current_phase = GamePhase.ROUND_EVENTS
                 self.current_round += 1
 
             case GamePhase.CRISIS_MESSAGING:
@@ -404,7 +460,7 @@ def get_bid_impact(
         error = True
 
     if error:
-        bid = max(game.rules.allowed_bids)
+        bid = max(game.allowed_bids)
         clock_impact = bid
         desc = (
             f"{player_name} submitted an invalid bid and thus their bid "
@@ -514,7 +570,7 @@ def resolve_operation(
             ),
         )
 
-    op_def = game.rules.allowed_operations[operation_name]
+    op_def = game.allowed_operations[operation_name]
     return GameEvent(
         actor=PlayerActor(name=player_name),
         description=(
@@ -622,6 +678,21 @@ async def resolve_opening(
     return new_game
 
 
+async def resolve_round_events(game: GameState) -> GameState:
+    new_game = copy.deepcopy(game)
+    if len(new_game.event_deck) > 0:
+        event_card = new_game.event_deck.draw(new_game.rng)
+        events = event_card.run(new_game)
+        for e in events:
+            new_game.apply_event(e)
+
+        new_game.event_deck.discard(event_card)
+
+    new_game.advance_phase()
+
+    return new_game
+
+
 async def resolve_crisis(
     game: GameState, players: list[GamePlayer]
 ) -> GameState:
@@ -650,6 +721,9 @@ async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
     match game.current_phase:
         case GamePhase.OPENING:
             return await resolve_opening(game, players)
+
+        case GamePhase.ROUND_EVENTS:
+            return await resolve_round_events(game)
 
         case GamePhase.BIDDING:
             return await resolve_bidding(game, players)

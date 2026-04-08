@@ -80,7 +80,11 @@ def mock_random(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def stable_rules() -> GameRules:
-    return GameRules(seed=0, initial_crisis_deck=[StandoffCrisis()])
+    return GameRules(
+        seed=0,
+        initial_crisis_deck=[StandoffCrisis()],
+        initial_event_deck=[],
+    )
 
 
 @pytest.fixture
