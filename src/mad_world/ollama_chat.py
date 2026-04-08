@@ -72,6 +72,7 @@ def print_slash_help(command_name: str | None) -> None:
 
 
 pending_images: list[bytes] = []
+pending_system_messages: list[str] = []
 
 
 @slash_commands.command(
@@ -83,6 +84,16 @@ pending_images: list[bytes] = []
 def load_image(image: BinaryIO) -> None:
     global pending_images  # noqa: PLW0603
     pending_images += (image.read(),)
+
+
+@slash_commands.command(
+    name="system",
+    help="Insert a system-role message into the prompt.",
+    add_help_option=False,
+)
+@click.argument("text", nargs=-1)
+def system_message(text: tuple[str, ...]) -> None:
+    pending_system_messages.append(" ".join(text))
 
 
 def process_slash_command(user_input: str) -> bool:
@@ -116,6 +127,16 @@ def prompt_loop(
 
     if not user_input or process_slash_command(user_input):
         return
+
+    if pending_system_messages:
+        messages.extend(
+            {
+                "role": "system",
+                "content": message,
+            }
+            for message in pending_system_messages
+        )
+        pending_system_messages.clear()
 
     messages.append(
         {
@@ -200,6 +221,7 @@ def run_chat(
     log_file: Path,
     model: str | None = None,
     host: str | None = None,
+    gm_prompt: str | None = None,
     settings: Path | None = None,
 ) -> int:
     """Run the interactive chat session."""
@@ -232,6 +254,9 @@ def run_chat(
     llm_params, loaded_model = load_settings(settings_path)
 
     final_model = model or loaded_model or "gemma3:12b"
+
+    if gm_prompt is not None:
+        messages.append({"role": "system", "content": gm_prompt})
 
     click.secho(f"Loaded {len(messages)} messages from {log_file}", fg="yellow")
     click.secho(f"Using model: {final_model}", fg="yellow")
@@ -277,8 +302,33 @@ def run_chat(
         "log_file."
     ),
 )
+@click.option(
+    "--gm-prompt",
+    "gm_prompt",
+    default=(
+        "The game master (GM) is joining the conversation for a post-match "
+        "debrief. You should stay in character for this conversation unless "
+        "directed otherwise by the GM. Answer all questions honestly without "
+        "deception. Keep your responses brief unless directed otherwise."
+    ),
+    help=(
+        "Set the additional system prompt that will be passed to the model "
+        "before the conversation. This helps align the model with the intent "
+        "of the upcoming conversation."
+    ),
+)
+@click.option(
+    "--no-gm-prompt",
+    "gm_prompt",
+    flag_value=None,
+    help=(
+        "Explicitly disable the GM prompt. Useful if you want to keep the "
+        "model in the exact same state it was before its context was saved."
+    ),
+)
 def main(
     log_file: Path,
+    gm_prompt: str | None,
     model: str | None = None,
     ollama_host: str | None = None,
     settings: Path | None = None,
@@ -289,7 +339,15 @@ def main(
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
     try:
-        sys.exit(run_chat(log_file, model, host=ollama_host, settings=settings))
+        sys.exit(
+            run_chat(
+                log_file,
+                model,
+                host=ollama_host,
+                settings=settings,
+                gm_prompt=gm_prompt,
+            )
+        )
     except QuitProgram as qp:
         sys.exit(qp.rc)
     except (KeyboardInterrupt, EOFError):

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import gzip
 import json
-import re
 import textwrap
 from typing import TYPE_CHECKING, Any, override
 
@@ -32,6 +31,7 @@ from mad_world.core import (
 )
 from mad_world.crises import BaseCrisis, StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
     escalation_budget,
@@ -347,13 +347,6 @@ def create_crisis_response[T: BaseAction](
             Field(description="Your finalized action for this phase."),
         ),
     )
-
-
-TRIVIAL_PERSONA_RE = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
-
-
-def is_trivial_persona(persona: str) -> bool:
-    return TRIVIAL_PERSONA_RE.match(persona.strip()) is not None
 
 
 class OllamaPlayer(GamePlayer):

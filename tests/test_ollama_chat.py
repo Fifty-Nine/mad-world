@@ -24,6 +24,7 @@ from mad_world.ollama_chat import (
     process_slash_command,
     prompt_loop,
     run_chat,
+    system_message,
 )
 
 
@@ -77,6 +78,21 @@ def test_load_image(tmp_path: Path) -> None:
         ollama_chat.pending_images = old_pending
 
 
+def test_system_message() -> None:
+    """Test system_message command."""
+    runner = CliRunner()
+
+    old_pending = list(ollama_chat.pending_system_messages)
+    ollama_chat.pending_system_messages.clear()
+    try:
+        result = runner.invoke(system_message, ["hello", "world"])
+        assert result.exit_code == 0
+        assert len(ollama_chat.pending_system_messages) == 1
+        assert ollama_chat.pending_system_messages[0] == "hello world"
+    finally:
+        ollama_chat.pending_system_messages = old_pending
+
+
 def test_process_slash_command_not_slash() -> None:
     """Test process_slash_command with non-slash input."""
     assert process_slash_command("hello world") is False
@@ -92,6 +108,14 @@ def test_process_slash_command_valid() -> None:
         )
 
 
+def test_process_system_command() -> None:
+    with patch("mad_world.ollama_chat.slash_commands.main") as mock_main:
+        assert process_slash_command("/system user provided    text") is True
+        mock_main.assert_called_once_with(
+            args=["system", "user", "provided", "text"], standalone_mode=False
+        )
+
+
 def test_process_slash_command_invalid(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -100,6 +124,21 @@ def test_process_slash_command_invalid(
     assert process_slash_command("/invalid_command_xyz") is True
     captured = capsys.readouterr()
     assert "Error: No such command 'invalid_command_xyz'." in captured.out
+
+
+def test_process_slash_command_click_exception(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test process_slash_command handling ClickException."""
+    import click  # noqa: PLC0415
+
+    with patch(
+        "mad_world.ollama_chat.slash_commands.main",
+        side_effect=click.ClickException("mock error"),
+    ):
+        assert process_slash_command("/dummy") is True
+        captured = capsys.readouterr()
+        assert "Error: mock error" in captured.out
 
 
 def test_process_slash_command_quit() -> None:
@@ -134,6 +173,35 @@ def test_prompt_loop_slash_command() -> None:
 
     assert not messages
     client_mock.chat.assert_not_called()
+
+
+def test_prompt_loop_system_message() -> None:
+    """Test prompt_loop with a pending system message."""
+    session_mock = MagicMock()
+    session_mock.prompt.return_value = "Hello"
+    client_mock = MagicMock()
+    client_mock.chat.return_value = [
+        {"message": {"content": "Hi there!"}},
+    ]
+    messages: list[dict[str, Any]] = []
+
+    old_pending = list(ollama_chat.pending_system_messages)
+    ollama_chat.pending_system_messages.clear()
+    ollama_chat.pending_system_messages.append("You are a helpful assistant.")
+
+    try:
+        prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
+    finally:
+        ollama_chat.pending_system_messages = old_pending
+
+    assert len(messages) == 3
+    assert messages[0] == {
+        "role": "system",
+        "content": "You are a helpful assistant.",
+    }
+    assert messages[1] == {"role": "user", "content": "Hello", "images": []}
+    assert messages[2] == {"role": "assistant", "content": "Hi there!"}
+    assert len(ollama_chat.pending_system_messages) == 0
 
 
 def test_prompt_loop_valid_input(capsys: pytest.CaptureFixture[str]) -> None:
@@ -176,6 +244,74 @@ def test_prompt_loop_valid_input(capsys: pytest.CaptureFixture[str]) -> None:
     captured = capsys.readouterr()
     assert "Assistant > " in captured.out
     assert "Hi there!" in captured.out
+
+
+def test_run_chat_with_gm_prompt(tmp_path: Path) -> None:
+    """Test run_chat with gm_prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    # We need to capture the messages passed to prompt_loop
+    messages_captured: list[dict[str, Any]] = []
+
+    def mock_prompt_loop(
+        session: PromptSession[str],
+        client: ollama.Client,
+        model: str,
+        messages: list[dict[str, Any]],
+        llm_params: LLMParams,
+    ) -> None:
+        messages_captured.extend(messages)
+        raise QuitProgram(0)
+
+    with (
+        patch("mad_world.ollama_chat.ollama.Client"),
+        patch("mad_world.ollama_chat.PromptSession"),
+        patch(
+            "mad_world.ollama_chat.prompt_loop", side_effect=mock_prompt_loop
+        ),
+        pytest.raises(QuitProgram),
+    ):
+        run_chat(log_file, gm_prompt="System prompt")
+
+    assert len(messages_captured) == 1
+    assert messages_captured[0] == {
+        "role": "system",
+        "content": "System prompt",
+    }
+
+
+def test_main_with_gm_prompt(tmp_path: Path) -> None:
+    """Test main with --gm-prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    runner = CliRunner()
+    with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
+        result = runner.invoke(
+            main, [str(log_file), "--gm-prompt", "custom prompt"]
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["gm_prompt"] == "custom prompt"
+
+
+def test_main_default_gm_prompt(tmp_path: Path) -> None:
+    """Test main with default gm_prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    runner = CliRunner()
+    with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
+        result = runner.invoke(main, [str(log_file)])
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        gm_prompt = mock_run.call_args.kwargs["gm_prompt"]
+        assert gm_prompt is not None
+        assert "game master (GM)" in gm_prompt
 
 
 def test_run_chat_invalid_file() -> None:
@@ -223,10 +359,16 @@ def test_main_success(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
-        result = runner.invoke(main, [str(log_file), "--model", "mymodel"])
+        result = runner.invoke(
+            main, [str(log_file), "--model", "mymodel", "--no-gm-prompt"]
+        )
         assert result.exit_code == 0
         mock_run.assert_called_once_with(
-            log_file, "mymodel", host=None, settings=None
+            log_file,
+            "mymodel",
+            host=None,
+            settings=None,
+            gm_prompt=None,
         )
 
 
