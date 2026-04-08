@@ -146,7 +146,7 @@ def random_persona() -> str:
 
 
 def is_trivial_persona(persona: str) -> bool:
-    if m := TRIVIAL_PERSONA_RE.match(persona):
+    if m := TRIVIAL_PERSONA_RE.match(persona.strip()):
         return m[1] in PERSONA_ADJECTIVES and m[2] in PERSONA_NOUNS
 
     return False
