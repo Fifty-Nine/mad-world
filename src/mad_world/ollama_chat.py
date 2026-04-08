@@ -93,7 +93,6 @@ def load_image(image: BinaryIO) -> None:
 )
 @click.argument("text", nargs=-1)
 def system_message(text: tuple[str, ...]) -> None:
-    global pending_system_messages  # noqa: PLW0602
     pending_system_messages.append(" ".join(text))
 
 
@@ -129,7 +128,7 @@ def prompt_loop(
     if not user_input or process_slash_command(user_input):
         return
 
-    if len(pending_system_messages) > 0:
+    if pending_system_messages:
         messages.extend(
             {
                 "role": "system",
