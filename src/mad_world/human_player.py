@@ -113,7 +113,7 @@ class HumanPlayer(GamePlayer):
     async def bid(self, game: GameState) -> BiddingAction:
         print(f"\n{game.describe_state()}")
         print(f"\n[{self.name}] Bidding Phase")
-        print(f"Allowed bids: {game.rules.allowed_bids}")
+        print(f"Allowed bids: {game.allowed_bids}")
         return await self.retry_prompt(
             game,
             "Enter your bid: ",
@@ -125,7 +125,7 @@ class HumanPlayer(GamePlayer):
         print(f"\n{game.describe_state()}")
         print(f"\n[{self.name}] Operations Phase")
         print("Available Operations:")
-        for op_name, op_def in game.rules.allowed_operations.items():
+        for op_name, op_def in game.allowed_operations.items():
             print(f"  - {op_name} (Cost: {op_def.influence_cost})")
 
         def parse_op(text: str) -> OperationsAction:

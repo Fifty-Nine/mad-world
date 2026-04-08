@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from mad_world.config import LLMPlayerConfig
     from mad_world.crises import GenericCrisis
     from mad_world.events import GameEvent
-    from mad_world.rules import GameRules
+    from mad_world.rules import GameRules, OperationDefinition
 
 
 class ActionResponse(BaseModel):
@@ -491,7 +491,7 @@ class OllamaPlayer(GamePlayer):
         )
         prompt += self.format_allowed_ops(
             avail_inf=None,
-            rules=rules,
+            allowed_operations=rules.allowed_operations,
             indent="        ",
         )
         prompt += (
@@ -588,12 +588,12 @@ class OllamaPlayer(GamePlayer):
     @staticmethod
     def format_allowed_ops(
         avail_inf: int | None,
-        rules: GameRules,
+        allowed_operations: dict[str, OperationDefinition],
         indent: str = "",
     ) -> str:
         ops = (
             op
-            for op in rules.allowed_operations.values()
+            for op in allowed_operations.values()
             if avail_inf is None or avail_inf - op.influence_cost >= 0
         )
         return (
@@ -1078,7 +1078,7 @@ class OllamaPlayer(GamePlayer):
         pbid = pareto_optimal_bid(
             game.doomsday_clock,
             game.rules.max_clock_state,
-            game.rules.allowed_bids,
+            game.allowed_bids,
         )
         prompt += f"Your pareto optimal bid is {pbid}.\n"
         prompt += self.my_strategy()
@@ -1086,7 +1086,7 @@ class OllamaPlayer(GamePlayer):
         prompt += self.first_strike_warning(game)
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
-            f"{game.rules.allowed_bids}\n"
+            f"{game.allowed_bids}\n"
             "Remember that your opponent's bid will also affect the clock, "
             "and you WILL NOT learn of ther bid until after you submit yours.\n"
         )
@@ -1107,7 +1107,9 @@ class OllamaPlayer(GamePlayer):
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
         prompt += "These are the operations you can currently afford:\n"
-        prompt += self.format_allowed_ops(self.my_influence(game), game.rules)
+        prompt += self.format_allowed_ops(
+            self.my_influence(game), game.allowed_operations
+        )
         prompt += (
             "\nYou may undertake any number of operations, but you must "
             "have sufficient influence, otherwise the operation will "

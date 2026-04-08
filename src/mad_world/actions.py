@@ -95,8 +95,8 @@ class BiddingAction(BaseAction):
     )
 
     def validate_semantics(self, game: GameState, player_name: str) -> None:
-        if self.bid not in game.rules.allowed_bids:
-            raise InvalidBiddingActionError(self.bid, game.rules.allowed_bids)
+        if self.bid not in game.allowed_bids:
+            raise InvalidBiddingActionError(self.bid, game.allowed_bids)
 
 
 class OperationsAction(BaseAction):
@@ -111,8 +111,7 @@ class OperationsAction(BaseAction):
             game.validate_operation(op_name, player_name)
 
         total_cost = sum(
-            game.rules.allowed_operations[op].influence_cost
-            for op in self.operations
+            game.allowed_operations[op].influence_cost for op in self.operations
         )
         player_state = game.players[player_name]
         if total_cost > player_state.influence:
