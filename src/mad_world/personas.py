@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import re
 
-PERSONA_ADJECTIVES = (
+PERSONA_ADJECTIVES: tuple[str, ...] = (
     "Amateurish",
     "Belligerent",
     "Bloodthirsty",
@@ -66,7 +66,7 @@ PERSONA_ADJECTIVES = (
     "Zealous",
 )
 
-PERSONA_NOUNS = (
+PERSONA_NOUNS: tuple[str, ...] = (
     "Apparatchik",
     "Appeaser",
     "Architect",
@@ -115,7 +115,7 @@ PERSONA_NOUNS = (
 )
 
 
-TRIVIAL_PERSONA_RE = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
+TRIVIAL_PERSONA_RE: re.Pattern[str] = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
 
 
 def random_persona() -> str:
