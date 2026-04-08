@@ -121,9 +121,6 @@ asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
-omit = [
-	"src/mad_world/ollama_player.py"
-]
 
 [tool.coverage.report]
 precision = 2

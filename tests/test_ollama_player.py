@@ -3,14 +3,24 @@ from __future__ import annotations
 import json
 import logging
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
-from mad_world.actions import BaseAction, InvalidActionError
+from mad_world.actions import (
+    BaseAction,
+    BiddingAction,
+    InitialMessageAction,
+    InvalidActionError,
+    MessagingAction,
+    OperationsAction,
+)
 from mad_world.config import LLMParams, LLMPlayerConfig
+from mad_world.crises import StandoffCrisis
+from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
-from mad_world.ollama_player import ActionResponse, OllamaPlayer
+from mad_world.ollama_player import ActionResponse, GrandStrategy, OllamaPlayer
+from mad_world.util import remove_ordering_prefix
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
@@ -64,6 +74,29 @@ def test_player(player_config: Any, mock_logger: Any) -> Any:
 
 
 @pytest.mark.asyncio
+async def test_elaborate_persona(test_player: Any) -> None:
+    test_player.persona = "Earnest Pacifist"
+    test_player.client.chat.return_value.message.content = (
+        "I am a detailed pacifist."
+    )
+    await test_player.elaborate_persona()
+    assert test_player.client.chat.call_count == 1
+    assert "I am a detailed pacifist." in test_player.persona
+
+    # Test when already elaborated
+    test_player.client.chat.reset_mock()
+    test_player.persona = "Already\n\nElaborated"
+    await test_player.elaborate_persona()
+    assert test_player.client.chat.call_count == 0
+
+    # Test when None
+    test_player.client.chat.reset_mock()
+    test_player.persona = None
+    await test_player.elaborate_persona()
+    assert test_player.client.chat.call_count == 0
+
+
+@pytest.mark.asyncio
 async def test_start_game(
     player_config: Any, mock_logger: Any, tmp_path: Any
 ) -> None:
@@ -96,6 +129,16 @@ async def test_start_game(
 
     schemas_file = log_dir / "TestPlayer.schemas.json.gz"
     assert schemas_file.exists()
+
+    # Test start_game without log_base
+    player_no_log = OllamaPlayer(
+        config=player_config,
+        opponent_name="Opponent",
+        log_dir=None,
+        logger=mock_logger,
+    )
+    player_no_log.client = AsyncMock()
+    await player_no_log.start_game(mock_rules)
 
 
 @pytest.mark.asyncio
@@ -219,6 +262,17 @@ async def test_check_and_compress(
     assert test_player.messages[0]["content"] == "original system"
     assert "summarized history" in test_player.messages[1]["content"]
 
+    # Test fallback when compression fails (returns empty string)
+    test_player.messages = [
+        {"role": "system", "content": "original system"},
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "world"},
+    ]
+    test_player.client.chat.return_value.message.content = ""
+    await test_player._check_and_compress(mock_response_obj, basic_game)
+    assert "Oops!" in test_player.messages[1]["content"]
+    assert test_player.client.chat.call_count == 2
+
 
 @pytest.mark.asyncio
 async def test_check_and_compress_no_compression(
@@ -274,15 +328,32 @@ def test_game_ending_warning(test_player: Any, basic_game: GameState) -> None:
     basic_game.players["Omega"].gdp = 100
     assert bool(test_player.game_ending_warning(basic_game))
 
+    # late game, but tied
+    basic_game.players["Alpha"].gdp = 10
+    basic_game.players["Omega"].gdp = 10
+    assert not test_player.game_ending_warning(basic_game)
+
 
 def test_doomsday_warning(test_player: Any, basic_game: GameState) -> None:
-    # `doomsday_clock` is computed from `escalation_track`
-    # By default, basic_game has an empty track (doomsday clock = 0)
     assert not test_player.doomsday_warning(basic_game)
 
-    # Test near limit where warnings should trigger
-    basic_game.escalation_track = [PlayerActor(name="Alpha")] * 22
-    assert bool(test_player.doomsday_warning(basic_game))
+    with patch(
+        "mad_world.core.GameState.doomsday_clock", new_callable=PropertyMock
+    ) as mock_clock:
+        mock_clock.return_value = 22
+
+        mock_rules = MagicMock()
+        mock_rules.max_clock_state = 24
+        mock_rules.get_doomsday_bids.return_value = ([(1, 2)], [(3,)])
+
+        mock_game = MagicMock()
+        mock_game.rules = mock_rules
+        type(mock_game).doomsday_clock = PropertyMock(return_value=22)
+
+        assert "WARNING: " in test_player.doomsday_warning(mock_game)
+
+        type(mock_game).doomsday_clock = PropertyMock(return_value=12)
+        assert "NOTE: " in test_player.doomsday_warning(mock_game)
 
 
 def test_escalation_debt(test_player: Any, basic_game: GameState) -> None:
@@ -320,3 +391,179 @@ def test_format_game_state(test_player: Any, basic_game: GameState) -> None:
     # and returns a valid non-empty string state
     assert isinstance(state_str, str)
     assert bool(state_str)
+
+
+@pytest.mark.asyncio
+async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.grand_strategy = MagicMock()
+    mock_response.action = InitialMessageAction()
+    test_player.retry_prompt.return_value = mock_response
+
+    action = await test_player.initial_message(basic_game)
+
+    assert test_player.retry_prompt.call_count == 1
+    assert test_player.grand_strategy == mock_response.grand_strategy
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.initial_message(basic_game)
+    assert isinstance(action, InitialMessageAction)
+
+
+@pytest.mark.asyncio
+async def test_message(test_player: Any, basic_game: GameState) -> None:
+    test_player.name = "Alpha"
+    test_player.opponent_name = "Omega"
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = MessagingAction()
+    test_player.retry_prompt.return_value = mock_response
+
+    basic_game.current_phase = GamePhase.BIDDING_MESSAGING
+    action = await test_player.message(basic_game)
+    assert test_player.retry_prompt.call_count == 1
+    assert action == mock_response.action
+
+    basic_game.current_phase = GamePhase.OPERATIONS_MESSAGING
+    action = await test_player.message(basic_game)
+    assert test_player.retry_prompt.call_count == 2
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.message(basic_game)
+    assert isinstance(action, MessagingAction)
+
+
+@pytest.mark.asyncio
+async def test_crisis_message(test_player: Any, basic_game: GameState) -> None:
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = MessagingAction()
+    test_player.retry_prompt.return_value = mock_response
+
+    crisis = StandoffCrisis()
+    with patch.object(StandoffCrisis, "additional_prompt", "Custom Prompt!"):
+        action = await test_player.crisis_message(basic_game, crisis)
+    assert test_player.retry_prompt.call_count == 1
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.crisis_message(basic_game, crisis)
+    assert isinstance(action, MessagingAction)
+
+
+@pytest.mark.asyncio
+async def test_bid(test_player: Any, basic_game: GameState) -> None:
+    test_player.name = "Alpha"
+    test_player.opponent_name = "Omega"
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = BiddingAction(bid=2)
+    test_player.retry_prompt.return_value = mock_response
+
+    action = await test_player.bid(basic_game)
+    assert test_player.retry_prompt.call_count == 1
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.bid(basic_game)
+    assert isinstance(action, BiddingAction)
+    assert action.bid == 1
+
+
+@pytest.mark.asyncio
+async def test_operations(test_player: Any, basic_game: GameState) -> None:
+    test_player.name = "Alpha"
+    test_player.opponent_name = "Omega"
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = OperationsAction(operations=["op1"])
+    test_player.retry_prompt.return_value = mock_response
+
+    action = await test_player.operations(basic_game)
+    assert test_player.retry_prompt.call_count == 1
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.operations(basic_game)
+    assert isinstance(action, OperationsAction)
+    assert action.operations == []
+
+
+@pytest.mark.asyncio
+async def test_crisis(test_player: Any, basic_game: GameState) -> None:
+    test_player.retry_prompt = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = BiddingAction(bid=2)
+    test_player.retry_prompt.return_value = mock_response
+
+    crisis = StandoffCrisis()
+    with patch.object(StandoffCrisis, "additional_prompt", "Custom Prompt!"):
+        action = await test_player.crisis(basic_game, crisis)
+    assert test_player.retry_prompt.call_count == 1
+    assert action == mock_response.action
+
+    test_player.retry_prompt.return_value = None
+    action = await test_player.crisis(basic_game, crisis)
+    assert isinstance(action, BaseAction)
+
+
+@pytest.mark.asyncio
+async def test_game_over(
+    test_player: Any, basic_game: GameState, tmp_path: Any
+) -> None:
+    test_player.log_base = tmp_path / "test_player"
+    test_player.client.chat.return_value.message.content = "AAR Output"
+
+    await test_player.game_over(
+        basic_game, test_player.name, GameOverReason.ECONOMIC_VICTORY
+    )
+    assert test_player.client.chat.call_count == 1
+    assert "AAR Output" in test_player.messages[-1]["content"]
+
+    test_player.client.chat.reset_mock()
+    await test_player.game_over(
+        basic_game, "Opponent", GameOverReason.WORLD_DESTROYED
+    )
+    assert test_player.client.chat.call_count == 1
+
+    assert test_player.log_base.with_suffix(".messages.gz").exists()
+
+    test_player.log_base = None
+    await test_player.game_over(
+        basic_game, "Opponent", GameOverReason.WORLD_DESTROYED
+    )
+
+
+def test_my_strategy(test_player: Any) -> None:
+    assert test_player.my_strategy() == ""
+
+    test_player.grand_strategy = GrandStrategy(
+        prohibited_actions=[],
+        core_loop="loop",
+        clock_management="clock",
+        contingency_plan="plan",
+    )
+
+    strategy_text = test_player.my_strategy()
+    assert "loop" in strategy_text
+    assert "clock" in strategy_text
+
+    strategy_text_compressed = test_player.my_strategy(for_compression=True)
+    assert "original grand strategy" in strategy_text_compressed
+
+
+def test_unprefix_keys() -> None:
+    data: dict[str, Any] = {"01_chain_of_thought": [], "02_action": {}}
+    res = remove_ordering_prefix(data, is_key=True)
+
+    assert "chain_of_thought" in res
+    assert "action" in res
