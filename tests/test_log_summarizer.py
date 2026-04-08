@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import ollama
-import pytest
 from click.testing import CliRunner
 
 from mad_world.log_summarizer import main, summarize_log
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_summarize_log_file_not_found() -> None:
@@ -24,7 +27,9 @@ def test_summarize_log_empty_file(tmp_path: Path) -> None:
     assert summarize_log(empty_file, "model") == 1
 
 
-def test_summarize_log_success(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_summarize_log_success(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Test summarize_log normal execution."""
     log_file = tmp_path / "log.txt"
     log_file.write_text("Line 1\nLine 2\n")
@@ -35,7 +40,9 @@ def test_summarize_log_success(tmp_path: Path, capsys: pytest.CaptureFixture[str
         {"message": {"content": "part 2."}},
     ]
 
-    with patch("mad_world.log_summarizer.ollama.Client", return_value=client_mock):
+    with patch(
+        "mad_world.log_summarizer.ollama.Client", return_value=client_mock
+    ):
         result = summarize_log(log_file, "test_model")
 
     assert result == 0
@@ -52,7 +59,9 @@ def test_summarize_log_success(tmp_path: Path, capsys: pytest.CaptureFixture[str
     assert "Summary part 2." in captured.out
 
 
-def test_summarize_log_response_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_summarize_log_response_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Test summarize_log when ollama.ResponseError is raised."""
     log_file = tmp_path / "log.txt"
     log_file.write_text("Line 1")
@@ -60,7 +69,9 @@ def test_summarize_log_response_error(tmp_path: Path, capsys: pytest.CaptureFixt
     client_mock = MagicMock(spec=ollama.Client)
     client_mock.chat.side_effect = ollama.ResponseError("mock error")
 
-    with patch("mad_world.log_summarizer.ollama.Client", return_value=client_mock):
+    with patch(
+        "mad_world.log_summarizer.ollama.Client", return_value=client_mock
+    ):
         result = summarize_log(log_file, "model")
 
     assert result == 1
@@ -74,9 +85,12 @@ def test_main_success(tmp_path: Path) -> None:
     log_file.write_text("Test line")
 
     runner = CliRunner()
-    with patch("mad_world.log_summarizer.summarize_log", return_value=0) as mock_summarize:
+    with patch(
+        "mad_world.log_summarizer.summarize_log", return_value=0
+    ) as mock_summarize:
         result = runner.invoke(
-            main, [str(log_file), "--model", "mymodel", "--context-size", "1000"]
+            main,
+            [str(log_file), "--model", "mymodel", "--context-size", "1000"],
         )
         assert result.exit_code == 0
         mock_summarize.assert_called_once_with(
