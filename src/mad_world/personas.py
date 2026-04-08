@@ -138,7 +138,7 @@ PERSONA_NOUNS: tuple[str, ...] = (
 )
 
 
-TRIVIAL_PERSONA_RE: re.Pattern[str] = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
+TRIVIAL_PERSONA_RE: re.Pattern[str] = re.compile(r"^(\w+)\s+(\w+)$")
 
 
 def random_persona() -> str:
@@ -146,4 +146,7 @@ def random_persona() -> str:
 
 
 def is_trivial_persona(persona: str) -> bool:
-    return TRIVIAL_PERSONA_RE.match(persona.strip()) is not None
+    if m := TRIVIAL_PERSONA_RE.match(persona):
+        return m[1] in PERSONA_ADJECTIVES and m[2] in PERSONA_NOUNS
+
+    return False
