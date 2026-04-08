@@ -22,3 +22,11 @@ def test_is_trivial_persona() -> None:
     assert not is_trivial_persona("Erratic appeaser")
     assert not is_trivial_persona("erratic Appeaser")
     assert is_trivial_persona("Erratic Appeaser\n")
+    assert is_trivial_persona("  Inflexible   Jackass  \n")
+    assert not is_trivial_persona("  Inflexible   Jackass  \nMore text")
+    assert is_trivial_persona("Inane Moron")
+    assert not is_trivial_persona("Inane Moron\nexplanatory text\n")
+
+
+def test_acronym_persona() -> None:
+    assert is_trivial_persona("Rational AI")

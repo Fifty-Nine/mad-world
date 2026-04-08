@@ -7,6 +7,7 @@ import re
 
 PERSONA_ADJECTIVES: tuple[str, ...] = (
     "Amateurish",
+    "Apocalyptic",
     "Belligerent",
     "Bloodthirsty",
     "Bureaucratic",
@@ -21,15 +22,18 @@ PERSONA_ADJECTIVES: tuple[str, ...] = (
     "Devouring",
     "Desperate",
     "Dogmatic",
+    "Draconian",
     "Earnest",
     "Elder",
     "Erratic",
+    "Expansionist",
     "Fanatical",
     "Friendly",
     "Heartless",
     "Hellish",
     "Holy",
     "Horrid",
+    "Inane",
     "Ideological",
     "Ineffective",
     "Inflexible",
@@ -41,7 +45,9 @@ PERSONA_ADJECTIVES: tuple[str, ...] = (
     "Machiavellian",
     "Maoist",
     "Marxist",
+    "Mercenary",
     "Nervous",
+    "Nihilistic",
     "Nixonian",
     "Opportunistic",
     "Paranoid",
@@ -53,6 +59,8 @@ PERSONA_ADJECTIVES: tuple[str, ...] = (
     "Reaganesque",
     "Reckless",
     "Reluctant",
+    "Revanchist",
+    "Seditious",
     "Silent",
     "Smiling",
     "Spiteful",
@@ -67,6 +75,8 @@ PERSONA_ADJECTIVES: tuple[str, ...] = (
 )
 
 PERSONA_NOUNS: tuple[str, ...] = (
+    "Agitator",
+    "AI",
     "Apparatchik",
     "Appeaser",
     "Architect",
@@ -80,27 +90,39 @@ PERSONA_NOUNS: tuple[str, ...] = (
     "Builder",
     "Bureaucrat",
     "Calculator",
+    "Commissar",
+    "Computer",
     "Criminal",
     "Crusader",
+    "Despot",
     "Dictator",
     "Diplomat",
     "Dogmatist",
     "Extremist",
+    "Gamer",
     "General",
     "Idealist",
     "Isolationist",
     "Jackass",
+    "Jerk",
+    "Kleptocrat",
+    "Loser",
     "Martyr",
     "Mastermind",
     "Mirror",
     "Monarch",
+    "Moron",
+    "Oligarch",
+    "Operative",
     "Opportunist",
     "Pacifist",
     "Plotter",
     "Predator",
     "Premier",
     "Profiteer",
+    "Propagandist",
     "Realist",
+    "Revolutionary",
     "Rogue",
     "Saboteur",
     "Strongman",
@@ -111,11 +133,12 @@ PERSONA_NOUNS: tuple[str, ...] = (
     "Thug",
     "Vanguard",
     "Victor",
+    "Warlord",
     "Zealot",
 )
 
 
-TRIVIAL_PERSONA_RE: re.Pattern[str] = re.compile(r"^[A-Z][a-z]+ [A-Z][a-z]+$")
+TRIVIAL_PERSONA_RE: re.Pattern[str] = re.compile(r"^(\w+)\s+(\w+)$")
 
 
 def random_persona() -> str:
@@ -123,4 +146,7 @@ def random_persona() -> str:
 
 
 def is_trivial_persona(persona: str) -> bool:
-    return TRIVIAL_PERSONA_RE.match(persona.strip()) is not None
+    if m := TRIVIAL_PERSONA_RE.match(persona.strip()):
+        return m[1] in PERSONA_ADJECTIVES and m[2] in PERSONA_NOUNS
+
+    return False
