@@ -243,27 +243,48 @@ def test_format_results(basic_game: GameState) -> None:
 
 
 def test_recent_events(basic_game: GameState) -> None:
+    # Set the 'last' state to what we're looking for
     basic_game.last_round = 2
     basic_game.last_phase = GamePhase.BIDDING
-    event = GameEvent(
-        actor=SystemActor(),
-        description="test",
-        current_round=2,
-        current_phase=GamePhase.BIDDING,
-    )
-    basic_game.event_log.append(event)
+
+    # Older event (should be skipped by break)
     basic_game.event_log.append(
         GameEvent(
             actor=SystemActor(),
-            description="other",
+            description="old",
             current_round=1,
+            current_phase=GamePhase.OPERATIONS,
+        ),
+    )
+    # Target events
+    basic_game.event_log.append(
+        GameEvent(
+            actor=SystemActor(),
+            description="target1",
+            current_round=2,
+            current_phase=GamePhase.BIDDING,
+        )
+    )
+    basic_game.event_log.append(
+        GameEvent(
+            actor=SystemActor(),
+            description="target2",
+            current_round=2,
+            current_phase=GamePhase.BIDDING,
+        )
+    )
+    # Newer events (should be skipped initially)
+    basic_game.event_log.append(
+        GameEvent(
+            actor=SystemActor(),
+            description="new",
+            current_round=2,
             current_phase=GamePhase.OPERATIONS,
         ),
     )
 
     recent = basic_game.recent_events()
-    assert len(recent) == 1
-    assert recent[0].description == "test"
+    assert [e.description for e in recent] == ["target1", "target2"]
 
 
 def test_base_action_validate_semantics(basic_game: GameState) -> None:
