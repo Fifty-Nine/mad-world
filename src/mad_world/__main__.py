@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
+import secrets
 import shutil
 import sys
 from datetime import datetime
@@ -198,7 +198,9 @@ def should_preserve_logs(*, default_choice: bool) -> bool:
 
 
 def random_persona() -> str:
-    return f"{random.choice(PERSONA_ADJECTIVES)} {random.choice(PERSONA_NOUNS)}"
+    adj = secrets.choice(PERSONA_ADJECTIVES)
+    noun = secrets.choice(PERSONA_NOUNS)
+    return f"{adj} {noun}"
 
 
 def get_player(
