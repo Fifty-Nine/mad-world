@@ -142,8 +142,11 @@ def test_validate_operation_insufficient_influence(
         basic_game.validate_operation("domestic-investment", "Alpha")
 
 
-def test_bidding_action_validate_semantics_valid(basic_game: GameState) -> None:
-    action = BiddingAction(bid=1)
+@pytest.mark.parametrize("bid", [0, 1, 3, 5, 10])
+def test_bidding_action_validate_semantics_valid(
+    basic_game: GameState, bid: int
+) -> None:
+    action = BiddingAction(bid=bid)
     # Should not raise
     action.validate_semantics(basic_game, "Alpha")
 
@@ -160,7 +163,10 @@ def test_bidding_action_validate_semantics_invalid_bid(
 def test_operations_action_validate_semantics_valid(
     basic_game: GameState,
 ) -> None:
-    action = OperationsAction(operations=["domestic-investment"])
+    # Alpha has 5 Inf. domestic-investment (3) + aggressive-extraction (2) = 5
+    action = OperationsAction(
+        operations=["domestic-investment", "aggressive-extraction"],
+    )
     # Should not raise
     action.validate_semantics(basic_game, "Alpha")
 
