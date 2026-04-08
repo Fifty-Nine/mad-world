@@ -360,7 +360,7 @@ class GameState(BaseModel):
         )
 
     def recent_events(self) -> list[GameEvent]:
-        result = []
+        result: list[GameEvent] = []
 
         for e in reversed(self.event_log):
             if (
