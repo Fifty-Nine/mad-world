@@ -681,9 +681,7 @@ async def game_loop(
 ) -> tuple[str | None, GameOverReason, GameState]:
     game = GameState.new_game(players=[p.name for p in players], rules=rules)
 
-    for p in players:
-        p.start_game(rules)
-
+    await asyncio.gather(*(p.start_game(rules) for p in players))
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)

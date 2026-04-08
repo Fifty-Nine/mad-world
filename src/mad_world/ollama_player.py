@@ -379,7 +379,33 @@ class OllamaPlayer(GamePlayer):
         self.compression_threshold = compression_threshold
         self.logger = logger
 
-    def start_game(self, rules: GameRules) -> None:
+    async def start_game(self, rules: GameRules) -> None:
+        if self.persona is not None and "\n" not in self.persona:
+            self.logger.debug(
+                "Elaborating persona for %s: %s", self.name, self.persona
+            )
+            elaboration_prompt = (
+                "You are playing a grand strategy game. Your assigned persona "
+                f"is: '{self.persona}'. "
+                "Elaborate on this two-word persona, turning it into a "
+                "nuanced and well-defined character description that fits into "
+                "the context of an actor in a game about Mutually Assured "
+                "Destruction, the Cold War, etc. Limit to one to two "
+                "paragraphs. Do not include any extra introductory text."
+            )
+            response = await self.client.chat(
+                model=self.model,
+                messages=[{"role": "user", "content": elaboration_prompt}],
+                options=self.prompt_options,
+                think=False,
+            )
+            if elaborated := (response.message.content or "").strip():
+                self.persona = f"{self.persona}\n\n{elaborated}"
+
+                self.logger.debug(
+                    "Elaborated persona for %s: %s", self.name, elaborated
+                )
+
         prompt = (
             f"You are playing the role of Superpower {self.name}, a global "
             'superpower in a Cold War game called "The Doomsday '
