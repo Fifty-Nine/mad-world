@@ -25,7 +25,7 @@ class GamePlayer(ABC):
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def start_game(self, game: GameRules) -> None:  # noqa: B027
+    async def start_game(self, game: GameRules) -> None:  # noqa: B027
         """Called with the rules for the current game
         at the start of the game.
         """

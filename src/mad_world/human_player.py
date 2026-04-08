@@ -42,7 +42,7 @@ class HumanPlayer(GamePlayer):
         self.session: PromptSession[str] = PromptSession()
         self.operations_completer: WordCompleter | None = None
 
-    def start_game(self, game: GameRules) -> None:
+    async def start_game(self, game: GameRules) -> None:
         self.operations_completer = WordCompleter(
             list(game.allowed_operations.keys()),
         )
