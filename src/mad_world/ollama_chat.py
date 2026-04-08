@@ -72,6 +72,7 @@ def print_slash_help(command_name: str | None) -> None:
 
 
 pending_images: list[bytes] = []
+pending_system_messages: list[str] = []
 
 
 @slash_commands.command(
@@ -83,6 +84,17 @@ pending_images: list[bytes] = []
 def load_image(image: BinaryIO) -> None:
     global pending_images  # noqa: PLW0603
     pending_images += (image.read(),)
+
+
+@slash_commands.command(
+    name="system",
+    help="Insert a system-role message into the prompt.",
+    add_help_option=False,
+)
+@click.argument("text", nargs=-1)
+def system_message(text: tuple[str, ...]) -> None:
+    global pending_system_messages  # noqa: PLW0602
+    pending_system_messages.append(" ".join(text))
 
 
 def process_slash_command(user_input: str) -> bool:
@@ -116,6 +128,16 @@ def prompt_loop(
 
     if not user_input or process_slash_command(user_input):
         return
+
+    if len(pending_system_messages) > 0:
+        messages.extend(
+            {
+                "role": "system",
+                "content": message,
+            }
+            for message in pending_system_messages
+        )
+        pending_system_messages.clear()
 
     messages.append(
         {

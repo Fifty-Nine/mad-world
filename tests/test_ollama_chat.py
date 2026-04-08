@@ -24,6 +24,7 @@ from mad_world.ollama_chat import (
     process_slash_command,
     prompt_loop,
     run_chat,
+    system_message,
 )
 
 
@@ -77,6 +78,21 @@ def test_load_image(tmp_path: Path) -> None:
         ollama_chat.pending_images = old_pending
 
 
+def test_system_message() -> None:
+    """Test system_message command."""
+    runner = CliRunner()
+
+    old_pending = list(ollama_chat.pending_system_messages)
+    ollama_chat.pending_system_messages.clear()
+    try:
+        result = runner.invoke(system_message, ["hello", "world"])
+        assert result.exit_code == 0
+        assert len(ollama_chat.pending_system_messages) == 1
+        assert ollama_chat.pending_system_messages[0] == "hello world"
+    finally:
+        ollama_chat.pending_system_messages = old_pending
+
+
 def test_process_slash_command_not_slash() -> None:
     """Test process_slash_command with non-slash input."""
     assert process_slash_command("hello world") is False
@@ -92,6 +108,14 @@ def test_process_slash_command_valid() -> None:
         )
 
 
+def test_process_system_command() -> None:
+    with patch("mad_world.ollama_chat.slash_commands.main") as mock_main:
+        assert process_slash_command("/system user provided    text") is True
+        mock_main.assert_called_once_with(
+            args=["system", "user", "provided", "text"], standalone_mode=False
+        )
+
+
 def test_process_slash_command_invalid(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -100,6 +124,21 @@ def test_process_slash_command_invalid(
     assert process_slash_command("/invalid_command_xyz") is True
     captured = capsys.readouterr()
     assert "Error: No such command 'invalid_command_xyz'." in captured.out
+
+
+def test_process_slash_command_click_exception(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test process_slash_command handling ClickException."""
+    import click  # noqa: PLC0415
+
+    with patch(
+        "mad_world.ollama_chat.slash_commands.main",
+        side_effect=click.ClickException("mock error"),
+    ):
+        assert process_slash_command("/dummy") is True
+        captured = capsys.readouterr()
+        assert "Error: mock error" in captured.out
 
 
 def test_process_slash_command_quit() -> None:
@@ -134,6 +173,35 @@ def test_prompt_loop_slash_command() -> None:
 
     assert not messages
     client_mock.chat.assert_not_called()
+
+
+def test_prompt_loop_system_message() -> None:
+    """Test prompt_loop with a pending system message."""
+    session_mock = MagicMock()
+    session_mock.prompt.return_value = "Hello"
+    client_mock = MagicMock()
+    client_mock.chat.return_value = [
+        {"message": {"content": "Hi there!"}},
+    ]
+    messages: list[dict[str, Any]] = []
+
+    old_pending = list(ollama_chat.pending_system_messages)
+    ollama_chat.pending_system_messages.clear()
+    ollama_chat.pending_system_messages.append("You are a helpful assistant.")
+
+    try:
+        prompt_loop(session_mock, client_mock, "model", messages, LLMParams())
+    finally:
+        ollama_chat.pending_system_messages = old_pending
+
+    assert len(messages) == 3
+    assert messages[0] == {
+        "role": "system",
+        "content": "You are a helpful assistant.",
+    }
+    assert messages[1] == {"role": "user", "content": "Hello", "images": []}
+    assert messages[2] == {"role": "assistant", "content": "Hi there!"}
+    assert len(ollama_chat.pending_system_messages) == 0
 
 
 def test_prompt_loop_valid_input(capsys: pytest.CaptureFixture[str]) -> None:
