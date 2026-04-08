@@ -1,6 +1,7 @@
 - **Implement mandates**
 - **Add influence cap/decay**
 - **Add coop win condition**
+- Add a cheap operation that swaps one of your cubes for the opponent's.
 - Add more crises
 - Expand testing of ollama_player
 - Add stochastic clock effects.
