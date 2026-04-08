@@ -246,6 +246,74 @@ def test_prompt_loop_valid_input(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Hi there!" in captured.out
 
 
+def test_run_chat_with_gm_prompt(tmp_path: Path) -> None:
+    """Test run_chat with gm_prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    # We need to capture the messages passed to prompt_loop
+    messages_captured: list[dict[str, Any]] = []
+
+    def mock_prompt_loop(
+        session: PromptSession[str],
+        client: ollama.Client,
+        model: str,
+        messages: list[dict[str, Any]],
+        llm_params: LLMParams,
+    ) -> None:
+        messages_captured.extend(messages)
+        raise QuitProgram(0)
+
+    with (
+        patch("mad_world.ollama_chat.ollama.Client"),
+        patch("mad_world.ollama_chat.PromptSession"),
+        patch(
+            "mad_world.ollama_chat.prompt_loop", side_effect=mock_prompt_loop
+        ),
+        pytest.raises(QuitProgram),
+    ):
+        run_chat(log_file, gm_prompt="System prompt")
+
+    assert len(messages_captured) == 1
+    assert messages_captured[0] == {
+        "role": "system",
+        "content": "System prompt",
+    }
+
+
+def test_main_with_gm_prompt(tmp_path: Path) -> None:
+    """Test main with --gm-prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    runner = CliRunner()
+    with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
+        result = runner.invoke(
+            main, [str(log_file), "--gm-prompt", "custom prompt"]
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["gm_prompt"] == "custom prompt"
+
+
+def test_main_default_gm_prompt(tmp_path: Path) -> None:
+    """Test main with default gm_prompt."""
+    log_file = tmp_path / "log.json.gz"
+    with gzip.open(log_file, "wt") as f:
+        json.dump([], f)
+
+    runner = CliRunner()
+    with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
+        result = runner.invoke(main, [str(log_file)])
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        gm_prompt = mock_run.call_args.kwargs["gm_prompt"]
+        assert gm_prompt is not None
+        assert "game master (GM)" in gm_prompt
+
+
 def test_run_chat_invalid_file() -> None:
     """Test run_chat with invalid file."""
     assert run_chat(Path("non_existent_file.gz"), "model") == 1
@@ -291,10 +359,16 @@ def test_main_success(tmp_path: Path) -> None:
 
     runner = CliRunner()
     with patch("mad_world.ollama_chat.run_chat", return_value=0) as mock_run:
-        result = runner.invoke(main, [str(log_file), "--model", "mymodel"])
+        result = runner.invoke(
+            main, [str(log_file), "--model", "mymodel", "--no-gm-prompt"]
+        )
         assert result.exit_code == 0
         mock_run.assert_called_once_with(
-            log_file, "mymodel", host=None, settings=None
+            log_file,
+            "mymodel",
+            host=None,
+            settings=None,
+            gm_prompt=None,
         )
 
 
