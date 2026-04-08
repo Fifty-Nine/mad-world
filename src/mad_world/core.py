@@ -21,6 +21,7 @@ from mad_world.actions import (
 from mad_world.crises import BaseCrisis, create_crisis_deck
 from mad_world.decks import Deck
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
@@ -91,6 +92,9 @@ class GameState(BaseModel):
     crisis_deck: Deck[BaseCrisis] = Field(
         description="The deck from which to deal crises."
     )
+    event_deck: Deck[BaseEventCard] = Field(
+        description="The deck from which to draw round events."
+    )
     pending_crisis: BaseCrisis | None = Field(
         default=None,
         description="The pending crisis to resolve.",
@@ -134,6 +138,9 @@ class GameState(BaseModel):
             crisis_deck=create_crisis_deck(rng)
             if rules.initial_crisis_deck is None
             else Deck[BaseCrisis].create(rules.initial_crisis_deck, rng),
+            event_deck=create_event_deck(rng)
+            if rules.initial_event_deck is None
+            else Deck[BaseEventCard].create(rules.initial_event_deck, rng),
             **kwargs,
         )
         result.escalate(SystemActor(), rules.initial_clock_state)
@@ -298,6 +305,9 @@ class GameState(BaseModel):
         self.last_phase = self.current_phase
         match self.last_phase:
             case GamePhase.OPENING:
+                self.current_phase = GamePhase.ROUND_EVENTS
+
+            case GamePhase.ROUND_EVENTS:
                 self.current_phase = GamePhase.BIDDING_MESSAGING
 
             case GamePhase.BIDDING_MESSAGING:
@@ -310,7 +320,7 @@ class GameState(BaseModel):
                 self.current_phase = GamePhase.OPERATIONS
 
             case GamePhase.OPERATIONS:
-                self.current_phase = GamePhase.BIDDING_MESSAGING
+                self.current_phase = GamePhase.ROUND_EVENTS
                 self.current_round += 1
 
             case GamePhase.CRISIS_MESSAGING:
@@ -622,6 +632,21 @@ async def resolve_opening(
     return new_game
 
 
+async def resolve_round_events(game: GameState) -> GameState:
+    new_game = copy.deepcopy(game)
+    if len(new_game.event_deck) > 0:
+        event_card = new_game.event_deck.draw(new_game.rng)
+        events = event_card.run(new_game)
+        for e in events:
+            new_game.apply_event(e)
+
+        new_game.event_deck.discard(event_card)
+
+    new_game.advance_phase()
+
+    return new_game
+
+
 async def resolve_crisis(
     game: GameState, players: list[GamePlayer]
 ) -> GameState:
@@ -650,6 +675,9 @@ async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
     match game.current_phase:
         case GamePhase.OPENING:
             return await resolve_opening(game, players)
+
+        case GamePhase.ROUND_EVENTS:
+            return await resolve_round_events(game)
 
         case GamePhase.BIDDING:
             return await resolve_bidding(game, players)

@@ -14,6 +14,7 @@ class GamePhase(Enum):
     CRISIS_MESSAGING = 6
     CRISIS = 7
     END = 8
+    ROUND_EVENTS = 9
 
     def is_messaging(self) -> bool:
         return self in (
