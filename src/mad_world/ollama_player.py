@@ -48,6 +48,7 @@ if TYPE_CHECKING:
 
     from mad_world.config import LLMPlayerConfig
     from mad_world.crises import GenericCrisis
+    from mad_world.effects import BaseEffect
     from mad_world.events import GameEvent
     from mad_world.rules import GameRules, OperationDefinition
 
@@ -941,6 +942,25 @@ class OllamaPlayer(GamePlayer):
 
         return result
 
+    def format_ongoing_effects(self, game: GameState) -> str:
+        if not game.active_effects:
+            return ""
+
+        result = "Ongoing Effects:\n"
+
+        def format_effect(effect: BaseEffect) -> str:
+            return (
+                f" - {effect.title}:\n   {effect.mechanics}\n"
+                f"   Ongoing until the start of round {effect.end_round}\n"
+            )
+
+        result += "\n".join(
+            format_effect(effect) for effect in game.active_effects
+        )
+        result += "\n"
+
+        return result
+
     def my_strategy(self, *, for_compression: bool = False) -> str:
         if self.grand_strategy is None:
             return ""
@@ -1084,6 +1104,7 @@ class OllamaPlayer(GamePlayer):
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
+        prompt += self.format_ongoing_effects(game)
         prompt += (
             "Reminder: these are the allowed bids you may submit: "
             f"{game.allowed_bids}\n"
@@ -1106,6 +1127,7 @@ class OllamaPlayer(GamePlayer):
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
         prompt += self.first_strike_warning(game)
+        prompt += self.format_ongoing_effects(game)
         prompt += "These are the operations you can currently afford:\n"
         prompt += self.format_allowed_ops(
             self.my_influence(game), game.allowed_operations
