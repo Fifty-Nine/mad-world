@@ -7,6 +7,7 @@ import copy
 import logging
 import random
 from dataclasses import dataclass
+from functools import reduce
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from pydantic import BaseModel, Field
@@ -126,17 +127,19 @@ class GameState(BaseModel):
 
     @property
     def allowed_operations(self) -> dict[str, OperationDefinition]:
-        ops = self.rules.allowed_operations.copy()
-        for effect in self.active_effects:
-            ops = effect.modify_operations(ops)
-        return ops
+        return reduce(
+            lambda ops, fn: fn(ops),
+            (effect.modify_operations for effect in self.active_effects),
+            self.rules.allowed_operations,
+        )
 
     @property
     def allowed_bids(self) -> list[int]:
-        bids = self.rules.allowed_bids.copy()
-        for effect in self.active_effects:
-            bids = effect.modify_bids(bids)
-        return bids
+        return reduce(
+            lambda ops, fn: fn(ops),
+            (effect.modify_bids for effect in self.active_effects),
+            self.rules.allowed_bids,
+        )
 
     @classmethod
     def new_game(
