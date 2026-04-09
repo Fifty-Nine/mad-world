@@ -9,15 +9,33 @@ updates:
   - package-ecosystem: "uv"
     directory: "/"
     multi-ecosystem-group: "weekly-updates"
-    groups:
-      trivial:
-        update-types: ["minor","patch"]
-        patterns: ["*"]
+    patterns: ["*"]
+    allow:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     multi-ecosystem-group: "weekly-updates"
-    groups:
-      trivial:
-        update-types: ["minor","patch"]
-        patterns: ["*"]
+    patterns: ["*"]
+    allow:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor", "version-update:semver-patch"]
+
+  - package-ecosystem: "uv"
+    directory: "/"
+    patterns: ["*"]
+    allow:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns: ["*"]
+    allow:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    schedule:
+      interval: "weekly"

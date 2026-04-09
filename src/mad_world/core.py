@@ -626,6 +626,9 @@ async def resolve_operations(
         players[1].operations(game),
     )
 
+    alpha_action.operations.reverse()
+    omega_action.operations.reverse()
+
     new_game = copy.deepcopy(game)
     i = game.rng.choice([0, 1])
 
@@ -646,7 +649,7 @@ async def resolve_operations(
                 new_game,
                 active_name,
                 target_name,
-                active_ops.pop(0),
+                active_ops.pop(),
             ),
         )
 

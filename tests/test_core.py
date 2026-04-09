@@ -26,6 +26,7 @@ from mad_world.core import (
     get_bid_impact,
     iterate_game,
     resolve_operation,
+    resolve_operations,
 )
 from mad_world.crises import (
     SANCTIONS_TIE_GDP_EFFECT,
@@ -540,3 +541,53 @@ async def test_autosave_exception(
         await game.autosave()
         assert log_except.called
         assert log_except.called
+
+
+@pytest.mark.asyncio
+async def test_operations_negative_influence_resolution(
+    basic_game: GameState,
+) -> None:
+    # Give both players 3 influence
+    basic_game.players["Alpha"].influence = basic_game.allowed_operations[
+        "stand-down"
+    ].influence_cost
+    basic_game.players["Omega"].influence = basic_game.allowed_operations[
+        "domestic-investment"
+    ].influence_cost
+
+    # If stand-down is rebalanced to remove the enemy influence penalty this
+    # test will need to be updated.
+    assert (
+        basic_game.allowed_operations["stand-down"].enemy_influence_effect <= -1
+    )
+
+    alpha_action = OperationsAction(operations=["domestic-investment"])
+    omega_action = OperationsAction(operations=["stand-down"])
+
+    class TestAlphaPlayer(Diplomat):
+        async def operations(self, game: GameState) -> OperationsAction:
+            return alpha_action
+
+    class TestOmegaPlayer(Diplomat):
+        async def operations(self, game: GameState) -> OperationsAction:
+            return omega_action
+
+    new_game = await resolve_operations(
+        basic_game,
+        [TestAlphaPlayer(name="alpha"), TestOmegaPlayer(name="omega")],
+    )
+
+    # Validate Omega's operation was rejected
+    # The last 3 events should be:
+    # 1. Omega's stand-down
+    # 2. Alpha's rejected operation
+    # 3. System message advancing phase
+
+    events = new_game.event_log
+    rejected_event = next(
+        e for e in reversed(events) if "rejected" in e.description
+    )
+
+    assert "Alpha" in rejected_event.description
+    assert "domestic-investment" in rejected_event.description
+    assert "INSUFFICIENT INFLUENCE" in rejected_event.description
