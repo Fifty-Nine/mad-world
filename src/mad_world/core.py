@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import os
 import random
 from dataclasses import dataclass
 from functools import reduce
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, cast
 
+import anyio
 from pydantic import BaseModel, Field
 
 from mad_world.actions import (
@@ -342,7 +344,7 @@ class GameState(BaseModel):
 
         return True
 
-    def advance_phase(self) -> None:  # noqa: C901 # TODO: Address complexity later
+    def advance_phase(self) -> None:
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
@@ -413,10 +415,13 @@ class GameState(BaseModel):
             ),
         )
 
-        if self.log_dir is not None:
-            (self.log_dir / "game_state.json").write_text(
-                self.model_dump_json(indent=2)
-            )
+    async def autosave(self) -> None:
+        if self.log_dir is None:
+            return
+
+        await anyio.Path(
+            os.fspath(self.log_dir / "game_state.json")
+        ).write_text(self.model_dump_json(indent=2))
 
     def _expire_effects(self) -> None:
         new_effects: list[BaseEffect] = []
@@ -782,6 +787,7 @@ async def game_loop(
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
+            await game.autosave()
         except WorldDestroyed:
             game = destroy_world(game)
             break
