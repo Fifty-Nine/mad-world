@@ -393,6 +393,45 @@ def test_format_game_state(test_player: Any, basic_game: GameState) -> None:
     assert bool(state_str)
 
 
+def test_format_ongoing_effects_empty(
+    test_player: Any, basic_game: GameState
+) -> None:
+    basic_game.active_effects = []
+    result = test_player.format_ongoing_effects(basic_game)
+    assert result == ""
+
+
+def test_format_ongoing_effects_with_effects(
+    test_player: Any, basic_game: GameState
+) -> None:
+    mock_effect_1 = MagicMock()
+    mock_effect_1.title = "Effect 1"
+    mock_effect_1.mechanics = "Does a thing"
+    mock_effect_1.end_round = 3
+
+    mock_effect_2 = MagicMock()
+    mock_effect_2.title = "Effect 2"
+    mock_effect_2.mechanics = "Does another thing"
+    mock_effect_2.end_round = 5
+
+    basic_game.active_effects = [mock_effect_1, mock_effect_2]
+
+    result = test_player.format_ongoing_effects(basic_game)
+
+    expected = (
+        "Ongoing Effects:\n"
+        " - Effect 1:\n"
+        "   Does a thing\n"
+        "   Ongoing until the start of round 3\n"
+        "\n"
+        " - Effect 2:\n"
+        "   Does another thing\n"
+        "   Ongoing until the start of round 5\n"
+        "\n"
+    )
+    assert result == expected
+
+
 @pytest.mark.asyncio
 async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
     test_player.retry_prompt = AsyncMock()
