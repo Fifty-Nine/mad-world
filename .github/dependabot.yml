@@ -1,11 +1,23 @@
 version: 2
-updates:
-  - package-ecosystem: "uv" # See documentation for possible values
-    directory: "/" # Location of package manifests
+
+multi-ecosystem-groups:
+  weekly-updates:
     schedule:
       interval: "weekly"
 
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    multi-ecosystem-group: "weekly-updates"
+    groups:
+      trivial:
+        update-types: ["minor","patch"]
+        patterns: ["*"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
+    multi-ecosystem-group: "weekly-updates"
+    groups:
+      trivial:
+        update-types: ["minor","patch"]
+        patterns: ["*"]
