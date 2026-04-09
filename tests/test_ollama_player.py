@@ -9,7 +9,7 @@ import pytest
 
 from mad_world.actions import BaseAction, InvalidActionError
 from mad_world.config import LLMParams, LLMPlayerConfig
-from mad_world.events import GameEvent, PlayerActor
+from mad_world.events import ActionEvent, PlayerActor
 from mad_world.ollama_player import ActionResponse, OllamaPlayer
 
 if TYPE_CHECKING:
@@ -299,7 +299,7 @@ def test_escalation_debt(test_player: Any, basic_game: GameState) -> None:
 
     for _ in range(10):
         basic_game.event_log.append(
-            GameEvent(
+            ActionEvent(
                 actor=PlayerActor(name="Alpha"),
                 description="Alpha bid high",
                 clock_delta=1,

@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING, ClassVar, override
 from pydantic import Field
 
 from mad_world.cards import BaseCard
-from mad_world.events import GameEvent, SystemActor
+from mad_world.events import SystemEvent
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
+    from mad_world.events import GameEvent
     from mad_world.rules import OperationDefinition
 
 
@@ -47,8 +48,7 @@ class BaseEffect(BaseCard, ABC):
 
     def on_expire(self, game: GameState) -> list[GameEvent]:
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=f"Ongoing effect '{self.title}' has expired.",
             )
         ]

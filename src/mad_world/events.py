@@ -40,13 +40,16 @@ class PlayerActor(BaseModel):
 AnyActor = SystemActor | PlayerActor | None
 
 
-class GameEvent(BaseModel):
+class EventKind(Enum):
+    SYSTEM = "system"
+    STATE = "state"
+    ACTION = "action"
+    MESSAGE = "message"
+
+
+class BaseGameEvent(BaseModel):
     """Represents a discrete state change in the game."""
 
-    actor: Annotated[
-        SystemActor | PlayerActor,
-        Field(discriminator="actor_kind"),
-    ]
     description: str = Field(description="A brief description of the event.")
     clock_delta: int = Field(
         default=0,
@@ -84,3 +87,29 @@ class GameEvent(BaseModel):
         default_factory=list,
         description="Ongoing effects applied by this event.",
     )
+
+
+class SystemEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.SYSTEM] = Field(default=EventKind.SYSTEM)
+    actor: SystemActor = Field(default_factory=SystemActor)
+
+
+class StateEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.STATE] = Field(default=EventKind.STATE)
+    actor: SystemActor = Field(default_factory=SystemActor)
+
+
+class ActionEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
+    actor: PlayerActor
+
+
+class MessageEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.MESSAGE] = Field(default=EventKind.MESSAGE)
+    actor: PlayerActor
+
+
+GameEvent = Annotated[
+    SystemEvent | StateEvent | ActionEvent | MessageEvent,
+    Field(discriminator="event_kind"),
+]
