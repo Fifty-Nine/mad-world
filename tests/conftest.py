@@ -110,5 +110,11 @@ def stable_rng(
     def fixed_shuffle(values: list[Any]) -> None:
         values.sort(reverse=True)
 
-    with patch.object(seeded_rng, "shuffle", side_effect=fixed_shuffle):
+    def fixed_choice(values: list[Any]) -> Any:
+        return min(values)
+
+    with (
+        patch.object(seeded_rng, "shuffle", side_effect=fixed_shuffle),
+        patch.object(seeded_rng, "choice", side_effect=fixed_choice),
+    ):
         yield seeded_rng
