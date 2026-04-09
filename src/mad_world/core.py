@@ -763,3 +763,61 @@ def format_results(
         result += f"  {player.name}: {player.gdp} GDP, {player.influence} Inf\n"
 
     return result
+
+
+class GameManager:
+    """Manages game state and execution, allowing for manual stepping."""
+
+    def __init__(self, rules: GameRules, players: list[GamePlayer]) -> None:
+        self.rules = rules
+        self.players = players
+        self.game = GameState.new_game(
+            players=[p.name for p in players], rules=rules
+        )
+        self.game_over = False
+        self.winner: str | None = None
+        self.reason: GameOverReason | None = None
+
+    async def start(self) -> None:
+        """Initialize the game and players."""
+        await asyncio.gather(*(p.start_game(self.rules) for p in self.players))
+
+    async def step(self) -> None:
+        """Advance the game by one phase."""
+        if self.game_over:
+            return
+
+        if check_game_over(self.game):
+            await self._handle_game_over()
+            return
+
+        try:
+            self.game = await iterate_game(self.game, self.players)
+        except WorldDestroyed:
+            self.game = destroy_world(self.game)
+            await self._handle_game_over()
+            return
+
+        if check_game_over(self.game):
+            await self._handle_game_over()  # pragma: no cover
+
+    async def _handle_game_over(self) -> None:
+        self.game_over = True
+        self.winner, self.reason = self.game.determine_victor()
+
+        logger = logging.getLogger("mad_world")
+        logger.debug("Victor: %s", self.winner or "no one")
+        logger.debug("Reason: %s", self.reason.name)
+
+        self.game.apply_event(
+            GameEvent(
+                actor=SystemActor(),
+                description=(
+                    f"Game over! {self.winner or 'No one'} won due to "
+                    f"{self.reason.name}."
+                ),
+            ),
+        )
+
+        for player in self.players:
+            await player.game_over(self.game, self.winner, self.reason)
