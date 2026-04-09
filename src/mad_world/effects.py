@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from abc import ABC
+from typing import TYPE_CHECKING, ClassVar, override
 
 from pydantic import Field
 
@@ -14,16 +15,25 @@ if TYPE_CHECKING:
     from mad_world.rules import OperationDefinition
 
 
-class BaseEffect(BaseCard):
-    """Base class for all ongoing effects in the game."""
+class BaseEffect(BaseCard, ABC):
+    """Base class for all ongoing effects in the game.
 
-    title: str = Field(description="The title of the effect.")
-    description: str = Field(
-        description="The narrative description of the effect."
-    )
+    Class attributes:
+        title (str): The title of the effect.
+        description (str): A narrative description of the effect.
+        mechanics (str): A description of the effect's impact to the game's
+                         mechanics.
+    """
+
+    title: ClassVar[str]
+    description: ClassVar[str]
+    mechanics: ClassVar[str]
     expiration_round: int | None = Field(
         default=None,
-        description="The round at which this effect expires, if any.",
+        description=(
+            "The round in which this effect was triggered. "
+            "This is filled in by the game loop."
+        ),
     )
 
     def modify_operations(
@@ -52,9 +62,16 @@ class BaseEffect(BaseCard):
 class NoZeroBidsEffect(BaseEffect):
     card_kind: ClassVar[str] = "no_zero_bids"
 
-    title: str = "Tense Atmosphere"
-    description: str = "De-escalation is politically impossible right now."
+    title: ClassVar[str] = "Tense Atmosphere"
+    description: ClassVar[str] = (
+        "De-escalation is politically impossible right now."
+    )
+    mechanics: ClassVar[str] = (
+        "During the bidding phase, zero bids are forbidden while the "
+        "effect is ongoing."
+    )
 
+    @override
     def modify_bids(self, bids: list[int]) -> list[int]:
         return [b for b in bids if b != 0]
 
@@ -62,11 +79,16 @@ class NoZeroBidsEffect(BaseEffect):
 class NoDomesticInvestmentEffect(BaseEffect):
     card_kind: ClassVar[str] = "no_domestic_investment"
 
-    title: str = "Supply Chain Collapse"
-    description: str = (
+    title: ClassVar[str] = "Supply Chain Collapse"
+    description: ClassVar[str] = (
         "Domestic investment operations are temporarily disabled."
     )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, 'domestic-investment' operations are "
+        "forbidden while the effect is ongoing."
+    )
 
+    @override
     def modify_operations(
         self, ops: dict[str, OperationDefinition]
     ) -> dict[str, OperationDefinition]:
