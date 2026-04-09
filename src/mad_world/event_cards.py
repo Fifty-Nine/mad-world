@@ -8,6 +8,7 @@ from pydantic import Field
 
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
+from mad_world.effects import NoDomesticInvestmentEffect, NoZeroBidsEffect
 from mad_world.events import GameEvent, SystemActor
 
 if TYPE_CHECKING:
@@ -157,6 +158,46 @@ class InfluenceBothEvent(BaseEventCard):
         ]
 
 
+class BanZeroBidsEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "ban_zero_bids"
+
+    title: str = "Breakdown in Communications"
+    description: str = "De-escalation becomes impossible as talks break down."
+
+    def run(self, game: GameState) -> list[GameEvent]:
+        effect = NoZeroBidsEffect(duration=2)
+        return [
+            GameEvent(
+                actor=SystemActor(),
+                description=(
+                    f"Event: {self.title} - A new ongoing effect "
+                    f"'{effect.title}' has been applied."
+                ),
+                new_effects=[effect],
+            )
+        ]
+
+
+class BanDomesticInvestmentEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "ban_domestic_investment"
+
+    title: str = "Global Market Crash"
+    description: str = "A sudden market crash halts domestic investments."
+
+    def run(self, game: GameState) -> list[GameEvent]:
+        effect = NoDomesticInvestmentEffect(duration=2)
+        return [
+            GameEvent(
+                actor=SystemActor(),
+                description=(
+                    f"Event: {self.title} - A new ongoing effect "
+                    f"'{effect.title}' has been applied."
+                ),
+                new_effects=[effect],
+            )
+        ]
+
+
 def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
     cards: list[BaseEventCard] = []
 
@@ -170,6 +211,8 @@ def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
                 GDPP1Event(),
                 GDPP2Event(),
                 InfluenceBothEvent(),
+                BanZeroBidsEvent(),
+                BanDomesticInvestmentEvent(),
             ]
         )
 

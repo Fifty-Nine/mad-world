@@ -64,7 +64,7 @@ class CrazyIvan(TrivialPlayer):
     @override
     async def bid(self, game: GameState) -> BiddingAction:
         return BiddingAction(
-            bid=max(game.rules.allowed_bids),
+            bid=max(game.allowed_bids),
         )
 
     @override
@@ -167,7 +167,8 @@ class Saboteur(TrivialPlayer):
             )
 
         my_state = game.players[self.name]
-        cost = game.rules.allowed_operations["proxy-subversion"].influence_cost
+        op = game.allowed_operations.get("proxy-subversion")
+        cost = op.influence_cost if op else float("inf")
         if my_state.influence >= cost:
             msg = (
                 "Oh, did your infrastructure spontaneously combust? "
@@ -187,7 +188,8 @@ class Saboteur(TrivialPlayer):
     @override
     async def operations(self, game: GameState) -> OperationsAction:
         my_state = game.players[self.name]
-        cost = game.rules.allowed_operations["proxy-subversion"].influence_cost
+        op = game.allowed_operations.get("proxy-subversion")
+        cost = op.influence_cost if op else float("inf")
 
         if my_state.influence >= cost:
             return OperationsAction(
@@ -221,9 +223,8 @@ class Diplomat(TrivialPlayer):
             )
 
         my_state = game.players[self.name]
-        cost = game.rules.allowed_operations[
-            "unilateral-drawdown"
-        ].influence_cost
+        op = game.allowed_operations.get("unilateral-drawdown")
+        cost = op.influence_cost if op else float("inf")
         if my_state.influence >= cost:
             msg = (
                 "I invite you to the negotiating table. "
@@ -243,9 +244,8 @@ class Diplomat(TrivialPlayer):
     @override
     async def operations(self, game: GameState) -> OperationsAction:
         my_state = game.players[self.name]
-        cost = game.rules.allowed_operations[
-            "unilateral-drawdown"
-        ].influence_cost
+        op = game.allowed_operations.get("unilateral-drawdown")
+        cost = op.influence_cost if op else float("inf")
 
         if my_state.influence >= cost:
             return OperationsAction(
@@ -286,7 +286,7 @@ class ParetoEfficientPlayer(TrivialPlayer):
             bid=pareto_optimal_bid(
                 game.doomsday_clock,
                 game.rules.max_clock_state,
-                game.rules.allowed_bids,
+                game.allowed_bids,
             )
         )
 
@@ -316,9 +316,13 @@ class ParetoEfficientPlayer(TrivialPlayer):
         ibudget = game.players[self.name].influence
 
         ops_to_check = [
-            game.rules.allowed_operations["proxy-subversion"],
-            game.rules.allowed_operations["aggressive-extraction"],
-            game.rules.allowed_operations["domestic-investment"],
+            op
+            for op_name in [
+                "proxy-subversion",
+                "aggressive-extraction",
+                "domestic-investment",
+            ]
+            if (op := game.allowed_operations.get(op_name))
         ]
 
         result: list[str] = []

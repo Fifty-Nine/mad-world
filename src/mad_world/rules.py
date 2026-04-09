@@ -5,7 +5,7 @@ from __future__ import annotations
 import textwrap
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from mad_world.crises import BaseCrisis
 from mad_world.event_cards import BaseEventCard
@@ -41,6 +41,7 @@ class OperationDefinition(BaseModel):
         description="The GDP impact on the opposing player.",
         default=0,
     )
+    model_config = ConfigDict(frozen=True)
 
     @staticmethod
     def format_one(val: int, field: str, desc_fn: Callable[[int], str]) -> str:

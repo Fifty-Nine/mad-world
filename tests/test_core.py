@@ -174,9 +174,12 @@ def test_operations_action_validate_semantics_valid(
 def test_operations_action_validate_semantics_insufficient_influence(
     basic_game: GameState,
 ) -> None:
-    basic_game.rules.allowed_operations[
+    domestic_investment = basic_game.rules.allowed_operations[
         "domestic-investment"
-    ].influence_cost = 3
+    ].model_copy(update={"influence_cost": 3})
+    basic_game.rules.allowed_operations = {
+        "domestic-investment": domestic_investment
+    }
     action = OperationsAction(
         operations=["domestic-investment", "domestic-investment"],
     )

@@ -62,7 +62,7 @@ def test_operation_formatting() -> None:
         "x  Opponent GDP decrease: 3\n"
     )
 
-    test_op.name = "first-strike"
+    test_op = test_op.model_copy(update={"name": "first-strike"})
     assert test_op.format(verbose=True) == (
         "first-strike:\n"
         "  Description:\n"

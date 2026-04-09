@@ -7,6 +7,7 @@ import copy
 import logging
 import random
 from dataclasses import dataclass
+from functools import reduce
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from pydantic import BaseModel, Field
@@ -20,12 +21,14 @@ from mad_world.actions import (
 )
 from mad_world.crises import BaseCrisis, create_crisis_deck
 from mad_world.decks import Deck
+from mad_world.effects import BaseEffect
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import GameEvent, PlayerActor, SystemActor
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
+    OperationDefinition,
 )
 from mad_world.util import bannerize, escalation_bar, wrap_text
 
@@ -117,6 +120,26 @@ class GameState(BaseModel):
         description="The RNG state used for this game.",
         default_factory=SerializableRandom,
     )
+    active_effects: list[BaseEffect] = Field(
+        default_factory=list,
+        description="The currently active ongoing effects in the game.",
+    )
+
+    @property
+    def allowed_operations(self) -> dict[str, OperationDefinition]:
+        return reduce(
+            lambda ops, fn: fn(ops),
+            (effect.modify_operations for effect in self.active_effects),
+            self.rules.allowed_operations,
+        )
+
+    @property
+    def allowed_bids(self) -> list[int]:
+        return reduce(
+            lambda ops, fn: fn(ops),
+            (effect.modify_bids for effect in self.active_effects),
+            self.rules.allowed_bids,
+        )
 
     @classmethod
     def new_game(
@@ -152,7 +175,7 @@ class GameState(BaseModel):
 
     def op_cost(self, op: str) -> int:
         """Helper function for getting the Inf cost of a named operation."""
-        return self.rules.allowed_operations[op].influence_cost
+        return self.allowed_operations[op].influence_cost
 
     def validate_operation(self, operation_name: str, player_name: str) -> None:
         """Checks the validity of a single operation without enacting it.
@@ -165,11 +188,11 @@ class GameState(BaseModel):
             InvalidActionError: if the operation is invalid.
         """
         player_state = self.players[player_name]
-        op_def = self.rules.allowed_operations.get(operation_name)
+        op_def = self.allowed_operations.get(operation_name)
         if op_def is None:
             raise InvalidOperationError(
                 operation=operation_name,
-                allowed=list(self.rules.allowed_operations.keys()),
+                allowed=list(self.allowed_operations.keys()),
             )
 
         if player_state.influence < op_def.influence_cost:
@@ -218,6 +241,12 @@ class GameState(BaseModel):
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
             player.influence = max(0, player.influence)
+
+        for effect in event.new_effects:
+            # TODO Remove the cast once `new_effects` is correctly type.
+            assert isinstance(effect, BaseEffect)
+            effect.start_round = self.current_round
+            self.active_effects.append(effect)
 
         event.current_round = self.current_round
         event.current_phase = self.current_phase
@@ -301,6 +330,7 @@ class GameState(BaseModel):
         return True
 
     def advance_phase(self) -> None:
+        # TODO: Address complexity later
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
@@ -358,6 +388,8 @@ class GameState(BaseModel):
                 )
             )
 
+        self._expire_effects()
+
         self.apply_event(
             GameEvent(
                 actor=SystemActor(),
@@ -368,6 +400,18 @@ class GameState(BaseModel):
                 secret=True,
             ),
         )
+
+    def _expire_effects(self) -> None:
+        new_effects: list[BaseEffect] = []
+        for effect in self.active_effects:
+            if not effect.is_expired(self):
+                new_effects.append(effect)
+                continue
+
+            for e in effect.on_expire(self):
+                self.apply_event(e)
+
+        self.active_effects = new_effects
 
     def recent_events(self) -> list[GameEvent]:
         result: list[GameEvent] = []
@@ -414,7 +458,7 @@ def get_bid_impact(
         error = True
 
     if error:
-        bid = max(game.rules.allowed_bids)
+        bid = max(game.allowed_bids)
         clock_impact = bid
         desc = (
             f"{player_name} submitted an invalid bid and thus their bid "
@@ -524,7 +568,7 @@ def resolve_operation(
             ),
         )
 
-    op_def = game.rules.allowed_operations[operation_name]
+    op_def = game.allowed_operations[operation_name]
     return GameEvent(
         actor=PlayerActor(name=player_name),
         description=(
