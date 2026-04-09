@@ -17,6 +17,8 @@ from mad_world import ollama_chat
 from mad_world.config import LLMParams
 from mad_world.ollama_chat import (
     QuitProgram,
+    _resolve_dir,
+    _resolve_latest,
     exit_loop,
     load_image,
     main,
@@ -539,3 +541,122 @@ def test_run_chat_explicit_settings(tmp_path: Path) -> None:
         pytest.raises(QuitProgram),
     ):
         run_chat(log_file, settings=settings_file)
+
+
+def test_resolve_latest_no_logs_dir() -> None:
+    with (
+        patch("mad_world.ollama_chat.click.secho"),
+        patch("mad_world.ollama_chat.Path") as mock_path,
+    ):
+        mock_path.return_value.exists.return_value = False
+        with pytest.raises(SystemExit) as e:
+            _resolve_latest()
+        assert e.value.code == 1
+
+
+def test_resolve_latest_no_subdirs() -> None:
+    with (
+        patch("mad_world.ollama_chat.click.secho"),
+        patch("mad_world.ollama_chat.Path") as mock_path,
+    ):
+        mock_path.return_value.exists.return_value = True
+        mock_path.return_value.is_dir.return_value = True
+        mock_path.return_value.iterdir.return_value = []
+        with pytest.raises(SystemExit) as e:
+            _resolve_latest()
+        assert e.value.code == 1
+
+
+def test_resolve_latest_success() -> None:
+    mock_dir1 = MagicMock()
+    mock_dir1.is_dir.return_value = True
+    mock_dir1.stat.return_value.st_mtime = 100
+
+    mock_dir2 = MagicMock()
+    mock_dir2.is_dir.return_value = True
+    mock_dir2.stat.return_value.st_mtime = 200
+
+    with patch("mad_world.ollama_chat.Path") as mock_path:
+        mock_path.return_value.exists.return_value = True
+        mock_path.return_value.is_dir.return_value = True
+        mock_path.return_value.iterdir.return_value = [mock_dir1, mock_dir2]
+
+        res = _resolve_latest()
+        assert res == mock_dir2
+
+
+def test_resolve_dir_no_files(tmp_path: Path) -> None:
+    with patch("mad_world.ollama_chat.click.secho"):
+        with pytest.raises(SystemExit) as e:
+            _resolve_dir(tmp_path)
+        assert e.value.code == 1
+
+
+def test_resolve_dir_one_file(tmp_path: Path) -> None:
+    f1 = tmp_path / "f1.messages.gz"
+    f1.write_bytes(b"")
+    assert _resolve_dir(tmp_path) == f1
+
+
+def test_resolve_dir_multiple_files_valid_choice(tmp_path: Path) -> None:
+    f1 = tmp_path / "f1.messages.gz"
+    f2 = tmp_path / "f2.messages.gz"
+    f1.write_bytes(b"")
+    f2.write_bytes(b"")
+    with patch("mad_world.ollama_chat.click.prompt", return_value=2):
+        res = _resolve_dir(tmp_path)
+        assert res.name in ("f1.messages.gz", "f2.messages.gz")
+
+
+def test_main_with_latest_not_dir(tmp_path: Path) -> None:
+    runner = CliRunner()
+    with (
+        patch(
+            "mad_world.ollama_chat._resolve_latest",
+            return_value=tmp_path / "notadir.gz",
+        ),
+        patch("mad_world.ollama_chat.run_chat", return_value=0),
+    ):
+        (tmp_path / "notadir.gz").write_bytes(b"")
+        result = runner.invoke(main, ["latest", "--no-gm-prompt"])
+        assert result.exit_code == 0
+
+
+def test_main_with_dir(tmp_path: Path) -> None:
+    runner = CliRunner()
+    with (
+        patch(
+            "mad_world.ollama_chat._resolve_dir",
+            return_value=tmp_path / "file.gz",
+        ),
+        patch("mad_world.ollama_chat.run_chat", return_value=0),
+    ):
+        (tmp_path / "file.gz").write_bytes(b"")
+        result = runner.invoke(main, [str(tmp_path), "--no-gm-prompt"])
+        assert result.exit_code == 0
+
+
+def test_resolve_dir_multiple_files_invalid_choice(tmp_path: Path) -> None:
+    f1 = tmp_path / "f1.messages.gz"
+    f2 = tmp_path / "f2.messages.gz"
+    f1.write_bytes(b"")
+    f2.write_bytes(b"")
+    with (
+        patch("mad_world.ollama_chat.click.prompt", return_value=3),
+        patch("mad_world.ollama_chat.click.secho"),
+    ):
+        with pytest.raises(SystemExit) as e:
+            _resolve_dir(tmp_path)
+        assert e.value.code == 1
+
+
+def test_main_with_target_dir_and_no_files(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, [str(tmp_path)])
+    assert result.exit_code == 1
+
+
+def test_main_invalid_file() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["doesnotexist.gz"])
+    assert result.exit_code == 1

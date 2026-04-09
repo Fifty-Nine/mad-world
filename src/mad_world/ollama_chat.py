@@ -274,10 +274,51 @@ def run_chat(
         prompt_loop(session, client, final_model, messages, llm_params)
 
 
+def _resolve_latest() -> Path:
+    logs_dir = Path("logs")
+    if not logs_dir.exists() or not logs_dir.is_dir():
+        click.secho("Error: logs directory does not exist.", fg="red", err=True)
+        sys.exit(1)
+
+    directories = [d for d in logs_dir.iterdir() if d.is_dir()]
+    if not directories:
+        click.secho(
+            "Error: No session directories found in logs.", fg="red", err=True
+        )
+        sys.exit(1)
+
+    return max(directories, key=lambda d: d.stat().st_mtime)
+
+
+def _resolve_dir(target_path: Path) -> Path:
+    gz_files = list(target_path.glob("*.messages.gz"))
+    if not gz_files:
+        click.secho(
+            f"Error: No .messages.gz files found in {target_path}.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
+    if len(gz_files) == 1:
+        return gz_files[0]
+
+    click.echo("Multiple log files found. Please choose one:")
+    for i, f in enumerate(gz_files, start=1):
+        click.echo(f"[{i}] {f.name}")
+
+    choice = click.prompt("Enter the number of the log to chat with", type=int)
+    if choice < 1 or choice > len(gz_files):
+        click.secho("Error: Invalid selection.", fg="red", err=True)
+        sys.exit(1)
+
+    return Path(gz_files[choice - 1])
+
+
 @click.command()
 @click.argument(
     "log_file",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    type=str,
 )
 @click.option(
     "--model",
@@ -327,7 +368,7 @@ def run_chat(
     ),
 )
 def main(
-    log_file: Path,
+    log_file: str,
     gm_prompt: str | None,
     model: str | None = None,
     ollama_host: str | None = None,
@@ -336,12 +377,34 @@ def main(
     """
     Chat with an Ollama model using history from a gzipped JSON log file.
 
-    LOG_FILE is the path to a .gz file containing a JSON list of messages.
+    LOG_FILE is the path to a .gz file containing a JSON list of messages,
+    a directory containing such files, or 'latest' to automatically find the
+    most recent session logs directory in ./logs.
     """
+    target_path = Path(log_file)
+
+    if log_file.lower() == "latest":
+        target_path = _resolve_latest()
+        click.secho(
+            f"Resolved 'latest' to directory: {target_path}", fg="yellow"
+        )
+
+    if target_path.is_dir():
+        target_path = _resolve_dir(target_path)
+        click.secho(f"Selected: {target_path.name}", fg="yellow")
+
+    if not target_path.exists() or not target_path.is_file():
+        click.secho(
+            f"Error: Log file {target_path} does not exist or is not a file.",
+            fg="red",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
         sys.exit(
             run_chat(
-                log_file,
+                target_path,
                 model,
                 host=ollama_host,
                 settings=settings,
