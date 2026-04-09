@@ -419,9 +419,14 @@ class GameState(BaseModel):
         if self.log_dir is None:
             return
 
-        await anyio.Path(
-            os.fspath(self.log_dir / "game_state.json")
-        ).write_text(self.model_dump_json(indent=2))
+        try:
+            await anyio.Path(
+                os.fspath(self.log_dir / "game_state.json")
+            ).write_text(self.model_dump_json(indent=2))
+        except OSError:
+            logging.getLogger("mad_world").exception(
+                "Failed to write save game to log dir"
+            )
 
     def _expire_effects(self) -> None:
         new_effects: list[BaseEffect] = []
