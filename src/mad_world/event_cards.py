@@ -165,7 +165,7 @@ class BanZeroBidsEvent(BaseEventCard):
     description: str = "De-escalation becomes impossible as talks break down."
 
     def run(self, game: GameState) -> list[GameEvent]:
-        effect = NoZeroBidsEffect(expiration_round=game.current_round + 1)
+        effect = NoZeroBidsEffect(duration=2)
         return [
             GameEvent(
                 actor=SystemActor(),
@@ -185,9 +185,7 @@ class BanDomesticInvestmentEvent(BaseEventCard):
     description: str = "A sudden market crash halts domestic investments."
 
     def run(self, game: GameState) -> list[GameEvent]:
-        effect = NoDomesticInvestmentEffect(
-            expiration_round=game.current_round + 1
-        )
+        effect = NoDomesticInvestmentEffect(duration=2)
         return [
             GameEvent(
                 actor=SystemActor(),

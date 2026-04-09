@@ -28,7 +28,8 @@ class BaseEffect(BaseCard, ABC):
     title: ClassVar[str]
     description: ClassVar[str]
     mechanics: ClassVar[str]
-    expiration_round: int | None = Field(
+    duration: int | None = Field(description="The duration of the effect.")
+    start_round: int | None = Field(
         default=None,
         description=(
             "The round in which this effect was triggered. "
@@ -44,12 +45,6 @@ class BaseEffect(BaseCard, ABC):
     def modify_bids(self, bids: list[int]) -> list[int]:
         return bids
 
-    def is_expired(self, game: GameState) -> bool:
-        return (
-            self.expiration_round is not None
-            and game.current_round > self.expiration_round
-        )
-
     def on_expire(self, game: GameState) -> list[GameEvent]:
         return [
             GameEvent(
@@ -57,6 +52,21 @@ class BaseEffect(BaseCard, ABC):
                 description=f"Ongoing effect '{self.title}' has expired.",
             )
         ]
+
+    @property
+    def end_round(self) -> int | None:
+        assert self.start_round is not None
+        return (
+            (self.start_round + self.duration)
+            if self.duration is not None
+            else None
+        )
+
+    def is_expired(self, game: GameState) -> bool:
+        assert self.start_round is not None
+        return (
+            self.end_round is not None and game.current_round >= self.end_round
+        )
 
 
 class NoZeroBidsEffect(BaseEffect):

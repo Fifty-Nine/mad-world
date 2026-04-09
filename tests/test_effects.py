@@ -21,7 +21,8 @@ if TYPE_CHECKING:
 
 def test_base_effect(basic_game: GameState) -> None:
     # Use NoDomesticInvestmentEffect since it uses default modify_bids
-    effect = NoDomesticInvestmentEffect()
+    effect = NoDomesticInvestmentEffect(duration=None)
+    effect.start_round = basic_game.current_round
 
     # default modify_bids should not modify bids
     bids = basic_game.allowed_bids
@@ -39,10 +40,11 @@ def test_base_effect(basic_game: GameState) -> None:
 
 def test_expiration_logic(basic_game: GameState) -> None:
     effect = NoZeroBidsEffect(
-        expiration_round=2,
+        duration=2,
     )
-
     basic_game.current_round = 1
+
+    effect.start_round = basic_game.current_round
     assert not effect.is_expired(basic_game)
 
     basic_game.current_round = 2
@@ -53,13 +55,13 @@ def test_expiration_logic(basic_game: GameState) -> None:
 
 
 def test_no_zero_bids_effect(basic_game: GameState) -> None:
-    effect = NoZeroBidsEffect()
+    effect = NoZeroBidsEffect(duration=None)
     bids = effect.modify_bids([0, 1, 3, 5])
     assert bids == [1, 3, 5]
 
 
 def test_no_domestic_investment_effect(basic_game: GameState) -> None:
-    effect = NoDomesticInvestmentEffect()
+    effect = NoDomesticInvestmentEffect(duration=None)
     ops = basic_game.allowed_operations
     assert "domestic-investment" in ops
 
@@ -81,7 +83,7 @@ def test_ban_zero_bids_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, NoZeroBidsEffect)
-    assert effect.expiration_round == 6
+    assert effect.duration == 2
 
 
 def test_ban_domestic_investment_event(basic_game: GameState) -> None:
@@ -96,12 +98,12 @@ def test_ban_domestic_investment_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, NoDomesticInvestmentEffect)
-    assert effect.expiration_round == 3
+    assert effect.duration == 2
 
 
 def test_active_effects_integration(basic_game: GameState) -> None:
     """Test that properties actually use active_effects properly."""
-    effect = NoZeroBidsEffect()
+    effect = NoZeroBidsEffect(duration=None)
     basic_game.active_effects.append(effect)
 
     assert 0 not in basic_game.allowed_bids
@@ -116,11 +118,13 @@ def test_advance_phase_expiration_integration(basic_game: GameState) -> None:
     basic_game.current_round = 1
 
     # Adding an effect that expires after round 1
-    effect = NoZeroBidsEffect(expiration_round=1)
+    effect = NoZeroBidsEffect(duration=0)
+    effect.start_round = basic_game.current_round
     basic_game.active_effects.append(effect)
 
     # Add an effect that expires later (round 3)
-    later_effect = NoDomesticInvestmentEffect(expiration_round=3)
+    later_effect = NoDomesticInvestmentEffect(duration=2)
+    later_effect.start_round = basic_game.current_round
     basic_game.active_effects.append(later_effect)
 
     assert 0 not in basic_game.allowed_bids

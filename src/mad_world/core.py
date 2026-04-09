@@ -240,7 +240,10 @@ class GameState(BaseModel):
             player.influence = max(0, player.influence)
 
         for effect in event.new_effects:
-            self.active_effects.append(cast("BaseEffect", effect))
+            # TODO Remove the cast once `new_effects` is correctly type.
+            assert isinstance(effect, BaseEffect)
+            effect.start_round = self.current_round
+            self.active_effects.append(effect)
 
         event.current_round = self.current_round
         event.current_phase = self.current_phase
