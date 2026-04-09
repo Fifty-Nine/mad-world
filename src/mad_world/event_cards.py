@@ -166,7 +166,6 @@ class BanZeroBidsEvent(BaseEventCard):
 
     def run(self, game: GameState) -> list[GameEvent]:
         effect = NoZeroBidsEffect(expiration_round=game.current_round + 1)
-        game.active_effects.append(effect)
         return [
             GameEvent(
                 actor=SystemActor(),
@@ -174,6 +173,7 @@ class BanZeroBidsEvent(BaseEventCard):
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."
                 ),
+                new_effects=[effect],
             )
         ]
 
@@ -188,7 +188,6 @@ class BanDomesticInvestmentEvent(BaseEventCard):
         effect = NoDomesticInvestmentEffect(
             expiration_round=game.current_round + 1
         )
-        game.active_effects.append(effect)
         return [
             GameEvent(
                 actor=SystemActor(),
@@ -196,6 +195,7 @@ class BanDomesticInvestmentEvent(BaseEventCard):
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."
                 ),
+                new_effects=[effect],
             )
         ]
 

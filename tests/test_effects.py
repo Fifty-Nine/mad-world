@@ -76,6 +76,8 @@ def test_ban_zero_bids_event(basic_game: GameState) -> None:
     assert len(events) == 1
     assert "has been applied" in events[0].description
 
+    basic_game.apply_event(events[0])
+
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, NoZeroBidsEffect)
@@ -88,6 +90,8 @@ def test_ban_domestic_investment_event(basic_game: GameState) -> None:
 
     events = event.run(basic_game)
     assert len(events) == 1
+
+    basic_game.apply_event(events[0])
 
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]

@@ -239,6 +239,9 @@ class GameState(BaseModel):
             player.influence += event.influence_delta.get(player_name, 0)
             player.influence = max(0, player.influence)
 
+        for effect in event.new_effects:
+            self.active_effects.append(cast("BaseEffect", effect))
+
         event.current_round = self.current_round
         event.current_phase = self.current_phase
 
