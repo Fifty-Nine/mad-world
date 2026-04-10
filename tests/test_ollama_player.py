@@ -337,23 +337,17 @@ def test_game_ending_warning(test_player: Any, basic_game: GameState) -> None:
 def test_doomsday_warning(test_player: Any, basic_game: GameState) -> None:
     assert not test_player.doomsday_warning(basic_game)
 
-    with patch(
-        "mad_world.core.GameState.doomsday_clock", new_callable=PropertyMock
-    ) as mock_clock:
-        mock_clock.return_value = 22
+    mock_rules = MagicMock()
+    mock_rules.max_clock_state = 24
+    mock_rules.get_doomsday_bids.return_value = ([(1, 2)], [(3,)])
 
-        mock_rules = MagicMock()
-        mock_rules.max_clock_state = 24
-        mock_rules.get_doomsday_bids.return_value = ([(1, 2)], [(3,)])
+    mock_game = MagicMock()
+    mock_game.rules = mock_rules
 
-        mock_game = MagicMock()
-        mock_game.rules = mock_rules
-        type(mock_game).doomsday_clock = PropertyMock(return_value=22)
-
-        assert "WARNING: " in test_player.doomsday_warning(mock_game)
-
-        type(mock_game).doomsday_clock = PropertyMock(return_value=12)
-        assert "NOTE: " in test_player.doomsday_warning(mock_game)
+    # Test boundary condition and multiple states
+    for clock_val, expected in [(24, "WARNING: "), (22, "WARNING: "), (12, "NOTE: ")]:
+        mock_game.doomsday_clock = clock_val
+        assert expected in test_player.doomsday_warning(mock_game)
 
 
 def test_escalation_debt(test_player: Any, basic_game: GameState) -> None:
