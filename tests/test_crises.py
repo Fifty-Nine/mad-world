@@ -349,6 +349,7 @@ async def test_resolve_crisis_consumable(basic_game: GameState) -> None:
     assert crisis_instance not in new_game.crisis_deck.in_play
     assert crisis_instance not in new_game.crisis_deck.draw_pile
 
+
 class TestProxyWarAction:
     def test_validate_semantics_success(self, basic_game: GameState) -> None:
         action = ProxyWarAction(investment=5)
