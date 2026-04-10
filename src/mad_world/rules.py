@@ -208,6 +208,34 @@ class GameRules(BaseModel):
         default=None,
         description="The initial deck of round events to use.",
     )
+    aggressor_tax_clock_threshold: int = Field(
+        default=20,
+        description=(
+            "When the clock is >= this threshold, the aggressor tax kicks in. "
+            "Intended to be <= 2x max bid."
+        ),
+    )
+    aggressor_tax_inf_cost: int = Field(
+        default=1,
+        description="Influence cost of the aggressor tax.",
+    )
+    aggressor_tax_gdp_cost: int = Field(
+        default=2,
+        description="GDP cost of the aggressor tax if influence is 0.",
+    )
+    escalation_reward_clock_threshold: int = Field(
+        default=20,
+        description=(
+            "When the clock is >= this threshold, escalatory operations get a "
+            "zero-sum GDP reward. Intended to be top 1/3 of max clock."
+        ),
+    )
+    escalation_reward_gdp: int = Field(
+        default=1,
+        description=(
+            "The zero-sum GDP reward for escalatory operations at high clock."
+        ),
+    )
 
     def get_doomsday_bids(
         self,

@@ -600,16 +600,32 @@ def resolve_operation(
         )
 
     op_def = game.allowed_operations[operation_name]
+    friendly_gdp_effect = op_def.friendly_gdp_effect
+    enemy_gdp_effect = op_def.enemy_gdp_effect
+    desc = (
+        f"{player_name} has successfully conducted a {operation_name} "
+        "operation."
+    )
+
+    if (
+        game.doomsday_clock >= game.rules.escalation_reward_clock_threshold
+        and op_def.clock_effect > 0
+    ):
+        friendly_gdp_effect += game.rules.escalation_reward_gdp
+        enemy_gdp_effect -= game.rules.escalation_reward_gdp
+        desc += (
+            f" As global tensions run high, this aggressive act yielded "
+            f"an additional +{game.rules.escalation_reward_gdp} GDP at "
+            f"the expense of the opponent."
+        )
+
     return ActionEvent(
         actor=PlayerActor(name=player_name),
-        description=(
-            f"{player_name} has successfully conducted a {operation_name} "
-            "operation."
-        ),
+        description=desc,
         clock_delta=op_def.clock_effect,
         gdp_delta={
-            player_name: op_def.friendly_gdp_effect,
-            opponent_name: op_def.enemy_gdp_effect,
+            player_name: friendly_gdp_effect,
+            opponent_name: enemy_gdp_effect,
         },
         influence_delta={
             player_name: -op_def.influence_cost,
@@ -720,9 +736,51 @@ async def resolve_round_events(game: GameState) -> GameState:
 
         new_game.event_deck.discard(event_card)
 
+    _apply_aggressor_tax(new_game)
     new_game.advance_phase()
 
     return new_game
+
+
+def _apply_aggressor_tax(new_game: GameState) -> None:
+    if new_game.doomsday_clock < new_game.rules.aggressor_tax_clock_threshold:
+        return
+
+    alpha_name, omega_name = new_game.player_names()
+    alpha_debt = new_game.escalation_debt(alpha_name)
+    omega_debt = new_game.escalation_debt(omega_name)
+
+    taxed_players: list[str] = []
+    if alpha_debt >= omega_debt:
+        taxed_players.append(alpha_name)
+    if omega_debt >= alpha_debt:
+        taxed_players.append(omega_name)
+
+    for player_name in taxed_players:
+        player_state = new_game.players[player_name]
+        inf_cost = new_game.rules.aggressor_tax_inf_cost
+        gdp_cost = new_game.rules.aggressor_tax_gdp_cost
+
+        if player_state.influence >= inf_cost:
+            inf_delta = -inf_cost
+            gdp_delta = 0
+            desc_impact = f"{inf_cost} influence"
+        else:
+            inf_delta = -player_state.influence
+            gdp_delta = -gdp_cost
+            desc_impact = f"{gdp_cost} GDP"
+
+        new_game.apply_event(
+            SystemEvent(
+                description=(
+                    f"Aggressor Tax applied to {player_name} for their "
+                    f"role in driving global tensions. They lost "
+                    f"{desc_impact}."
+                ),
+                influence_delta={player_name: inf_delta},
+                gdp_delta={player_name: gdp_delta},
+            )
+        )
 
 
 async def resolve_crisis(
