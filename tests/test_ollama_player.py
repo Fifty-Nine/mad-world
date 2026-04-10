@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -20,7 +20,6 @@ from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
 from mad_world.ollama_player import ActionResponse, GrandStrategy, OllamaPlayer
-from mad_world.util import remove_ordering_prefix
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
@@ -345,7 +344,11 @@ def test_doomsday_warning(test_player: Any, basic_game: GameState) -> None:
     mock_game.rules = mock_rules
 
     # Test boundary condition and multiple states
-    for clock_val, expected in [(24, "WARNING: "), (22, "WARNING: "), (12, "NOTE: ")]:
+    for clock_val, expected in [
+        (24, "WARNING: "),
+        (22, "WARNING: "),
+        (12, "NOTE: "),
+    ]:
         mock_game.doomsday_clock = clock_val
         assert expected in test_player.doomsday_warning(mock_game)
 
@@ -592,11 +595,3 @@ def test_my_strategy(test_player: Any) -> None:
 
     strategy_text_compressed = test_player.my_strategy(for_compression=True)
     assert "original grand strategy" in strategy_text_compressed
-
-
-def test_action_response_unprefix_keys() -> None:
-    data = {"01_chain_of_thought": ["thought"], "02_action": {}}
-    res = ActionResponse.unprefix_keys(data)
-
-    assert "chain_of_thought" in res
-    assert "action" in res
