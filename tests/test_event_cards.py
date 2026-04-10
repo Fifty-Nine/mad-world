@@ -86,7 +86,7 @@ def test_influence_both_event(basic_game: GameState) -> None:
 
 def test_create_event_deck(basic_game: GameState) -> None:
     deck = create_event_deck(basic_game.rng)
-    assert len(deck) == 27
+    assert len(deck) == 30
 
 
 @pytest.mark.asyncio

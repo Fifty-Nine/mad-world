@@ -44,6 +44,7 @@ class BaseEffect(BaseCard, ABC):
         return ops
 
     def modify_bids(self, bids: list[int]) -> list[int]:
+        assert bids, "Effect {self.title} removed all possible bids!"
         return bids
 
     def on_expire(self, game: GameState) -> list[GameEvent]:
@@ -83,7 +84,7 @@ class NoZeroBidsEffect(BaseEffect):
 
     @override
     def modify_bids(self, bids: list[int]) -> list[int]:
-        return [b for b in bids if b != 0]
+        return super().modify_bids([b for b in bids if b != 0])
 
 
 class NoDomesticInvestmentEffect(BaseEffect):
@@ -104,3 +105,20 @@ class NoDomesticInvestmentEffect(BaseEffect):
     ) -> dict[str, OperationDefinition]:
         # Return a copy without 'domestic-investment'
         return {k: v for k, v in ops.items() if k != "domestic-investment"}
+
+
+class ArmsControlEffect(BaseEffect):
+    card_kind: ClassVar[str] = "arms_control"
+
+    title: ClassVar[str] = "Arms Control Treaty"
+    description: ClassVar[str] = (
+        "A temporary treaty restricts extreme political maneuvers."
+    )
+    mechanics: ClassVar[str] = (
+        "During the bidding phase, bids are capped at a maximum of 3 while "
+        "the effect is ongoing."
+    )
+
+    @override
+    def modify_bids(self, bids: list[int]) -> list[int]:
+        return super().modify_bids([b for b in bids if b <= 3])

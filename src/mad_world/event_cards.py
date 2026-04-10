@@ -8,7 +8,11 @@ from pydantic import Field
 
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
-from mad_world.effects import NoDomesticInvestmentEffect, NoZeroBidsEffect
+from mad_world.effects import (
+    ArmsControlEffect,
+    NoDomesticInvestmentEffect,
+    NoZeroBidsEffect,
+)
 from mad_world.events import GameEvent, SystemEvent
 
 if TYPE_CHECKING:
@@ -189,6 +193,27 @@ class BanDomesticInvestmentEvent(BaseEventCard):
         ]
 
 
+class ArmsControlTreatyEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "arms_control_treaty"
+
+    title: str = "Arms Control Treaty"
+    description: str = (
+        "International pressure forces a temporary limit on escalation."
+    )
+
+    def run(self, game: GameState) -> list[GameEvent]:
+        effect = ArmsControlEffect(duration=2)
+        return [
+            SystemEvent(
+                description=(
+                    f"Event: {self.title} - A new ongoing effect "
+                    f"'{effect.title}' has been applied."
+                ),
+                new_effects=[effect],
+            )
+        ]
+
+
 def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
     cards: list[BaseEventCard] = []
 
@@ -204,6 +229,7 @@ def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
                 InfluenceBothEvent(),
                 BanZeroBidsEvent(),
                 BanDomesticInvestmentEvent(),
+                ArmsControlTreatyEvent(),
             ]
         )
 
