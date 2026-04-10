@@ -388,71 +388,139 @@ class TestProxyWarCrisis:
         aggressive_action = crisis.get_default_action(
             "Alpha", basic_game, aggressive=True
         )
-        assert aggressive_action.investment == 5
+        assert aggressive_action.investment == 3
 
         # Cautious default
         cautious_action = crisis.get_default_action(
             "Alpha", basic_game, aggressive=False
         )
-        assert cautious_action.investment == 0
+        assert cautious_action.investment == 7
 
-        # Aggressive when inf < 5
-        basic_game.players["Alpha"].influence = 3
+        # Aggressive when inf < 3
+        basic_game.players["Alpha"].influence = 2
         aggressive_action = crisis.get_default_action(
             "Alpha", basic_game, aggressive=True
         )
-        assert aggressive_action.investment == 3
+        assert aggressive_action.investment == 2
 
-    def test_resolve_tie(
+    def test_resolve_mad_dynamic_threshold(
         self, crisis: ProxyWarCrisis, basic_game: GameState
     ) -> None:
+        basic_game.players["Alpha"].influence = 2
+        basic_game.players["Omega"].influence = 3
+        # Threshold is 5. Total bid is 4.
         actions = {
-            "Alpha": ProxyWarAction(investment=4),
-            "Omega": ProxyWarAction(investment=4),
+            "Alpha": ProxyWarAction(investment=2),
+            "Omega": ProxyWarAction(investment=2),
         }
 
         events = crisis.resolve(basic_game, actions)
 
-        assert len(events) == 1
-        event = events[0]
-        assert isinstance(event, SystemEvent)
-        assert "stalemate" in event.description
-        assert event.clock_delta == 8
-        assert event.influence_delta == {"Alpha": -4, "Omega": -4}
-        assert not event.gdp_delta
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -2}
+        assert events[1].influence_delta == {"Omega": -2}
 
-    def test_resolve_winner_p1(
+        mad_event = events[2]
+        assert isinstance(mad_event, SystemEvent)
+        assert mad_event.world_ending
+
+    def test_resolve_success_dynamic_threshold(
         self, crisis: ProxyWarCrisis, basic_game: GameState
     ) -> None:
+        basic_game.players["Alpha"].influence = 2
+        basic_game.players["Omega"].influence = 3
+        # Threshold is 5. Total bid is 5.
         actions = {
-            "Alpha": ProxyWarAction(investment=6),
+            "Alpha": ProxyWarAction(investment=2),
             "Omega": ProxyWarAction(investment=3),
         }
 
         events = crisis.resolve(basic_game, actions)
 
-        assert len(events) == 1
-        event = events[0]
-        assert isinstance(event, SystemEvent)
-        assert "decisive victory" in event.description
-        assert event.clock_delta == 9
-        assert event.influence_delta == {"Alpha": -6, "Omega": -3}
-        assert event.gdp_delta == {"Alpha": ProxyWarDefs.WINNER_GDP}
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -2}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Alpha": ProxyWarDefs.WINNER_GDP}
+
+    def test_resolve_mad(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=4),
+            "Omega": ProxyWarAction(investment=3),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -4}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        mad_event = events[2]
+        assert isinstance(mad_event, SystemEvent)
+        assert mad_event.world_ending
+
+    def test_resolve_tie(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=5),
+            "Omega": ProxyWarAction(investment=5),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -5}
+        assert events[1].influence_delta == {"Omega": -5}
+
+        tie_event = events[2]
+        assert isinstance(tie_event, SystemEvent)
+        assert "contributed equally" in tie_event.description
+        assert tie_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert not tie_event.gdp_delta
+
+    def test_resolve_winner_p1(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=3),
+            "Omega": ProxyWarAction(investment=8),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -3}
+        assert events[1].influence_delta == {"Omega": -8}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Alpha": ProxyWarDefs.WINNER_GDP}
 
     def test_resolve_winner_p2(
         self, crisis: ProxyWarCrisis, basic_game: GameState
     ) -> None:
         actions = {
-            "Alpha": ProxyWarAction(investment=2),
-            "Omega": ProxyWarAction(investment=7),
+            "Alpha": ProxyWarAction(investment=8),
+            "Omega": ProxyWarAction(investment=3),
         }
 
         events = crisis.resolve(basic_game, actions)
 
-        assert len(events) == 1
-        event = events[0]
-        assert isinstance(event, SystemEvent)
-        assert "decisive victory" in event.description
-        assert event.clock_delta == 9
-        assert event.influence_delta == {"Alpha": -2, "Omega": -7}
-        assert event.gdp_delta == {"Omega": ProxyWarDefs.WINNER_GDP}
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -8}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Omega": ProxyWarDefs.WINNER_GDP}
