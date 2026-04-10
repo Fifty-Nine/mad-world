@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
@@ -40,7 +40,7 @@ class PlayerActor(BaseModel):
 AnyActor = SystemActor | PlayerActor | None
 
 
-class EventKind(Enum):
+class EventKind(StrEnum):
     SYSTEM = "system"
     STATE = "state"
     ACTION = "action"
