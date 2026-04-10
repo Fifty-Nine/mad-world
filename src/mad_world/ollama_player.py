@@ -35,7 +35,6 @@ from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
     aretry,
-    bannerize,
     escalation_budget,
     extract_json_from_response,
     pareto_optimal_bid,
@@ -761,7 +760,7 @@ class OllamaPlayer(GamePlayer):
         response_model: type[T],
         game: GameState,
         log_header: str,
-    ) -> T | None:
+    ) -> tuple[T, ollama.ChatResponse]:
         schema = response_model.format_schema()
         result_obj = await self.client.chat(
             model=self.model,
@@ -798,6 +797,17 @@ class OllamaPlayer(GamePlayer):
             )
             raise self._ModelPromptError from e
 
+        return response, result_obj
+
+    async def try_one_action[T: ActionResponse](
+        self,
+        response_model: type[T],
+        game: GameState,
+        log_header: str,
+    ) -> T:
+        response, result_obj = await self.try_one_prompt(
+            response_model, game, log_header
+        )
         action = response.action
         formatted_response = textwrap.indent(
             self.dump_model_response(response),
@@ -806,7 +816,10 @@ class OllamaPlayer(GamePlayer):
         try:
             action.validate_semantics(game, self.name)
             self.messages.append(
-                {"role": "assistant", "content": result or ""},
+                {
+                    "role": "assistant",
+                    "content": result_obj.message.content or "",
+                },
             )
 
             self.logger.debug(
@@ -850,7 +863,7 @@ class OllamaPlayer(GamePlayer):
             f"==== {game.current_phase.name} {self.name} response====\n"
         )
         result = await aretry(
-            func=lambda: self.try_one_prompt(response_model, game, log_header),
+            func=lambda: self.try_one_action(response_model, game, log_header),
             allowed_exceptions=[self._ModelPromptError],
             count=retries,
         )
@@ -953,12 +966,12 @@ class OllamaPlayer(GamePlayer):
 
     async def _check_and_compress(
         self,
-        response_obj: Any,
+        response_obj: ollama.ChatResponse,
         game: GameState,
     ) -> None:
-        prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
-        eval_count = getattr(response_obj, "eval_count", 0) or 0
-        total_tokens = prompt_eval_count + eval_count
+        total_tokens = (response_obj.prompt_eval_count or 0) + (
+            response_obj.eval_count or 0
+        )
 
         usage = total_tokens / self.params.context_size
         self.logger.debug(
