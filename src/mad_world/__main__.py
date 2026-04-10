@@ -21,7 +21,7 @@ from mad_world.config import (
 )
 from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
-from mad_world.ollama_player import OllamaPlayer
+from mad_world.llm_player import LLMPlayer
 from mad_world.personas import random_persona
 from mad_world.rules import GameRules
 from mad_world.util import wrap_text
@@ -108,7 +108,7 @@ def get_player(
             raise ValueError(msg)
         return trivial_player
 
-    return OllamaPlayer(
+    return LLMPlayer(
         config=config,
         opponent_name=opponent_name,
         log_dir=log_dir,

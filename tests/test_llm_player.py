@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import litellm
 import pytest
 
 from mad_world.actions import (
@@ -19,7 +20,9 @@ from mad_world.config import LLMParams, LLMPlayerConfig
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
-from mad_world.ollama_player import ActionResponse, GrandStrategy, OllamaPlayer
+from mad_world.llm_player import ActionResponse, GrandStrategy, LLMPlayer
+
+litellm.drop_params = True
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
@@ -48,7 +51,7 @@ def player_config() -> LLMPlayerConfig:
 
 
 def test_ollama_player_init(player_config: Any, mock_logger: Any) -> None:
-    player = OllamaPlayer(
+    player = LLMPlayer(
         config=player_config,
         opponent_name="Opponent",
         logger=mock_logger,
@@ -56,43 +59,45 @@ def test_ollama_player_init(player_config: Any, mock_logger: Any) -> None:
     assert player.name == "TestPlayer"
     assert player.opponent_name == "Opponent"
     assert player.persona == "TestPersona"
-    assert player.model == "test-model"
-    assert player.prompt_options["num_predict"] == 100
+    assert player.model == "ollama/test-model"
+    assert player.prompt_options["max_tokens"] == 100
     assert player.logger == mock_logger
 
 
 @pytest.fixture
 def test_player(player_config: Any, mock_logger: Any) -> Any:
-    player = OllamaPlayer(
+    return LLMPlayer(
         config=player_config,
         opponent_name="Opponent",
         logger=mock_logger,
     )
-    player.client = AsyncMock()
-    return player
 
 
 @pytest.mark.asyncio
-async def test_elaborate_persona(test_player: Any) -> None:
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
+async def test_elaborate_persona(
+    mock_acompletion: AsyncMock, test_player: Any
+) -> None:
     test_player.persona = "Earnest Pacifist"
-    test_player.client.chat.return_value.message.content = (
-        "I am a detailed pacifist."
-    )
+    mock_acompletion.return_value = MagicMock()
+    mock_acompletion.return_value.choices = [
+        MagicMock(message=MagicMock(content="I am a detailed pacifist."))
+    ]
     await test_player.elaborate_persona()
-    assert test_player.client.chat.call_count == 1
+    assert mock_acompletion.call_count == 1
     assert "I am a detailed pacifist." in test_player.persona
 
     # Test when already elaborated
-    test_player.client.chat.reset_mock()
+    mock_acompletion.reset_mock()
     test_player.persona = "Already\n\nElaborated"
     await test_player.elaborate_persona()
-    assert test_player.client.chat.call_count == 0
+    assert mock_acompletion.call_count == 0
 
     # Test when None
-    test_player.client.chat.reset_mock()
+    mock_acompletion.reset_mock()
     test_player.persona = None
     await test_player.elaborate_persona()
-    assert test_player.client.chat.call_count == 0
+    assert mock_acompletion.call_count == 0
 
 
 @pytest.mark.asyncio
@@ -102,7 +107,7 @@ async def test_start_game(
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
 
-    player = OllamaPlayer(
+    player = LLMPlayer(
         config=player_config,
         opponent_name="Opponent",
         log_dir=log_dir,
@@ -130,19 +135,20 @@ async def test_start_game(
     assert schemas_file.exists()
 
     # Test start_game without log_base
-    player_no_log = OllamaPlayer(
+    player_no_log = LLMPlayer(
         config=player_config,
         opponent_name="Opponent",
         log_dir=None,
         logger=mock_logger,
     )
-    player_no_log.client = AsyncMock()
+
     await player_no_log.start_game(mock_rules)
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_retry_prompt_success(
-    test_player: Any, basic_game: GameState
+    mock_acompletion: AsyncMock, test_player: Any, basic_game: GameState
 ) -> None:
 
     class DummyAction(BaseAction):
@@ -154,11 +160,18 @@ async def test_retry_prompt_success(
     class DummyResponse(ActionResponse):
         action: DummyAction
 
-    test_player.client.chat.return_value.message.content = json.dumps(
-        {"chain_of_thought": ["thought"], "action": {}}
-    )
-    test_player.client.chat.return_value.prompt_eval_count = 10
-    test_player.client.chat.return_value.eval_count = 10
+    mock_acompletion.return_value = MagicMock()
+    mock_acompletion.return_value.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {"chain_of_thought": ["thought"], "action": {}}
+                )
+            )
+        )
+    ]
+    mock_acompletion.return_value.prompt_eval_count = 10
+    mock_acompletion.return_value.eval_count = 10
 
     test_player.messages = []
 
@@ -168,8 +181,9 @@ async def test_retry_prompt_success(
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_retry_prompt_validation_error(
-    test_player: Any, basic_game: GameState
+    mock_acompletion: AsyncMock, test_player: Any, basic_game: GameState
 ) -> None:
 
     class DummyAction(BaseAction):
@@ -182,9 +196,14 @@ async def test_retry_prompt_validation_error(
         action: DummyAction
 
     # Missing required 'action' field triggers ValidationError
-    test_player.client.chat.return_value.message.content = json.dumps(
-        {"chain_of_thought": ["thought"]}
-    )
+    mock_acompletion.return_value = MagicMock()
+    mock_acompletion.return_value.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({"chain_of_thought": ["thought"]})
+            )
+        )
+    ]
 
     test_player.messages = []
 
@@ -192,7 +211,7 @@ async def test_retry_prompt_validation_error(
         DummyResponse, basic_game, retries=2
     )
     assert response is None
-    assert test_player.client.chat.call_count == 2
+    assert mock_acompletion.call_count == 2
 
     # System errors added to history
     assert len(test_player.messages) == 2
@@ -201,8 +220,9 @@ async def test_retry_prompt_validation_error(
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_retry_prompt_semantic_error(
-    test_player: Any, basic_game: GameState
+    mock_acompletion: AsyncMock, test_player: Any, basic_game: GameState
 ) -> None:
 
     class DummyAction(BaseAction):
@@ -214,9 +234,16 @@ async def test_retry_prompt_semantic_error(
     class DummyResponse(ActionResponse):
         action: DummyAction
 
-    test_player.client.chat.return_value.message.content = json.dumps(
-        {"chain_of_thought": ["thought"], "action": {}}
-    )
+    mock_acompletion.return_value = MagicMock()
+    mock_acompletion.return_value.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(
+                    {"chain_of_thought": ["thought"], "action": {}}
+                )
+            )
+        )
+    ]
 
     test_player.messages = []
 
@@ -224,7 +251,7 @@ async def test_retry_prompt_semantic_error(
         DummyResponse, basic_game, retries=2
     )
     assert response is None
-    assert test_player.client.chat.call_count == 2
+    assert mock_acompletion.call_count == 2
 
     assert len(test_player.messages) == 2
     assert test_player.messages[0]["role"] == "system"
@@ -233,8 +260,9 @@ async def test_retry_prompt_semantic_error(
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_check_and_compress(
-    test_player: Any, basic_game: GameState
+    mock_acompletion: AsyncMock, test_player: Any, basic_game: GameState
 ) -> None:
     # Force compression
     test_player.compression_threshold = 0.5
@@ -251,11 +279,27 @@ async def test_check_and_compress(
     ]
 
     # Mock compression chat response
-    test_player.client.chat.return_value.message.content = "summarized history"
+    mock_acompletion.return_value = type(
+        "obj",
+        (),
+        {
+            "choices": [
+                type(
+                    "obj",
+                    (),
+                    {
+                        "message": type(
+                            "obj", (), {"content": "summarized history"}
+                        )
+                    },
+                )()
+            ]
+        },
+    )()
 
     await test_player._check_and_compress(mock_response_obj, basic_game)
 
-    assert test_player.client.chat.call_count == 1
+    assert mock_acompletion.call_count == 1
 
     assert len(test_player.messages) == 2
     assert test_player.messages[0]["content"] == "original system"
@@ -267,15 +311,24 @@ async def test_check_and_compress(
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": "world"},
     ]
-    test_player.client.chat.return_value.message.content = ""
+    mock_acompletion.return_value = type(
+        "obj",
+        (),
+        {
+            "choices": [
+                type("obj", (), {"message": type("obj", (), {"content": ""})})()
+            ]
+        },
+    )()
     await test_player._check_and_compress(mock_response_obj, basic_game)
     assert "Oops!" in test_player.messages[1]["content"]
-    assert test_player.client.chat.call_count == 2
+    assert mock_acompletion.call_count == 2
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_check_and_compress_no_compression(
-    test_player: Any, basic_game: GameState
+    mock_acompletion: AsyncMock, test_player: Any, basic_game: GameState
 ) -> None:
     test_player.compression_threshold = 0.9
     test_player.params.context_size = 100
@@ -286,7 +339,7 @@ async def test_check_and_compress_no_compression(
 
     await test_player._check_and_compress(mock_response_obj, basic_game)
 
-    assert test_player.client.chat.call_count == 0
+    assert mock_acompletion.call_count == 0
 
 
 def test_first_strike_warning(test_player: Any, basic_game: GameState) -> None:
@@ -553,23 +606,30 @@ async def test_crisis(test_player: Any, basic_game: GameState) -> None:
 
 
 @pytest.mark.asyncio
+@patch("mad_world.llm_player.litellm.acompletion", new_callable=AsyncMock)
 async def test_game_over(
-    test_player: Any, basic_game: GameState, tmp_path: Any
+    mock_acompletion: AsyncMock,
+    test_player: Any,
+    basic_game: GameState,
+    tmp_path: Any,
 ) -> None:
     test_player.log_base = tmp_path / "test_player"
-    test_player.client.chat.return_value.message.content = "AAR Output"
+    mock_acompletion.return_value = MagicMock()
+    mock_acompletion.return_value.choices = [
+        MagicMock(message=MagicMock(content="AAR Output"))
+    ]
 
     await test_player.game_over(
         basic_game, test_player.name, GameOverReason.ECONOMIC_VICTORY
     )
-    assert test_player.client.chat.call_count == 1
+    assert mock_acompletion.call_count == 1
     assert "AAR Output" in test_player.messages[-1]["content"]
 
-    test_player.client.chat.reset_mock()
+    mock_acompletion.reset_mock()
     await test_player.game_over(
         basic_game, "Opponent", GameOverReason.WORLD_DESTROYED
     )
-    assert test_player.client.chat.call_count == 1
+    assert mock_acompletion.call_count == 1
 
     assert test_player.log_base.with_suffix(".messages.gz").exists()
 
@@ -595,3 +655,15 @@ def test_my_strategy(test_player: Any) -> None:
 
     strategy_text_compressed = test_player.my_strategy(for_compression=True)
     assert "original grand strategy" in strategy_text_compressed
+
+
+def test_llm_player_init_api_base(mock_logger: Any) -> None:
+    config = LLMPlayerConfig(
+        name="Test", model="test", params=LLMParams(api_base="http://test_base")
+    )
+    player = LLMPlayer(
+        config=config,
+        opponent_name="Opp",
+        logger=mock_logger,
+    )
+    assert player.prompt_options["api_base"] == "http://test_base"

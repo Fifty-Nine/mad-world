@@ -7,15 +7,15 @@ requires-python = ">=3.12"
 dependencies = [
     "click>=8.3.1",
     "jsonargparse[signatures]>=4.47.0",
+    "litellm>=1.83.0",
     "more-itertools>=10.8.0",
-    "ollama>=0.6.1",
     "prompt-toolkit>=3.0.52",
     "pydantic>=2.12.5",
 ]
 
 [project.scripts]
 mad_world = "mad_world.__main__:main"
-mad_world_chat = "mad_world.ollama_chat:main"
+mad_world_chat = "mad_world.llm_chat:main"
 mad_world_summarize = "mad_world.log_summarizer:main"
 
 [build-system]
@@ -124,3 +124,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.report]
 precision = 2
+
+[[tool.mypy.overrides]]
+module = "litellm.*"
+ignore_missing_imports = true

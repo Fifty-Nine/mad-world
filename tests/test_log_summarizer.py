@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-import ollama
+import litellm
 from click.testing import CliRunner
 
 from mad_world.log_summarizer import main, summarize_log
@@ -34,23 +34,47 @@ def test_summarize_log_success(
     log_file = tmp_path / "log.txt"
     log_file.write_text("Line 1\nLine 2\n")
 
-    client_mock = MagicMock(spec=ollama.Client)
-    client_mock.chat.return_value = [
-        {"message": {"content": "Summary "}},
-        {"message": {"content": "part 2."}},
+    client_mock = MagicMock()
+    client_mock.return_value = [
+        type(
+            "obj",
+            (),
+            {
+                "choices": [
+                    type(
+                        "obj",
+                        (),
+                        {"delta": type("obj", (), {"content": "Summary "})},
+                    )()
+                ]
+            },
+        )(),
+        type(
+            "obj",
+            (),
+            {
+                "choices": [
+                    type(
+                        "obj",
+                        (),
+                        {"delta": type("obj", (), {"content": "part 2."})},
+                    )()
+                ]
+            },
+        )(),
     ]
 
     with patch(
-        "mad_world.log_summarizer.ollama.Client", return_value=client_mock
+        "mad_world.log_summarizer.litellm.completion", side_effect=client_mock
     ):
-        result = summarize_log(log_file, "test_model")
+        result = summarize_log(log_file, "test_model", api_base="http://mock")
 
     assert result == 0
-    client_mock.chat.assert_called_once()
+    client_mock.assert_called_once()
 
     # Check that prompt was sent correctly
-    kwargs = client_mock.chat.call_args.kwargs
-    assert kwargs["model"] == "test_model"
+    kwargs = client_mock.call_args.kwargs
+    assert kwargs["model"] == "ollama/test_model"
     assert kwargs["stream"] is True
     assert "0001: Line 1" in kwargs["messages"][0]["content"]
     assert "0002: Line 2" in kwargs["messages"][0]["content"]
@@ -62,21 +86,23 @@ def test_summarize_log_success(
 def test_summarize_log_response_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test summarize_log when ollama.ResponseError is raised."""
+    """Test summarize_log when APIConnectionError is raised."""
     log_file = tmp_path / "log.txt"
     log_file.write_text("Line 1")
 
-    client_mock = MagicMock(spec=ollama.Client)
-    client_mock.chat.side_effect = ollama.ResponseError("mock error")
+    client_mock = MagicMock()
+    client_mock.side_effect = litellm.exceptions.APIConnectionError(
+        "mock error", "mock", "mock"
+    )
 
     with patch(
-        "mad_world.log_summarizer.ollama.Client", return_value=client_mock
+        "mad_world.log_summarizer.litellm.completion", side_effect=client_mock
     ):
         result = summarize_log(log_file, "model")
 
     assert result == 1
     captured = capsys.readouterr()
-    assert "Failed to communicate with ollama: mock error" in captured.err
+    assert "Failed to communicate with LLM API: " in captured.err
 
 
 def test_main_success(tmp_path: Path) -> None:

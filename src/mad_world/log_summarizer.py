@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import sys
+import typing
 from pathlib import Path
 
 import click
-import ollama
+import litellm
 
 
 def summarize_log(
     log_file: Path,
     model: str,
-    host: str | None = None,
+    api_base: str | None = None,
     context_size: int = 128000,
 ) -> int:
     """Run the summarizer on the given log file."""
@@ -64,8 +65,6 @@ def summarize_log(
         "applicable."
     )
 
-    client = ollama.Client(host=host)
-
     click.secho(
         f"Summarizing {log_file} ({len(lines)} lines) using {model}...",
         fg="yellow",
@@ -76,22 +75,25 @@ def summarize_log(
 
     try:
         # We need a large context window to fit the logs
-        prompt_options = {
+        prompt_options: dict[str, typing.Any] = {
             "num_ctx": context_size,
         }
 
-        for part in client.chat(
-            model=model,
+        if api_base:
+            prompt_options["api_base"] = api_base
+
+        for part in litellm.completion(
+            model=model if "/" in model else f"ollama/{model}",
             messages=messages,
             stream=True,
-            options=prompt_options,
+            **prompt_options,
         ):
-            content = part["message"]["content"]
+            content = part.choices[0].delta.content or ""
             click.echo(content, nl=False)
 
-    except ollama.ResponseError as e:
+    except litellm.exceptions.APIConnectionError as e:
         click.secho(
-            f"\nFailed to communicate with ollama: {e}",
+            f"\nFailed to communicate with LLM API: {e}",
             fg="red",
             err=True,
         )
@@ -109,13 +111,13 @@ def summarize_log(
 @click.option(
     "--model",
     default="gemma3:27b",
-    help="The name of the Ollama model to use. Defaults to gemma3:27b.",
+    help="The name of the LLM API model to use. Defaults to gemma3:27b.",
 )
 @click.option(
     "-h",
-    "--ollama-host",
+    "--api-base",
     default=None,
-    help="The URL for the ollama instance.",
+    help="The URL for the LLM API instance.",
 )
 @click.option(
     "--context-size",
@@ -129,14 +131,14 @@ def summarize_log(
 def main(
     log_file: Path,
     model: str,
-    ollama_host: str | None = None,
+    api_base: str | None = None,
     context_size: int = 128000,
 ) -> None:
     """
-    Summarize a Mad World debug log using an Ollama model.
+    Summarize a Mad World debug log using an LLM API model.
     """
     try:
-        sys.exit(summarize_log(log_file, model, ollama_host, context_size))
+        sys.exit(summarize_log(log_file, model, api_base, context_size))
     except (KeyboardInterrupt, EOFError):
         click.echo()
         sys.exit(0)

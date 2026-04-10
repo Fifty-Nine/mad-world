@@ -30,7 +30,7 @@ from mad_world.config import (
 )
 from mad_world.enums import GameOverReason
 from mad_world.human_player import HumanPlayer
-from mad_world.ollama_player import OllamaPlayer
+from mad_world.llm_player import LLMPlayer
 from mad_world.personas import random_persona
 from mad_world.trivial_players import CrazyIvan
 
@@ -140,7 +140,7 @@ def test_get_player(tmp_path: Path) -> None:
     assert player_crazy.name == "Alpha"
 
     # Test LLM player
-    player_ollama = get_player(
+    player_llm = get_player(
         LLMPlayerConfig(
             name="Alpha",
             model="gemma3:12b",
@@ -150,8 +150,8 @@ def test_get_player(tmp_path: Path) -> None:
         log_dir,
         logging.getLogger(__name__),
     )
-    assert isinstance(player_ollama, OllamaPlayer)
-    assert player_ollama.model == "gemma3:12b"
+    assert isinstance(player_llm, LLMPlayer)
+    assert player_llm.model == "ollama/gemma3:12b"
 
     # Test unknown bot
     with pytest.raises(ValueError, match="Unknown trivial player bot name"):

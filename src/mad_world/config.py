@@ -41,6 +41,9 @@ class LLMParams(BaseModel):
     repeat_penalty: float = Field(
         default=1.1, description="Repetition penalty."
     )
+    api_base: str | None = Field(
+        default=None, description="The base URL for the LLM API."
+    )
     repeat_last_n: int = Field(
         default=64, description="Repetition context size."
     )

@@ -1,4 +1,4 @@
-"""Ollama player implementation for Mad World."""
+"""LLM player implementation for Mad World."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import json
 import textwrap
 from typing import TYPE_CHECKING, Any, override
 
-import ollama
+import litellm
 from pydantic import (
     BaseModel,
     Field,
@@ -350,7 +350,7 @@ def create_crisis_response[T: BaseAction](
     )
 
 
-class OllamaPlayer(GamePlayer):
+class LLMPlayer(GamePlayer):
     def __init__(
         self,
         config: LLMPlayerConfig,
@@ -363,17 +363,21 @@ class OllamaPlayer(GamePlayer):
         super().__init__(config.name)
         self.opponent_name = opponent_name
         self.persona = config.persona
-        self.model = config.model
-        self.client = ollama.AsyncClient()
+        self.model = (
+            config.model if "/" in config.model else f"ollama/{config.model}"
+        )
         self.messages: list[dict[str, str]] = []
         self.params = config.params
-        self.prompt_options = {
-            "num_predict": config.params.token_limit,
-            "num_ctx": config.params.context_size,
+        self.prompt_options: dict[str, Any] = {
+            "max_tokens": config.params.token_limit,
             "temperature": config.params.temperature,
-            "repeat_penalty": config.params.repeat_penalty,
+            "presence_penalty": config.params.repeat_penalty,
+            # Pass ollama-specific kwargs if litellm routes to ollama
+            "num_ctx": config.params.context_size,
             "repeat_last_n": config.params.repeat_last_n,
         }
+        if config.params.api_base:
+            self.prompt_options["api_base"] = config.params.api_base
         self.grand_strategy: GrandStrategy | None = None
         self.log_base = (
             log_dir / f"{self.name}" if log_dir is not None else None
@@ -427,13 +431,12 @@ class OllamaPlayer(GamePlayer):
             "limit your description to 1-2 paragraphs plus archetype "
             "description."
         )
-        response = await self.client.chat(
+        response = await litellm.acompletion(
             model=self.model,
             messages=[{"role": "user", "content": elaboration_prompt}],
-            options=self.prompt_options,
-            think=True,
+            **self.prompt_options,
         )
-        if elaborated := (response.message.content or "").strip():
+        if elaborated := (response.choices[0].message.content or "").strip():
             self.persona = f"{self.persona}\n\n{elaborated}"
 
             self.logger.info(
@@ -648,10 +651,10 @@ class OllamaPlayer(GamePlayer):
         result += f"Escalation budget: {budget}\nPlayers:\n"
 
         result += "\n".join(
-            OllamaPlayer.format_player_state(p) for p in game.players.values()
+            LLMPlayer.format_player_state(p) for p in game.players.values()
         )
 
-        result += "\n" + OllamaPlayer.format_event_log(game.recent_events())
+        result += "\n" + LLMPlayer.format_event_log(game.recent_events())
         return result
 
     def doomsday_warning(self, game: GameState) -> str:
@@ -699,14 +702,20 @@ class OllamaPlayer(GamePlayer):
         )
         for _i in range(retries):
             schema = response_model.format_schema()
-            result_obj = await self.client.chat(
+            result_obj = await litellm.acompletion(
                 model=self.model,
                 messages=self.messages,
-                format=schema,
-                options=self.prompt_options,
-                think=False,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": response_model.__name__,
+                        "schema": schema,
+                        "strict": True,
+                    },
+                },
+                **self.prompt_options,
             )
-            result = result_obj.message.content
+            result = result_obj.choices[0].message.content
 
             try:
                 response = response_model.model_validate_json(
@@ -825,14 +834,13 @@ class OllamaPlayer(GamePlayer):
             {"role": "system", "content": compression_prompt},
         ]
 
-        summary_response = await self.client.chat(
+        summary_response = await litellm.acompletion(
             model=self.model,
             messages=temp_messages,
-            options=self.prompt_options,
-            think=False,
+            **self.prompt_options,
         )
 
-        summary = summary_response.message.content or ""
+        summary = summary_response.choices[0].message.content or ""
 
         if not summary:
             self.logger.warning(
@@ -1225,18 +1233,18 @@ class OllamaPlayer(GamePlayer):
             "Limit your output strictly to 2-3 paragraphs."
         )
         self.add_prompt(prompt, GamePhase.END)
-        result = await self.client.chat(
+        result = await litellm.acompletion(
             model=self.model,
             messages=self.messages,
-            options=self.prompt_options,
-            think=False,
+            **self.prompt_options,
         )
+        content = result.choices[0].message.content or ""
         self.messages.append(
-            {"role": "assistant", "content": result.message.content or ""},
+            {"role": "assistant", "content": content},
         )
 
         self.logger.debug(
-            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
+            wrap_text(f"==== {self.name} AAR ====\n{content}"),
         )
 
         if self.log_base is None:

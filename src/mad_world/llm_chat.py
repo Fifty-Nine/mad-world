@@ -1,4 +1,4 @@
-"""Ollama chat script for Mad World."""
+"""LLM chat script for Mad World."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, BinaryIO
 
 import click
-import ollama
+import litellm
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
@@ -112,7 +112,6 @@ def process_slash_command(user_input: str) -> bool:
 
 def prompt_loop(
     session: PromptSession[str],
-    client: ollama.Client,
     model: str,
     messages: list[dict[str, Any]],
     llm_params: LLMParams,
@@ -151,27 +150,28 @@ def prompt_loop(
 
     full_response = ""
     try:
-        prompt_options = {
-            "num_predict": llm_params.token_limit,
-            "num_ctx": llm_params.context_size,
+        prompt_options: dict[str, Any] = {
+            "max_tokens": llm_params.token_limit,
             "temperature": llm_params.temperature,
-            "repeat_penalty": llm_params.repeat_penalty,
+            "presence_penalty": llm_params.repeat_penalty,
+            "num_ctx": llm_params.context_size,
             "repeat_last_n": llm_params.repeat_last_n,
         }
-        for part in client.chat(
+        if llm_params.api_base:
+            prompt_options["api_base"] = llm_params.api_base
+        for part in litellm.completion(
             model=model,
             messages=messages,
             stream=True,
-            options=prompt_options,
-            think=True,
+            **prompt_options,
         ):
-            content = part["message"]["content"]
+            content = part.choices[0].delta.content or ""
             click.echo(content, nl=False)
             full_response += content
 
-    except ollama.ResponseError as e:
+    except litellm.exceptions.APIConnectionError as e:
         click.secho(
-            f"Failed to communicate with ollama: {e}", fg="red", err=True
+            f"Failed to communicate with LLM API: {e}", fg="red", err=True
         )
 
     else:
@@ -220,7 +220,6 @@ def load_settings(settings_path: Path) -> tuple[LLMParams, str | None]:
 def run_chat(
     log_file: Path,
     model: str | None = None,
-    host: str | None = None,
     gm_prompt: str | None = None,
     settings: Path | None = None,
 ) -> int:
@@ -262,8 +261,6 @@ def run_chat(
     click.secho(f"Using model: {final_model}", fg="yellow")
     click.echo("Type '/quit' to end the session.\n")
 
-    client = ollama.Client(host=host)
-
     # Setup history file for the prompt_toolkit session
     history_path = Path.home() / ".mad_world_chat_history"
     session: PromptSession[str] = PromptSession(
@@ -271,7 +268,7 @@ def run_chat(
     )
 
     while True:
-        prompt_loop(session, client, final_model, messages, llm_params)
+        prompt_loop(session, final_model, messages, llm_params)
 
 
 @click.command()
@@ -283,15 +280,9 @@ def run_chat(
     "--model",
     default=None,
     help=(
-        "The name of the Ollama model to use. Defaults to the one in "
+        "The name of the LLM model to use. Defaults to the one in "
         "settings, or gemma3:12b."
     ),
-)
-@click.option(
-    "-h",
-    "--ollama-host",
-    default=None,
-    help="The URL for the ollama instance.",
 )
 @click.option(
     "--settings",
@@ -330,11 +321,10 @@ def main(
     log_file: Path,
     gm_prompt: str | None,
     model: str | None = None,
-    ollama_host: str | None = None,
     settings: Path | None = None,
 ) -> None:
     """
-    Chat with an Ollama model using history from a gzipped JSON log file.
+    Chat with an LLM using history from a gzipped JSON log file.
 
     LOG_FILE is the path to a .gz file containing a JSON list of messages.
     """
@@ -343,7 +333,6 @@ def main(
             run_chat(
                 log_file,
                 model,
-                host=ollama_host,
                 settings=settings,
                 gm_prompt=gm_prompt,
             )

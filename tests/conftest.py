@@ -118,3 +118,18 @@ def stable_rng(
         patch.object(seeded_rng, "choice", side_effect=fixed_choice),
     ):
         yield seeded_rng
+
+
+@pytest.fixture(autouse=True)
+def mock_litellm_network() -> Any:
+    def mock_acompletion(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Network call via litellm.acompletion")  # noqa: TRY003
+
+    def mock_completion(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("Network call via litellm.completion")  # noqa: TRY003
+
+    with (
+        patch("litellm.acompletion", side_effect=mock_acompletion),
+        patch("litellm.completion", side_effect=mock_completion),
+    ):
+        yield
