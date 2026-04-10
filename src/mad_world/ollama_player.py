@@ -34,7 +34,6 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
-    bannerize,
     escalation_budget,
     extract_json_from_response,
     pareto_optimal_bid,
@@ -52,6 +51,49 @@ if TYPE_CHECKING:
     from mad_world.effects import BaseEffect
     from mad_world.events import GameEvent
     from mad_world.rules import GameRules, OperationDefinition
+
+
+class ElaboratedPersonaResponse(BaseModel):
+    description_2nd_person: str = Field(
+        description=(
+            "The elaborated persona written entirely in the second person "
+            "(e.g., 'You are General Whatshisname...'). Do not include any "
+            "introductory text and limit your description to 1-2 paragraphs "
+            "plus archetype description."
+        ),
+    )
+    description_3rd_person: str = Field(
+        description=(
+            "A brief third-person persona description summarizing the "
+            "character. Limit to 1-2 sentences."
+        ),
+    )
+    name: str = Field(
+        description=(
+            "A fictional name and title for the corporeal embodiment of your "
+            "nation (e.g., 'President Morrison', 'First Premier Kirolev', "
+            "'Ambassador N'zika', etc.) which you will use to identify "
+            "yourself in diplomatic messages. Do NOT use real-world "
+            "historical figures or names."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def unprefix_keys(cls, data: Any) -> Any:
+        """Strip off digit prefixes added by reorder_schema_properties."""
+        return remove_ordering_prefix(data)
+
+    @classmethod
+    def format_schema(cls) -> dict[str, Any]:
+        return reorder_schema_properties(
+            cls.model_json_schema(),
+            last_key="name",
+        )
+
+    @classmethod
+    def prompt_schema(cls) -> str:
+        return json.dumps(cls.format_schema(), indent=2, ensure_ascii=False)
 
 
 class ActionResponse(BaseModel):
@@ -397,12 +439,7 @@ class OllamaPlayer(GamePlayer):
             "Elaborate on this two-word persona, turning it into a "
             "nuanced and well-defined character description that fits into "
             "the context of an actor in a game about Mutually Assured "
-            "Destruction, the Cold War, etc. As part of this, you must "
-            "create a fictional name and title for the corporeal embodiment of "
-            f"your nation ({self.name}) (e.g., 'President Morrison', 'First "
-            "Premier Kirolev', 'Ambassador N'zika', etc.) which you will use "
-            "to identify yourself in diplomatic messages. Do NOT use "
-            "real-world historical figures or names.\n"
+            "Destruction, the Cold War, etc.\n"
             "In addition, you should assign this persona one of these "
             "archetypes that fits with the character description. These "
             "archetypes concern how the persona views different categories of "
@@ -429,27 +466,43 @@ class OllamaPlayer(GamePlayer):
             "loss as equivalent to MAD, but views a narrow economic loss as "
             "acceptable.\n"
             "Include the description of the chosen archetype in your "
-            "elaborated persona. Write the elaborated persona entirely in "
-            "the second person (e.g., 'You are General Whatshisname...'). "
-            "Do not include any introductory text and limit your description "
-            "to 1-2 paragraphs plus archetype description."
+            "elaborated persona. You must output strictly valid JSON matching "
+            "this JSON Schema:\n"
         )
+        elaboration_prompt += ElaboratedPersonaResponse.prompt_schema()
+
         response = await self.client.chat(
             model=self.model,
             messages=[{"role": "user", "content": elaboration_prompt}],
+            format=ElaboratedPersonaResponse.format_schema(),
             options=self.prompt_options,
-            think=True,
+            think=False,
         )
-        if elaborated := (response.message.content or "").strip():
-            persona_seed = self.persona
-            self.persona = f"{self.persona}\n\n{elaborated}"
 
-            self.logger.info(
-                "%s%s",
-                bannerize(
-                    f"Elaborated persona for {self.name} ({persona_seed})"
-                ),
-                wrap_text(elaborated, indent="> "),
+        result_content = response.message.content or "{}"
+        try:
+            parsed = ElaboratedPersonaResponse.model_validate_json(
+                extract_json_from_response(result_content)
+            )
+            elaborated = parsed.description_2nd_person.strip()
+            persona_name = parsed.name.strip()
+            if elaborated:
+                self.persona = (
+                    f"{self.persona}\n\nName: {persona_name}\n\n{elaborated}"
+                )
+
+                self.logger.info(
+                    "Elaborated persona for %s: Name: %s\n%s",
+                    self.name,
+                    persona_name,
+                    elaborated,
+                )
+        except ValidationError as e:
+            self.logger.warning(
+                "Failed to parse elaborated persona for %s: %s\nResponse: %s",
+                self.name,
+                e,
+                result_content,
             )
 
     async def start_game(self, rules: GameRules) -> None:

@@ -74,13 +74,28 @@ def test_player(player_config: Any, mock_logger: Any) -> Any:
 
 @pytest.mark.asyncio
 async def test_elaborate_persona(test_player: Any) -> None:
+
     test_player.persona = "Earnest Pacifist"
-    test_player.client.chat.return_value.message.content = (
-        "I am a detailed pacifist."
+    test_player.client.chat.return_value.message.content = json.dumps(
+        {
+            "00_description_2nd_person": "I am a detailed pacifist.",
+            "01_description_3rd_person": "He is a detailed pacifist.",
+            "99_name": "General Pacifisto",
+        }
     )
     await test_player.elaborate_persona()
     assert test_player.client.chat.call_count == 1
     assert "I am a detailed pacifist." in test_player.persona
+    assert "General Pacifisto" in test_player.persona
+
+    # Test JSON parse error recovery (should just ignore and not crash)
+    test_player.persona = "Earnest Pacifist"
+    test_player.client.chat.reset_mock()
+    test_player.client.chat.return_value.message.content = "Invalid JSON"
+    await test_player.elaborate_persona()
+    assert test_player.client.chat.call_count == 1
+    # Persona remains unelaborated
+    assert test_player.persona == "Earnest Pacifist"
 
     # Test when already elaborated
     test_player.client.chat.reset_mock()
