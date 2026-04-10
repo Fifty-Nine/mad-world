@@ -11,7 +11,9 @@ from pydantic import Field
 from mad_world.actions import (
     BaseAction,
     InsufficientGDPError,
+    InsufficientInfluenceError,
     InvalidGDPAmountError,
+    InvalidInfluenceAmountError,
 )
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
@@ -576,10 +578,104 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
         return result
 
 
+class ProxyWarAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to bid to support "
+            "your proxy in the war. This must be less than or equal to "
+            "your current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class ProxyWarDefs:
+    WINNER_GDP: ClassVar[int] = 10
+    CLOCK_ESCALATION_PER_INF: ClassVar[int] = 1
+
+
+class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
+    card_kind: ClassVar[Literal["proxy-war"]] = "proxy-war"
+    action_type: ClassVar[type[ProxyWarAction]] = ProxyWarAction
+
+    title: ClassVar[str] = "Proxy War Escalation"
+    description: ClassVar[str] = (
+        "A localized conflict has suddenly escalated as rebel forces, armed "
+        "with advanced weaponry, have launched a major offensive against a "
+        "regional government. Both superpowers have vested interests in the "
+        "region's resources and strategic location. Do you pump Influence into "
+        "the conflict to secure a decisive victory for your proxy, or hold "
+        "back to avoid further escalating global tensions?"
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to expend towards "
+        "supporting their respective proxy in the war. Your bid will be "
+        "subtracted from your current Influence pool. The player who bids the "
+        "most Influence secures a victory for their proxy and gains a massive "
+        f"reward of {ProxyWarDefs.WINNER_GDP} GDP. However, the total amount "
+        "of Influence spent by BOTH players combined will increase the "
+        "Doomsday Clock by that exact amount, representing the danger of "
+        "unchecked proxy conflicts. If both players bid the same amount, the "
+        "war bogs down into a brutal stalemate: neither player gains any GDP, "
+        "but the Doomsday Clock still increases by the total amount of "
+        "Influence spent."
+    )
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> ProxyWarAction:
+        max_bid = game.players[player].influence
+        bid = min(max_bid, 5) if aggressive else 0
+        return ProxyWarAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, ProxyWarAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.players
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+
+        if p1_amount == p2_amount:
+            return [
+                SystemEvent(
+                    description="The proxy war grinds into a bloody stalemate.",
+                    influence_delta={player1: -p1_amount, player2: -p2_amount},
+                    clock_delta=total_investment,
+                )
+            ]
+
+        winner = player1 if p1_amount > p2_amount else player2
+
+        return [
+            SystemEvent(
+                description=f"{winner}'s proxy secures a decisive victory.",
+                influence_delta={player1: -p1_amount, player2: -p2_amount},
+                gdp_delta={winner: ProxyWarDefs.WINNER_GDP},
+                clock_delta=total_investment,
+            )
+        ]
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
+    *(ProxyWarCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
