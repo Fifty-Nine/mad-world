@@ -29,6 +29,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
+    BaseGameEvent,
     GameEvent,
     MessageEvent,
     PlayerActor,
@@ -266,8 +267,6 @@ class GameState(BaseModel):
             player.influence = max(0, player.influence)
 
         for effect in event.new_effects:
-            # TODO Remove the cast once `new_effects` is correctly type.
-            assert isinstance(effect, BaseEffect)
             effect.start_round = self.current_round
             self.active_effects.append(effect)
 
@@ -845,3 +844,10 @@ def format_results(
         result += f"  {player.name}: {player.gdp} GDP, {player.influence} Inf\n"
 
     return result
+
+
+BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+ActionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
