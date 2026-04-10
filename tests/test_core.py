@@ -481,7 +481,7 @@ async def test_doomsday_asteroid_integration(
 
 def test_crisis_trigger_logging() -> None:
     """Test that a crisis trigger is correctly logged."""
-    rules = GameRules(max_clock_state=10)
+    rules = GameRules(max_clock_state=10, initial_mandate_deck=[])
     game = GameState.new_game(rules=rules, players=["Alpha", "Omega"])
 
     # Manually set the clock to trigger a crisis on next advance_phase

@@ -331,7 +331,6 @@ class CoolerHeadsMandate(InstantMandate):
                 ),
                 clock_delta=-4,
                 influence_delta={player_name: 5},
-                cancel_crisis=True,
             )
         ]
 

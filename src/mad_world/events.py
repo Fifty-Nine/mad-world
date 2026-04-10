@@ -82,10 +82,6 @@ class BaseGameEvent(BaseModel):
     world_ending: bool = Field(
         default=False, description="True if this event ends the world."
     )
-    cancel_crisis: bool = Field(
-        default=False,
-        description="True if this event cancels a pending crisis.",
-    )
     new_effects: list[BaseEffect] = Field(
         default_factory=list,
         description="Ongoing effects applied by this event.",

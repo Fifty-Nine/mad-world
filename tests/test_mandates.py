@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import random
 
 import pytest
@@ -27,22 +28,42 @@ from mad_world.rules import GameRules
 def test_base_mandate_errors() -> None:
     class MockMandate(BaseMandate):
         card_kind = "mock"
+        is_instant = False
 
         def is_met(self, game: GameState, player_name: str) -> bool:
-            BaseMandate.is_met(self, game, player_name)
-            return False
+            with contextlib.suppress(NotImplementedError):
+                BaseMandate.is_met(self, game, player_name)
+            return True
 
         def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
-            BaseMandate.reward(self, game, player_name)
+            with contextlib.suppress(NotImplementedError):
+                BaseMandate.reward(self, game, player_name)
             return []
 
     m = MockMandate(title="t", description="d")
 
     game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+
+    # Also verify check_endgame_mandates works properly with a returned value
+    class MockEndgameMandate(BaseMandate):
+        card_kind = "mock_end"
+        is_instant = False
+
+        def is_met(self, game: GameState, player_name: str) -> bool:
+            return True
+
+        def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+            return [SystemEvent(description="test")]
+
+    m2 = MockEndgameMandate(title="t", description="d")
+    game.players["Alpha"].mandates.append(m2)
+    game.check_endgame_mandates()
+    assert m2 in game.players["Alpha"].completed_mandates
+
     with pytest.raises(NotImplementedError):
-        m.is_met(game, "Alpha")
+        BaseMandate.is_met(m, game, "Alpha")
     with pytest.raises(NotImplementedError):
-        m.reward(game, "Alpha")
+        BaseMandate.reward(m, game, "Alpha")
 
 
 def test_create_mandate_deck() -> None:

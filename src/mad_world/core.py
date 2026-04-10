@@ -299,17 +299,6 @@ class GameState(BaseModel):
         self.event_log.append(event)
         logging.getLogger("mad_world").info(event.description)
 
-        if getattr(event, "cancel_crisis", False) and self.pending_crisis:
-            self.pending_crisis = None
-            if (
-                self.post_crisis_phase is not None
-                and self.post_crisis_round is not None
-            ):
-                self.current_phase = self.post_crisis_phase
-                self.current_round = self.post_crisis_round
-                self.post_crisis_phase = None
-                self.post_crisis_round = None
-
         if not event.world_ending:
             return
 
@@ -423,6 +412,8 @@ class GameState(BaseModel):
                 )
                 self.post_crisis_phase, self.post_crisis_round = None, None
 
+        self.check_instant_mandates()
+
         if self.trigger_crisis():
             self.post_crisis_phase = self.current_phase
             self.post_crisis_round = self.current_round
@@ -497,7 +488,34 @@ class GameState(BaseModel):
     def escalation_debt(self, player: str) -> int:
         return self.escalation_track.count(PlayerActor(name=player))
 
+    def _claim_mandates(self, *, is_instant: bool) -> None:
+        for player_name, player_state in self.players.items():
+            completed = [
+                m
+                for m in player_state.mandates
+                if m.is_instant == is_instant and m.is_met(self, player_name)
+            ]
+
+            for mandate in completed:
+                self._apply_mandate_rewards(mandate, player_name)
+                player_state.mandates.remove(mandate)
+                player_state.completed_mandates.append(mandate)
+
+    def _apply_mandate_rewards(
+        self, mandate: BaseMandate, player_name: str
+    ) -> None:
+        for event in mandate.reward(self, player_name):
+            self.apply_event(event)
+
+    def check_instant_mandates(self) -> None:
+        self._claim_mandates(is_instant=True)
+
+    def check_endgame_mandates(self) -> None:
+        self._claim_mandates(is_instant=False)
+
     def determine_victor(self) -> tuple[str | None, GameOverReason]:
+        self.check_endgame_mandates()
+
         if self.doomsday_clock >= self.rules.max_clock_state:
             return (None, GameOverReason.WORLD_DESTROYED)
 
@@ -868,39 +886,6 @@ def check_game_over(game: GameState) -> bool:
     ) or game.current_round > game.rules.round_count
 
 
-def _claim_mandates(
-    game: GameState,
-    player_name: str,
-    player_state: PlayerState,
-    *,
-    is_instant: bool,
-) -> None:
-    completed = [
-        m
-        for m in player_state.mandates
-        if m.is_instant == is_instant and m.is_met(game, player_name)
-    ]
-
-    def _apply_reward(mandate: BaseMandate) -> None:
-        for event in mandate.reward(game, player_name):
-            game.apply_event(event)
-
-    for mandate in completed:
-        _apply_reward(mandate)
-        player_state.mandates.remove(mandate)
-        player_state.completed_mandates.append(mandate)
-
-
-def check_instant_mandates(game: GameState) -> None:
-    for player_name, player_state in game.players.items():
-        _claim_mandates(game, player_name, player_state, is_instant=True)
-
-
-def check_endgame_mandates(game: GameState) -> None:
-    for player_name, player_state in game.players.items():
-        _claim_mandates(game, player_name, player_state, is_instant=False)
-
-
 def destroy_world(game: GameState) -> GameState:
     new_game = copy.deepcopy(game)
     new_game.escalate(SystemActor(), 50)
@@ -924,13 +909,11 @@ async def game_loop(
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
-            check_instant_mandates(game)
             await game.autosave()
         except WorldDestroyed:
             game = destroy_world(game)
             break
 
-    check_endgame_mandates(game)
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")
     logger.debug("Victor: %s", winner or "no one")
