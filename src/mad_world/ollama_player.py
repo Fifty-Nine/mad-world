@@ -445,7 +445,7 @@ class OllamaPlayer(GamePlayer):
             self.persona = f"{self.persona}\n\n{elaborated}"
 
             self.logger.info(
-                "%s\n%s\n",
+                "%s%s",
                 bannerize(
                     f"Elaborated persona for {self.name} ({persona_seed})"
                 ),
