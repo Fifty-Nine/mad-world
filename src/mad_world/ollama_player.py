@@ -34,6 +34,8 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
+    aretry,
+    bannerize,
     escalation_budget,
     extract_json_from_response,
     pareto_optimal_bid,
@@ -751,6 +753,93 @@ class OllamaPlayer(GamePlayer):
             response.model_dump(mode="json"), indent=2, ensure_ascii=False
         )
 
+    class _ModelPromptError(Exception):
+        pass
+
+    async def try_one_prompt[T: ActionResponse](
+        self,
+        response_model: type[T],
+        game: GameState,
+        log_header: str,
+    ) -> T | None:
+        schema = response_model.format_schema()
+        result_obj = await self.client.chat(
+            model=self.model,
+            messages=self.messages,
+            format=schema,
+            options=self.prompt_options,
+            think=False,
+        )
+        result = result_obj.message.content
+
+        try:
+            response = response_model.model_validate_json(
+                extract_json_from_response(result or "{}")
+            )
+        except ValidationError as e:
+            self.logger.debug(
+                "%s\n%s\n%s\n",
+                wrap_text(f"{log_header}Failed: {e}"),
+                f"Model Response: {result}",
+                f"Model done reason: {result_obj.done_reason}\n",
+            )
+            self.messages.append(
+                {
+                    "role": "system",
+                    "content": "SYSTEM ERROR: You previously generated a "
+                    "response that triggered the following error during "
+                    f"validation: {e!r}\n"
+                    "This response has been discarded and you are being "
+                    "given another opportunity to generate a valid result. "
+                    "Please ensure you limit your internal "
+                    "monologue to a few paragraphs and follow "
+                    "the provided schema exactly.",
+                },
+            )
+            raise self._ModelPromptError from e
+
+        action = response.action
+        formatted_response = textwrap.indent(
+            self.dump_model_response(response),
+            prefix="  ",
+        )
+        try:
+            action.validate_semantics(game, self.name)
+            self.messages.append(
+                {"role": "assistant", "content": result or ""},
+            )
+
+            self.logger.debug(
+                wrap_text(
+                    f"{log_header}Model Response:\n{formatted_response}\n",
+                ),
+            )
+            await self._check_and_compress(result_obj, game)
+
+        except InvalidActionError as e:
+            self.logger.debug(
+                wrap_text(
+                    f"{log_header}Semantic Error: {e}\n"
+                    f"Model Response:\n{formatted_response}\n",
+                ),
+            )
+            self.messages.append(
+                {
+                    "role": "system",
+                    "content": "SYSTEM ERROR: Your response was "
+                    "invalid under the current game rules. The action "
+                    "you submitted was:\n"
+                    f"{self.dump_model_response(action)}\n"
+                    "But it resulted in the following error:\n"
+                    f"{e}\n"
+                    "Please correct your mistake and try again.",
+                },
+            )
+            raise self._ModelPromptError from e
+
+        else:
+            return response
+
     async def retry_prompt[T: ActionResponse](
         self,
         response_model: type[T],
@@ -760,83 +849,13 @@ class OllamaPlayer(GamePlayer):
         log_header = (
             f"==== {game.current_phase.name} {self.name} response====\n"
         )
-        for _i in range(retries):
-            schema = response_model.format_schema()
-            result_obj = await self.client.chat(
-                model=self.model,
-                messages=self.messages,
-                format=schema,
-                options=self.prompt_options,
-                think=False,
-            )
-            result = result_obj.message.content
-
-            try:
-                response = response_model.model_validate_json(
-                    extract_json_from_response(result or "{}")
-                )
-            except ValidationError as e:
-                self.logger.debug(
-                    "%s\n%s\n%s\n",
-                    wrap_text(f"{log_header}Failed: {e}"),
-                    f"Model Response: {result}",
-                    f"Model done reason: {result_obj.done_reason}\n",
-                )
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": "SYSTEM ERROR: You previously generated a "
-                        "response that triggered the following error during "
-                        f"validation: {e!r}\n"
-                        "This response has been discarded and you are being "
-                        "given another opportunity to generate a valid result. "
-                        "Please ensure you limit your internal "
-                        "monologue to a few paragraphs and follow "
-                        "the provided schema exactly.",
-                    },
-                )
-                continue
-
-            action = response.action
-            formatted_response = textwrap.indent(
-                self.dump_model_response(response),
-                prefix="  ",
-            )
-            try:
-                action.validate_semantics(game, self.name)
-                self.messages.append(
-                    {"role": "assistant", "content": result or ""},
-                )
-
-                self.logger.debug(
-                    wrap_text(
-                        f"{log_header}Model Response:\n{formatted_response}\n",
-                    ),
-                )
-                await self._check_and_compress(result_obj, game)
-
-            except InvalidActionError as e:
-                self.logger.debug(
-                    wrap_text(
-                        f"{log_header}Semantic Error: {e}\n"
-                        f"Model Response:\n{formatted_response}\n",
-                    ),
-                )
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": "SYSTEM ERROR: Your response was "
-                        "invalid under the current game rules. The action "
-                        "you submitted was:\n"
-                        f"{self.dump_model_response(action)}\n"
-                        "But it resulted in the following error:\n"
-                        f"{e}\n"
-                        "Please correct your mistake and try again.",
-                    },
-                )
-
-            else:
-                return response
+        result = await aretry(
+            func=lambda: self.try_one_prompt(response_model, game, log_header),
+            allowed_exceptions=[self._ModelPromptError],
+            count=retries,
+        )
+        if result is not None:
+            return result
 
         self.logger.debug("%sFailed after %s retries.", log_header, retries)
         return None

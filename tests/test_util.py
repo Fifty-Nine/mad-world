@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from mad_world.events import PlayerActor, SystemActor
 from mad_world.util import (
     BadClampRangeError,
+    aretry,
     clamp,
     cost_or_gain,
     defrag_escalation_track,
@@ -492,3 +494,72 @@ def test_extract_json_from_response(
     expected: str,
 ) -> None:
     assert extract_json_from_response(response) == expected
+
+
+@pytest.mark.asyncio
+async def test_aretry() -> None:
+    cb = AsyncMock(return_value=1)
+    assert await aretry(func=cb, allowed_exceptions=[]) == 1
+    cb.side_effect = ValueError("my-text")
+    with pytest.raises(ValueError, match="my-text"):
+        await aretry(func=cb, allowed_exceptions=[])
+
+    assert await aretry(func=cb, allowed_exceptions=[ValueError]) is None
+
+    cb.side_effect = [ValueError("once"), TypeError("twice"), 0]
+    assert (
+        await aretry(func=cb, allowed_exceptions=[ValueError, TypeError]) == 0
+    )
+
+
+@pytest.mark.asyncio
+async def test_aretry_on_error() -> None:
+    cb = AsyncMock(return_value=1)
+    on_error = MagicMock()
+    assert await aretry(func=cb, allowed_exceptions=[], on_error=on_error) == 1
+    assert not on_error.called
+
+    cb.side_effect = ValueError("my-text")
+    with pytest.raises(ValueError, match="my-text"):
+        await aretry(func=cb, allowed_exceptions=[], on_error=on_error)
+
+    assert not on_error.called
+
+    assert (
+        await aretry(
+            func=cb,
+            allowed_exceptions=[ValueError],
+            count=10,
+            on_error=on_error,
+        )
+        is None
+    )
+    assert on_error.call_count == 10
+    assert on_error.call_count == 10
+
+    on_error.reset_mock()
+
+    cb.side_effect = [ValueError("once"), TypeError("twice"), 0]
+    assert (
+        await aretry(
+            func=cb,
+            allowed_exceptions=[ValueError, TypeError],
+            count=2,
+            on_error=on_error,
+        )
+        is None
+    )
+    assert on_error.call_count == 2
+
+    on_error.reset_mock()
+    cb.side_effect = [ValueError("once"), TypeError("twice"), 0]
+    assert (
+        await aretry(
+            func=cb,
+            allowed_exceptions=[ValueError, TypeError],
+            count=3,
+            on_error=on_error,
+        )
+        == 0
+    )
+    assert on_error.call_count == 2
