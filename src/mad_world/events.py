@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from enum import Enum, StrEnum
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from mad_world.cards import BaseCard
 from mad_world.enums import GamePhase
+
+if TYPE_CHECKING:
+    from mad_world.effects import BaseEffect  # noqa: TC004
 
 
 class ActorKind(Enum):
@@ -80,10 +82,7 @@ class BaseGameEvent(BaseModel):
     world_ending: bool = Field(
         default=False, description="True if this event ends the world."
     )
-    # TODO This should go in an EffectEvent or similar subclass so that
-    # we can correctly type this field as BaseEffect. This will be possible
-    # after #51 lands.
-    new_effects: list[BaseCard] = Field(
+    new_effects: list[BaseEffect] = Field(
         default_factory=list,
         description="Ongoing effects applied by this event.",
     )
