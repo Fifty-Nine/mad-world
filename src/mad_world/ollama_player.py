@@ -34,6 +34,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
+    bannerize,
     escalation_budget,
     extract_json_from_response,
     pareto_optimal_bid,
@@ -440,11 +441,14 @@ class OllamaPlayer(GamePlayer):
             think=True,
         )
         if elaborated := (response.message.content or "").strip():
+            persona_seed = self.persona
             self.persona = f"{self.persona}\n\n{elaborated}"
 
             self.logger.info(
-                "Elaborated persona for %s: %s",
-                self.name,
+                "%s%s",
+                bannerize(
+                    f"Elaborated persona for {self.name} ({persona_seed})"
+                ),
                 wrap_text(elaborated, indent="> "),
             )
 

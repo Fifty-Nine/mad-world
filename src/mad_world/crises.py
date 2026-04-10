@@ -483,6 +483,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
         f"{abs(DoomsdayAsteroidDefs.CLOCK_IMPACT)} points as humanity breathes "
         "a sigh of relief."
     )
+    consumable: ClassVar[bool] = True
 
     @override
     def get_default_action(
