@@ -9,7 +9,7 @@ from pydantic import Field
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.effects import NoDomesticInvestmentEffect, NoZeroBidsEffect
-from mad_world.events import GameEvent, SystemActor
+from mad_world.events import GameEvent, SystemEvent
 
 if TYPE_CHECKING:
     import random
@@ -41,8 +41,7 @@ class ClockUpEvent(BaseEventCard):
 
     def run(self, game: GameState) -> list[GameEvent]:
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"Event: {self.title} - The doomsday clock increases by 1."
                 ),
@@ -61,8 +60,7 @@ class ClockDownEvent(BaseEventCard):
 
     def run(self, game: GameState) -> list[GameEvent]:
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"Event: {self.title} - The doomsday clock decreases by 1."
                 ),
@@ -80,8 +78,7 @@ class InfluenceP1Event(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         p1 = game.player_names()[0]
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=f"Event: {self.title} - {p1} gains 3 influence.",
                 influence_delta={p1: 3},
             )
@@ -97,8 +94,7 @@ class InfluenceP2Event(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         p2 = game.player_names()[1]
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=f"Event: {self.title} - {p2} gains 3 influence.",
                 influence_delta={p2: 3},
             )
@@ -114,8 +110,7 @@ class GDPP1Event(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         p1 = game.player_names()[0]
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=f"Event: {self.title} - {p1} gains 10 GDP.",
                 gdp_delta={p1: 10},
             )
@@ -131,8 +126,7 @@ class GDPP2Event(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         p2 = game.player_names()[1]
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=f"Event: {self.title} - {p2} gains 10 GDP.",
                 gdp_delta={p2: 10},
             )
@@ -148,8 +142,7 @@ class InfluenceBothEvent(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         p1, p2 = game.player_names()
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"Event: {self.title} - Both players gain 2 influence."
                 ),
@@ -167,8 +160,7 @@ class BanZeroBidsEvent(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         effect = NoZeroBidsEffect(duration=2)
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."
@@ -187,8 +179,7 @@ class BanDomesticInvestmentEvent(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         effect = NoDomesticInvestmentEffect(duration=2)
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."

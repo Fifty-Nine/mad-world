@@ -26,7 +26,12 @@ from mad_world.crises import (
     StandoffCrisis,
 )
 from mad_world.enums import StandoffPosture
-from mad_world.events import GameEvent, PlayerActor, SystemActor
+from mad_world.events import (
+    GameEvent,
+    PlayerActor,
+    SystemActor,
+    SystemEvent,
+)
 from mad_world.rules import GameRules
 
 
@@ -100,7 +105,7 @@ class TestInternationalSanctionsCrisis:
 
         assert len(events) == 1
         event = events[0]
-        assert isinstance(event, GameEvent)
+        assert isinstance(event, SystemEvent)
         assert isinstance(event.actor, SystemActor)
         assert event.clock_delta == SANCTIONS_TIE_CLOCK_EFFECT
         assert event.gdp_delta["Player1"] == SANCTIONS_TIE_GDP_EFFECT
@@ -121,7 +126,7 @@ class TestInternationalSanctionsCrisis:
 
         assert len(events) == 1
         event = events[0]
-        assert isinstance(event, GameEvent)
+        assert isinstance(event, SystemEvent)
         assert isinstance(event.actor, SystemActor)
         expected_amount = max(abs(debt1 - debt2), abs(SANCTIONS_MIN_EFFECT))
         assert event.clock_delta == -expected_amount
@@ -143,7 +148,7 @@ class TestInternationalSanctionsCrisis:
 
         assert len(events) == 1
         event = events[0]
-        assert isinstance(event, GameEvent)
+        assert isinstance(event, SystemEvent)
         assert isinstance(event.actor, SystemActor)
         expected_amount = max(abs(debt1 - debt2), abs(SANCTIONS_MIN_EFFECT))
         assert event.clock_delta == -expected_amount
@@ -316,8 +321,7 @@ async def test_resolve_crisis_consumable(basic_game: GameState) -> None:
         @override
         async def run(self, *_args: Any, **_kwargs: Any) -> list[GameEvent]:
             return [
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description="Test consumable",
                     clock_delta=0,
                 )

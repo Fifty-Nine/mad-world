@@ -36,10 +36,11 @@ from mad_world.crises import (
 )
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import (
+    ActionEvent,
     ActorKind,
-    GameEvent,
     PlayerActor,
     SystemActor,
+    SystemEvent,
 )
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
@@ -209,7 +210,7 @@ def test_resolve_operation_invalid_operation(basic_game: GameState) -> None:
 
 
 def test_game_event_defaults() -> None:
-    event = GameEvent(actor=SystemActor(), description="Test event")
+    event = SystemEvent(description="Test event")
     assert event.clock_delta == 0
     assert event.gdp_delta == {}
     assert event.influence_delta == {}
@@ -258,8 +259,7 @@ def test_recent_events(basic_game: GameState) -> None:
 
     # Older event (should be skipped by break)
     basic_game.event_log.append(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description="old",
             current_round=1,
             current_phase=GamePhase.OPERATIONS,
@@ -267,16 +267,14 @@ def test_recent_events(basic_game: GameState) -> None:
     )
     # Target events
     basic_game.event_log.append(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description="target1",
             current_round=2,
             current_phase=GamePhase.BIDDING,
         )
     )
     basic_game.event_log.append(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description="target2",
             current_round=2,
             current_phase=GamePhase.BIDDING,
@@ -284,8 +282,7 @@ def test_recent_events(basic_game: GameState) -> None:
     )
     # Newer events (should be skipped initially)
     basic_game.event_log.append(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description="new",
             current_round=2,
             current_phase=GamePhase.OPERATIONS,
@@ -361,14 +358,11 @@ async def test_international_sanctions_integration(
 
 def test_clock_limits(basic_game: GameState) -> None:
     """Ensure clock state can't go negative due to an event."""
-    basic_game.apply_event(
-        GameEvent(actor=SystemActor(), description="", clock_delta=-1)
-    )
+    basic_game.apply_event(SystemEvent(description="", clock_delta=-1))
     assert basic_game.doomsday_clock == 0
 
     basic_game.apply_event(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description="",
             clock_delta=basic_game.rules.max_clock_state + 1,
         ),
@@ -379,7 +373,7 @@ def test_clock_limits(basic_game: GameState) -> None:
 def test_escalation_debt(basic_game: GameState) -> None:
     # Alpha escalates by 5
     basic_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha escalates",
             clock_delta=5,
@@ -390,7 +384,7 @@ def test_escalation_debt(basic_game: GameState) -> None:
 
     # Alpha de-escalates by 8 -> net -3. Should spill over to Omega.
     basic_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha de-escalates heavily",
             clock_delta=-8,
@@ -402,7 +396,7 @@ def test_escalation_debt(basic_game: GameState) -> None:
     # Alpha de-escalates by 2 -> Omega is already 0, goes to -2.
     # Then clamped to 0.
     basic_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha de-escalates again",
             clock_delta=-2,
@@ -413,7 +407,7 @@ def test_escalation_debt(basic_game: GameState) -> None:
 
     # Omega escalates
     basic_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=PlayerActor(name="Omega"),
             description="Omega escalates",
             clock_delta=4,

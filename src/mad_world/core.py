@@ -27,7 +27,15 @@ from mad_world.decks import Deck
 from mad_world.effects import BaseEffect
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
-from mad_world.events import GameEvent, PlayerActor, SystemActor
+from mad_world.events import (
+    ActionEvent,
+    GameEvent,
+    MessageEvent,
+    PlayerActor,
+    StateEvent,
+    SystemActor,
+    SystemEvent,
+)
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
@@ -284,7 +292,7 @@ class GameState(BaseModel):
             return
 
         self.apply_event(
-            GameEvent(
+            MessageEvent(
                 actor=PlayerActor(name=self_player),
                 description=(
                     f"{self_player} sent a message to "
@@ -393,8 +401,7 @@ class GameState(BaseModel):
             )
 
             self.apply_event(
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description=(
                         "Time has run out and a global crisis has been "
                         f"triggered: {self.pending_crisis.title}"
@@ -405,8 +412,7 @@ class GameState(BaseModel):
         self._expire_effects()
 
         self.apply_event(
-            GameEvent(
-                actor=SystemActor(),
+            StateEvent(
                 description=self.describe_state(),
                 # It's not really a secret but the players already
                 # get the game state so this is redundant. However,
@@ -527,7 +533,7 @@ async def resolve_bidding(
     )
 
     new_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=alpha_actor,
             description=alpha_desc,
             clock_delta=0,
@@ -535,7 +541,7 @@ async def resolve_bidding(
         )
     )
     new_game.apply_event(
-        GameEvent(
+        ActionEvent(
             actor=omega_actor,
             description=omega_desc,
             clock_delta=0,
@@ -564,8 +570,7 @@ async def resolve_bidding(
     net_change = clock_end - clock_start
 
     new_game.apply_event(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description=(
                 f"Bidding resolved. Net doomsday clock change: {net_change:+d}"
             ),
@@ -587,7 +592,7 @@ def resolve_operation(
     try:
         game.validate_operation(operation_name, player_name)
     except InvalidActionError as e:
-        return GameEvent(
+        return ActionEvent(
             actor=PlayerActor(name=player_name),
             description=(
                 f"{player_name} attempted a {operation_name} "
@@ -596,7 +601,7 @@ def resolve_operation(
         )
 
     op_def = game.allowed_operations[operation_name]
-    return GameEvent(
+    return ActionEvent(
         actor=PlayerActor(name=player_name),
         description=(
             f"{player_name} has successfully conducted a {operation_name} "
@@ -806,8 +811,7 @@ async def game_loop(
     logger.debug("Reason: %s", reason.name)
 
     game.apply_event(
-        GameEvent(
-            actor=SystemActor(),
+        SystemEvent(
             description=(
                 f"Game over! {winner or 'No one'} won due to {reason.name}."
             ),

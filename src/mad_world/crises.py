@@ -16,7 +16,12 @@ from mad_world.actions import (
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import BlameGamePosture, StandoffPosture
-from mad_world.events import GameEvent, PlayerActor, SystemActor
+from mad_world.events import (
+    ActionEvent,
+    GameEvent,
+    PlayerActor,
+    SystemEvent,
+)
 
 if TYPE_CHECKING:
     import random
@@ -160,8 +165,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         )
 
     def _doomsday(self, players: list[str]) -> GameEvent:
-        return GameEvent(
-            actor=SystemActor(),
+        return SystemEvent(
             description="Both players have chosen to stand firm and "
             "as a result, the conflict has spiraled out of control, "
             "leading to a total nuclear exchange.",
@@ -175,8 +179,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         )
         clock_delta = target_clock - game.doomsday_clock
 
-        return GameEvent(
-            actor=SystemActor(),
+        return SystemEvent(
             description="Both players have chosen to back down. The world "
             "breathes a sigh of relief as cooler heads have prevailed.",
             gdp_delta=dict.fromkeys(players, STANDOFF_TIE_GDP_EFFECT),
@@ -191,7 +194,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         )
         clock_delta = target_clock - game.doomsday_clock
 
-        return GameEvent(
+        return ActionEvent(
             actor=PlayerActor(name=winner),
             description=f"{winner} looked death in the eyes and didn't blink. "
             f"As a result, {loser} has suffered significant losses and is "
@@ -249,8 +252,7 @@ class InternationalSanctionsCrisis(BaseCrisis):
 
     @classmethod
     def both_players_sanctioned(cls, game: GameState) -> GameEvent:
-        return GameEvent(
-            actor=SystemActor(),
+        return SystemEvent(
             description=(
                 f"{cls.description}\nBoth players have contributed equally "
                 "to current tensions, and so both players will lose "
@@ -266,8 +268,7 @@ class InternationalSanctionsCrisis(BaseCrisis):
     @classmethod
     def one_player_sanctioned(cls, player: str, amount: int) -> GameEvent:
         amount = max(amount, abs(SANCTIONS_MIN_EFFECT))
-        return GameEvent(
-            actor=SystemActor(),
+        return SystemEvent(
             description=(
                 f"{cls.description}\n{player} has contributed the most to "
                 "current global tensions, and so they have been sanctioned and "
@@ -356,8 +357,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
 
         if all(p == BlameGamePosture.DEFLECT for p in postures):
             return [
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description=(
                         f"Both {players[0]} and {players[1]} "
                         "refused to take accountability. The crisis "
@@ -374,8 +374,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
         if all(p == BlameGamePosture.SHOULDER for p in postures):
             inf_effect = dict.fromkeys(players, BLAME_BOTH_SHOULDER_INF)
             return [
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description=(
                         "Both superpowers have stepped forward to shoulder the "
                         "blame, cooling global tensions significantly, but at "
@@ -398,8 +397,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
 
         if deflector_debt > shoulderer_debt:
             return [
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description=(
                         f"{deflector} attempted to deflect blame onto "
                         f"{shoulderer}, but the international community saw "
@@ -417,8 +415,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
             ]
 
         return [
-            GameEvent(
-                actor=SystemActor(),
+            SystemEvent(
                 description=(
                     f"{deflector} successfully deflected blame onto "
                     f"{shoulderer}, who took the fall for the crisis. "
@@ -501,7 +498,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
 
     @staticmethod
     def _investment_event(player: str, amount: int) -> GameEvent:
-        return GameEvent(
+        return ActionEvent(
             actor=PlayerActor(name=player),
             description=(
                 f"{player} has invested {amount} GDP into the joint mission to "
@@ -524,8 +521,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
                 "Both factions have contributed equally and, thus, they will "
                 "split the rewards."
             )
-            return GameEvent(
-                actor=SystemActor(),
+            return SystemEvent(
                 description=description,
                 gdp_delta={p1: gdp // 2, p2: gdp // 2},
                 influence_delta={p1: inf // 2, p2: inf // 2},
@@ -539,8 +535,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
             "will reap the rewards."
         )
 
-        return GameEvent(
-            actor=SystemActor(),
+        return SystemEvent(
             description=description,
             gdp_delta={winner: gdp},
             influence_delta={winner: inf},
@@ -564,8 +559,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
 
         if p1_amount + p2_amount < DoomsdayAsteroidDefs.GDP_THRESHOLD:
             result.append(
-                GameEvent(
-                    actor=SystemActor(),
+                SystemEvent(
                     description=(
                         "The world powers have failed to deflect the incoming "
                         "asteroid. The world watches on in horror as the "
