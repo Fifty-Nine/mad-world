@@ -5,11 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mad_world.effects import (
+    ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
 )
 from mad_world.enums import GamePhase
 from mad_world.event_cards import (
+    ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
 )
@@ -60,6 +62,12 @@ def test_no_zero_bids_effect(basic_game: GameState) -> None:
     assert bids == [1, 3, 5]
 
 
+def test_arms_control_effect(basic_game: GameState) -> None:
+    effect = ArmsControlEffect(duration=None)
+    bids = effect.modify_bids([0, 1, 3, 5, 10])
+    assert bids == [0, 1, 3]
+
+
 def test_no_domestic_investment_effect(basic_game: GameState) -> None:
     effect = NoDomesticInvestmentEffect(duration=None)
     ops = basic_game.allowed_operations
@@ -98,6 +106,22 @@ def test_ban_domestic_investment_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, NoDomesticInvestmentEffect)
+    assert effect.duration == 2
+
+
+def test_arms_control_treaty_event(basic_game: GameState) -> None:
+    event = ArmsControlTreatyEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, ArmsControlEffect)
     assert effect.duration == 2
 
 

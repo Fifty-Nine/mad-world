@@ -104,3 +104,20 @@ class NoDomesticInvestmentEffect(BaseEffect):
     ) -> dict[str, OperationDefinition]:
         # Return a copy without 'domestic-investment'
         return {k: v for k, v in ops.items() if k != "domestic-investment"}
+
+
+class ArmsControlEffect(BaseEffect):
+    card_kind: ClassVar[str] = "arms_control"
+
+    title: ClassVar[str] = "Arms Control Treaty"
+    description: ClassVar[str] = (
+        "A temporary treaty restricts extreme political maneuvers."
+    )
+    mechanics: ClassVar[str] = (
+        "During the bidding phase, bids are capped at a maximum of 3 while "
+        "the effect is ongoing."
+    )
+
+    @override
+    def modify_bids(self, bids: list[int]) -> list[int]:
+        return [b for b in bids if b <= 3]
