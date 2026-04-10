@@ -9,7 +9,7 @@ from pydantic import Field
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.effects import NoDomesticInvestmentEffect, NoZeroBidsEffect
-from mad_world.events import GameEvent, SystemEvent
+from mad_world.events import EffectEvent, GameEvent, SystemEvent
 
 if TYPE_CHECKING:
     import random
@@ -160,7 +160,7 @@ class BanZeroBidsEvent(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         effect = NoZeroBidsEffect(duration=2)
         return [
-            SystemEvent(
+            EffectEvent(
                 description=(
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."
@@ -179,7 +179,7 @@ class BanDomesticInvestmentEvent(BaseEventCard):
     def run(self, game: GameState) -> list[GameEvent]:
         effect = NoDomesticInvestmentEffect(duration=2)
         return [
-            SystemEvent(
+            EffectEvent(
                 description=(
                     f"Event: {self.title} - A new ongoing effect "
                     f"'{effect.title}' has been applied."

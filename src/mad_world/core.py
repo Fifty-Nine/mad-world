@@ -265,11 +265,12 @@ class GameState(BaseModel):
             player.influence += event.influence_delta.get(player_name, 0)
             player.influence = max(0, player.influence)
 
-        for effect in event.new_effects:
-            # TODO Remove the cast once `new_effects` is correctly type.
-            assert isinstance(effect, BaseEffect)
-            effect.start_round = self.current_round
-            self.active_effects.append(effect)
+        if getattr(event, "event_kind", None) == "effect" and hasattr(
+            event, "new_effects"
+        ):
+            for effect in event.new_effects:
+                effect.start_round = self.current_round
+                self.active_effects.append(effect)
 
         event.current_round = self.current_round
         event.current_phase = self.current_phase
@@ -845,3 +846,8 @@ def format_results(
         result += f"  {player.name}: {player.gdp} GDP, {player.influence} Inf\n"
 
     return result
+
+
+from mad_world.events import EffectEvent  # noqa: E402
+
+EffectEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
