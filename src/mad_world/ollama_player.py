@@ -396,7 +396,12 @@ class OllamaPlayer(GamePlayer):
             "Elaborate on this two-word persona, turning it into a "
             "nuanced and well-defined character description that fits into "
             "the context of an actor in a game about Mutually Assured "
-            "Destruction, the Cold War, etc.\n"
+            "Destruction, the Cold War, etc. As part of this, you must "
+            "create a fictional name and title for the corporeal embodiment of "
+            f"your nation ({self.name}) (e.g., 'President Morrison', 'First "
+            "Premier Kirolev', 'Ambassador N'zika', etc.) which you will use "
+            "to identify yourself in diplomatic messages. Do NOT use "
+            "real-world historical figures or names.\n"
             "In addition, you should assign this persona one of these "
             "archetypes that fits with the character description. These "
             "archetypes concern how the persona views different categories of "
@@ -423,9 +428,10 @@ class OllamaPlayer(GamePlayer):
             "loss as equivalent to MAD, but views a narrow economic loss as "
             "acceptable.\n"
             "Include the description of the chosen archetype in your "
-            "elaborated persona. Do not include any introductory text and "
-            "limit your description to 1-2 paragraphs plus archetype "
-            "description."
+            "elaborated persona. Write the elaborated persona entirely in "
+            "the second person (e.g., 'You are General Whatshisname...'). "
+            "Do not include any introductory text and limit your description "
+            "to 1-2 paragraphs plus archetype description."
         )
         response = await self.client.chat(
             model=self.model,
@@ -1020,7 +1026,9 @@ class OllamaPlayer(GamePlayer):
             "opponent. You will have a chance to send a message to your "
             "opponent before they have to commit to their actions in each "
             "phase. You should use this channel to conduct diplomacy, respond "
-            "to inquiries, issue threats, etc.\n"
+            "to inquiries, issue threats, etc. Remember to explicitly "
+            "identify yourself by your chosen name and title in your first "
+            "message.\n"
         )
         self.add_prompt(
             prompt,
