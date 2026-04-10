@@ -594,9 +594,9 @@ def test_my_strategy(test_player: Any) -> None:
     assert "original grand strategy" in strategy_text_compressed
 
 
-def test_unprefix_keys() -> None:
-    data: dict[str, Any] = {"01_chain_of_thought": [], "02_action": {}}
-    res = remove_ordering_prefix(data, is_key=True)
+def test_action_response_unprefix_keys() -> None:
+    data = {"01_chain_of_thought": ["thought"], "02_action": {}}
+    res = ActionResponse.unprefix_keys(data)
 
     assert "chain_of_thought" in res
     assert "action" in res
