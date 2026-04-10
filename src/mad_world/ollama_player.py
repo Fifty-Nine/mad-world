@@ -397,7 +397,7 @@ class OllamaPlayer(GamePlayer):
             "nuanced and well-defined character description that fits into "
             "the context of an actor in a game about Mutually Assured "
             "Destruction, the Cold War, etc. As part of this, you must "
-            "create a fictional name and title for the corporal embodiment of "
+            "create a fictional name and title for the corporeal embodiment of "
             "your nation (e.g., 'President Morrison', 'First Premier Kirolev', "
             "'Ambassador N'zika', etc.) which you will use to identify "
             "yourself in diplomatic messages. Do NOT use real-world "
@@ -1027,8 +1027,8 @@ class OllamaPlayer(GamePlayer):
             "opponent before they have to commit to their actions in each "
             "phase. You should use this channel to conduct diplomacy, respond "
             "to inquiries, issue threats, etc. Remember to explicitly "
-            "identify yourself by your chosen name and title in your "
-            "messages.\n"
+            "identify yourself by your chosen name and title in your first "
+            "message.\n"
         )
         self.add_prompt(
             prompt,
