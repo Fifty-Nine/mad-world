@@ -49,7 +49,7 @@ class ClockUpEvent(BaseEventCard):
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - The doomsday clock increases by 1."
+                    f"Event: {self.title} - The doomsday clock increases by {self.amount}."
                 ),
                 clock_delta=self.amount,
             )
@@ -69,7 +69,7 @@ class ClockDownEvent(BaseEventCard):
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - The doomsday clock decreases by 1."
+                    f"Event: {self.title} - The doomsday clock decreases by {self.amount}."
                 ),
                 clock_delta=-self.amount,
             )
@@ -89,8 +89,7 @@ class InfluenceEvent(BaseEventCard):
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - {player} gains"
-                    f"{self.inf_bonus} influence."
+                    f"Event: {self.title} - {player} gains {self.inf_bonus} influence."
                 ),
                 influence_delta={player: self.inf_bonus},
             )
@@ -129,7 +128,7 @@ class InfluenceBothEvent(BaseEventCard):
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - Both players gain 2 influence."
+                    f"Event: {self.title} - Both players gain {self.inf_bonus} influence."
                 ),
                 influence_delta={p1: self.inf_bonus, p2: self.inf_bonus},
             )
