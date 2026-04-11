@@ -764,9 +764,9 @@ def _apply_aggressor_tax(new_game: GameState) -> None:
         if player_state.influence >= inf_cost:
             inf_delta = -inf_cost
             gdp_delta = 0
-            desc_impact = f"{inf_cost} influence"
+            desc_impact = f"{inf_cost} Inf"
         else:
-            inf_delta = -player_state.influence
+            inf_delta = 0
             gdp_delta = -gdp_cost
             desc_impact = f"{gdp_cost} GDP"
 
