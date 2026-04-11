@@ -122,19 +122,19 @@ class ActionEvent(BaseGameEvent):
 
 
 class BiddingEvent(ActionEvent):
-    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)
+    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)  # type: ignore[assignment]
     bid: int
 
 
 class OperationConductedEvent(ActionEvent):
-    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(
+    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(  # type: ignore[assignment]
         default=EventKind.OPERATION_CONDUCTED
     )
     operation: str
 
 
 class CrisisResolutionEvent(ActionEvent):
-    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(
+    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(  # type: ignore[assignment]
         default=EventKind.CRISIS_RESOLUTION
     )
 
