@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
 from pydantic import Field
@@ -29,9 +30,9 @@ class BaseEventCard(BaseCard):
         description="The narrative description of the event.",
     )
 
+    @abstractmethod
     def run(self, game: GameState) -> list[GameEvent]:
         """Execute the immediate effects of the event card."""
-        raise NotImplementedError
 
 
 class ClockUpEvent(BaseEventCard):
@@ -42,14 +43,16 @@ class ClockUpEvent(BaseEventCard):
         "Global tensions rise inexplicably, moving the world closer to "
         "midnight."
     )
+    amount: int = 1
 
     def run(self, game: GameState) -> list[GameEvent]:
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - The doomsday clock increases by 1."
+                    f"Event: {self.title} - The doomsday clock "
+                    f"increases by {self.amount}."
                 ),
-                clock_delta=1,
+                clock_delta=self.amount,
             )
         ]
 
@@ -61,78 +64,57 @@ class ClockDownEvent(BaseEventCard):
     description: str = (
         "A brief moment of international cooperation lowers global tensions."
     )
+    amount: int = 1
 
     def run(self, game: GameState) -> list[GameEvent]:
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - The doomsday clock decreases by 1."
+                    f"Event: {self.title} - The doomsday clock "
+                    f"decreases by {self.amount}."
                 ),
-                clock_delta=-1,
+                clock_delta=-self.amount,
             )
         ]
 
 
-class InfluenceP1Event(BaseEventCard):
-    card_kind: ClassVar[str] = "influence_p1"
+class InfluenceEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "diplo_breakthrough"
 
     title: str = "Diplomatic Breakthrough"
-    description: str = "A diplomatic breakthrough grants influence to Player 1."
+    description: str = "A diplomatic breakthrough grants influence to a player."
+    inf_bonus: int = 3
+    player_idx: int
 
     def run(self, game: GameState) -> list[GameEvent]:
-        p1 = game.player_names()[0]
+        player = game.player_names()[self.player_idx]
         return [
             SystemEvent(
-                description=f"Event: {self.title} - {p1} gains 3 influence.",
-                influence_delta={p1: 3},
+                description=(
+                    f"Event: {self.title} - {player} "
+                    f"gains {self.inf_bonus} influence."
+                ),
+                influence_delta={player: self.inf_bonus},
             )
         ]
 
 
-class InfluenceP2Event(BaseEventCard):
-    card_kind: ClassVar[str] = "influence_p2"
-
-    title: str = "Diplomatic Coup"
-    description: str = "A diplomatic coup grants influence to Player 2."
-
-    def run(self, game: GameState) -> list[GameEvent]:
-        p2 = game.player_names()[1]
-        return [
-            SystemEvent(
-                description=f"Event: {self.title} - {p2} gains 3 influence.",
-                influence_delta={p2: 3},
-            )
-        ]
-
-
-class GDPP1Event(BaseEventCard):
-    card_kind: ClassVar[str] = "gdp_p1"
-
+class GDPEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "economic_boom"
     title: str = "Economic Boom"
-    description: str = "An economic boom grants GDP to Player 1."
+    description: str = "A player experiences an economic boom."
+    gdp_bonus: int = 4
+    player_idx: int
 
     def run(self, game: GameState) -> list[GameEvent]:
-        p1 = game.player_names()[0]
+        player = game.player_names()[self.player_idx]
         return [
             SystemEvent(
-                description=f"Event: {self.title} - {p1} gains 10 GDP.",
-                gdp_delta={p1: 10},
-            )
-        ]
-
-
-class GDPP2Event(BaseEventCard):
-    card_kind: ClassVar[str] = "gdp_p2"
-
-    title: str = "Industrial Surge"
-    description: str = "An industrial surge grants GDP to Player 2."
-
-    def run(self, game: GameState) -> list[GameEvent]:
-        p2 = game.player_names()[1]
-        return [
-            SystemEvent(
-                description=f"Event: {self.title} - {p2} gains 10 GDP.",
-                gdp_delta={p2: 10},
+                description=(
+                    f"Event: {self.title} - {player} gains {self.gdp_bonus} "
+                    "GDP."
+                ),
+                gdp_delta={player: self.gdp_bonus},
             )
         ]
 
@@ -142,15 +124,17 @@ class InfluenceBothEvent(BaseEventCard):
 
     title: str = "Global Summit"
     description: str = "A global summit grants influence to both players."
+    inf_bonus: int = 2
 
     def run(self, game: GameState) -> list[GameEvent]:
         p1, p2 = game.player_names()
         return [
             SystemEvent(
                 description=(
-                    f"Event: {self.title} - Both players gain 2 influence."
+                    f"Event: {self.title} - Both players gain "
+                    f"{self.inf_bonus} influence."
                 ),
-                influence_delta={p1: 2, p2: 2},
+                influence_delta={p1: self.inf_bonus, p2: self.inf_bonus},
             )
         ]
 
@@ -222,10 +206,10 @@ def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
             [
                 ClockUpEvent(),
                 ClockDownEvent(),
-                InfluenceP1Event(),
-                InfluenceP2Event(),
-                GDPP1Event(),
-                GDPP2Event(),
+                InfluenceEvent(player_idx=0),
+                InfluenceEvent(player_idx=1),
+                GDPEvent(player_idx=0),
+                GDPEvent(player_idx=1),
                 InfluenceBothEvent(),
                 BanZeroBidsEvent(),
                 BanDomesticInvestmentEvent(),
