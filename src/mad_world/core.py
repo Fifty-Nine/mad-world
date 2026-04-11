@@ -514,8 +514,6 @@ class GameState(BaseModel):
         self._claim_mandates(is_instant=False)
 
     def determine_victor(self) -> tuple[str | None, GameOverReason]:
-        self.check_endgame_mandates()
-
         if self.doomsday_clock >= self.rules.max_clock_state:
             return (None, GameOverReason.WORLD_DESTROYED)
 
@@ -914,6 +912,7 @@ async def game_loop(
             game = destroy_world(game)
             break
 
+    game.check_endgame_mandates()
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")
     logger.debug("Victor: %s", winner or "no one")
