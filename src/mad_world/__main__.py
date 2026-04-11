@@ -120,12 +120,12 @@ def get_player(
 DEFAULT_ALPHA = LLMPlayerConfig(
     kind=PlayerKind.LLM,
     name="Norlandia",
-    model="gemma3:12b",
+    model="gemma4:26b",
 )
 DEFAULT_OMEGA = LLMPlayerConfig(
     kind=PlayerKind.LLM,
     name="Southern Imperium",
-    model="gemma3:12b",
+    model="gemma4:26b",
 )
 
 
