@@ -54,7 +54,6 @@ from mad_world.util import (
 
 if TYPE_CHECKING:
     import logging
-    from collections.abc import Callable
     from pathlib import Path
 
     from mad_world.config import LLMPlayerConfig
@@ -548,20 +547,11 @@ class OllamaPlayer(GamePlayer):
 
         messages = [{"role": "system", "content": elaboration_prompt}]
 
-        def on_error(err: Exception) -> None:
-            warning = (
-                "Your previous message failed to conform to the required "
-                f"schema: {err.__cause__}\nPlease try again."
-            )
-            messages.append({"role": "system", "content": warning})
-            self.logger.debug("Model failed to elaborate persona: %s", err)
-
         elaborated = await self.retry_prompt(
             response_model=schema,
             log_header=f"While elaborating persona for {self.name}",
             retries=retries,
             messages=messages,
-            on_error=on_error,
         )
 
         if elaborated is None:
@@ -862,10 +852,7 @@ class OllamaPlayer(GamePlayer):
                     "response that triggered the following error during "
                     f"validation: {e!r}\n"
                     "This response has been discarded and you are being "
-                    "given another opportunity to generate a valid result. "
-                    "Please ensure you limit your internal "
-                    "monologue to a few paragraphs and follow "
-                    "the provided schema exactly.",
+                    "given another opportunity to generate a valid result. ",
                 },
             )
             raise self._ModelPromptError from e
@@ -931,7 +918,6 @@ class OllamaPlayer(GamePlayer):
         response_model: type[T],
         log_header: str,
         messages: list[dict[str, str]],
-        on_error: Callable[[Exception], None] | None = None,
         retries: int = 3,
     ) -> T | None:
         result = await aretry(
@@ -940,7 +926,6 @@ class OllamaPlayer(GamePlayer):
             ),
             allowed_exceptions=[self._ModelPromptError],
             count=retries,
-            on_error=on_error,
         )
         if result is None:
             return None
