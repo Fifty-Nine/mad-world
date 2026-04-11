@@ -16,6 +16,7 @@ from mad_world.actions import (
     OperationsAction,
 )
 from mad_world.config import LLMParams, LLMPlayerConfig
+from mad_world.core import GameState, PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
@@ -27,12 +28,18 @@ from mad_world.ollama_player import (
 )
 
 if TYPE_CHECKING:
-    from mad_world.core import GameState
+    from mad_world.rules import GameRules
 
 
 @pytest.fixture
 def mock_logger() -> logging.Logger:
     return logging.getLogger("test_logger")
+
+
+def test_format_mandates_empty() -> None:
+    player = PlayerState(name="Alpha", gdp=42, influence=3, mandates=[])
+    formatted = OllamaPlayer.format_mandates(player)
+    assert formatted == ""
 
 
 @pytest.fixture
@@ -45,21 +52,23 @@ def player_config() -> LLMPlayerConfig:
         repeat_last_n=64,
     )
     return LLMPlayerConfig(
-        name="TestPlayer",
+        name="Alpha",
         persona="TestPersona",
         model="test-model",
         params=params,
     )
 
 
-def test_ollama_player_init(player_config: Any, mock_logger: Any) -> None:
+def test_ollama_player_init(
+    player_config: LLMPlayerConfig, mock_logger: Any
+) -> None:
     player = OllamaPlayer(
         config=player_config,
-        opponent_name="Opponent",
+        opponent_name="Omega",
         logger=mock_logger,
     )
-    assert player.name == "TestPlayer"
-    assert player.opponent_name == "Opponent"
+    assert player.name == "Alpha"
+    assert player.opponent_name == "Omega"
     assert player.persona == "TestPersona"
     assert player.model == "test-model"
     assert player.prompt_options["num_predict"] == 100
@@ -67,7 +76,7 @@ def test_ollama_player_init(player_config: Any, mock_logger: Any) -> None:
 
 
 @pytest.fixture
-def test_player(player_config: Any, mock_logger: Any) -> Any:
+def test_player(player_config: LLMPlayerConfig, mock_logger: Any) -> Any:
     player = OllamaPlayer(
         config=player_config,
         opponent_name="Opponent",
@@ -119,7 +128,10 @@ async def test_elaborate_persona(test_player: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_start_game(
-    player_config: Any, mock_logger: Any, tmp_path: Any
+    player_config: LLMPlayerConfig,
+    mock_logger: Any,
+    tmp_path: Any,
+    stable_rules: GameRules,
 ) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
@@ -131,24 +143,27 @@ async def test_start_game(
         logger=mock_logger,
     )
 
-    mock_rules = MagicMock()
-    mock_rules.max_clock_state = 24
-    mock_rules.allowed_bids = [0, 1, 2]
-    mock_rules.allowed_operations = {}
+    stable_rules.max_clock_state = 24
+    stable_rules.allowed_bids = [0, 1, 2]
+    stable_rules.allowed_operations = {}
 
-    await player.start_game(mock_rules)
+    mock_game = MagicMock(spec=GameState)
+    mock_game.players = {"Alpha": MagicMock()}
+    mock_game.rules = stable_rules
+
+    await player.start_game(mock_game)
 
     assert len(player.messages) == 1
     assert player.messages[0]["role"] == "system"
-    assert "Superpower TestPlayer" in player.messages[0]["content"]
+    assert "Superpower Alpha" in player.messages[0]["content"]
     assert "Opponent" in player.messages[0]["content"]
     assert "TestPersona" in player.messages[0]["content"]
 
     # Check log files
-    settings_file = log_dir / "TestPlayer.model-settings.json"
+    settings_file = log_dir / "Alpha.model-settings.json"
     assert settings_file.exists()
 
-    schemas_file = log_dir / "TestPlayer.schemas.json.gz"
+    schemas_file = log_dir / "Alpha.schemas.json.gz"
     assert schemas_file.exists()
 
     # Test start_game without log_base
@@ -159,7 +174,7 @@ async def test_start_game(
         logger=mock_logger,
     )
     player_no_log.client = AsyncMock()
-    await player_no_log.start_game(mock_rules)
+    await player_no_log.start_game(mock_game)
 
 
 @pytest.mark.asyncio

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from mad_world.crises import BaseCrisis
 from mad_world.event_cards import BaseEventCard
+from mad_world.mandates import BaseMandate
 from mad_world.util import cost_or_gain, get_doomsday_bids, increase_or_decrease
 
 if TYPE_CHECKING:
@@ -207,6 +208,10 @@ class GameRules(BaseModel):
     initial_event_deck: list[BaseEventCard] | None = Field(
         default=None,
         description="The initial deck of round events to use.",
+    )
+    initial_mandate_deck: list[BaseMandate] | None = Field(
+        default=None,
+        description="The initial deck of mandates to use.",
     )
     aggressor_tax_clock_threshold: int = Field(
         default=20,

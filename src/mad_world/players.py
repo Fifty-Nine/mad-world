@@ -16,19 +16,17 @@ if TYPE_CHECKING:
     from mad_world.core import GameState
     from mad_world.crises import BaseCrisis, GenericCrisis
     from mad_world.enums import GameOverReason
-    from mad_world.rules import (
-        GameRules,
-    )
 
 
 class GamePlayer(ABC):
     def __init__(self, name: str) -> None:
         self.name = name
 
-    async def start_game(self, game: GameRules) -> None:  # noqa: B027
+    async def start_game(self, game: GameState) -> None:
         """Called with the rules for the current game
         at the start of the game.
         """
+        assert self.name in game.players
 
     @abstractmethod
     async def initial_message(self, game: GameState) -> InitialMessageAction:

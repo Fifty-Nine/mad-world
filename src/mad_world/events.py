@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal, override
 
 from pydantic import BaseModel, Field
 
@@ -87,6 +87,9 @@ class BaseGameEvent(BaseModel):
         description="Ongoing effects applied by this event.",
     )
 
+    def done_by_player(self, name: str) -> bool:
+        return False
+
 
 class SystemEvent(BaseGameEvent):
     event_kind: Literal[EventKind.SYSTEM] = Field(default=EventKind.SYSTEM)
@@ -102,10 +105,18 @@ class ActionEvent(BaseGameEvent):
     event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
     actor: PlayerActor
 
+    @override
+    def done_by_player(self, name: str) -> bool:
+        return self.actor.name == name
+
 
 class MessageEvent(BaseGameEvent):
     event_kind: Literal[EventKind.MESSAGE] = Field(default=EventKind.MESSAGE)
     actor: PlayerActor
+
+    @override
+    def done_by_player(self, name: str) -> bool:
+        return self.actor.name == name
 
 
 GameEvent = Annotated[

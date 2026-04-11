@@ -37,6 +37,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
+from mad_world.mandates import BaseMandate, create_mandate_deck
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
@@ -67,6 +68,14 @@ class PlayerState(BaseModel):
         default=5,
         description="The player's current influence.",
         ge=0,
+    )
+    mandates: list[BaseMandate] = Field(
+        default_factory=list,
+        description="The active mandates held by the player.",
+    )
+    completed_mandates: list[BaseMandate] = Field(
+        default_factory=list,
+        description="The mandates completed and revealed by the player.",
     )
 
 
@@ -109,6 +118,9 @@ class GameState(BaseModel):
     )
     event_deck: Deck[BaseEventCard] = Field(
         description="The deck from which to draw round events."
+    )
+    mandate_deck: Deck[BaseMandate] = Field(
+        description="The deck from which mandates are drawn."
     )
     pending_crisis: BaseCrisis | None = Field(
         default=None,
@@ -188,9 +200,20 @@ class GameState(BaseModel):
             event_deck=create_event_deck(rng)
             if rules.initial_event_deck is None
             else Deck[BaseEventCard].create(rules.initial_event_deck, rng),
+            mandate_deck=create_mandate_deck(rng)
+            if rules.initial_mandate_deck is None
+            else Deck[BaseMandate].create(rules.initial_mandate_deck, rng),
             **kwargs,
         )
         result.escalate(SystemActor(), rules.initial_clock_state)
+
+        for p_name in players:
+            num_to_draw = min(2, len(result.mandate_deck))
+            for _ in range(num_to_draw):
+                result.players[p_name].mandates.append(
+                    result.mandate_deck.draw(result.rng)
+                )
+
         return result
 
     def player_names(self) -> tuple[str, str]:
@@ -389,6 +412,8 @@ class GameState(BaseModel):
                 )
                 self.post_crisis_phase, self.post_crisis_round = None, None
 
+        self.check_instant_mandates()
+
         if self.trigger_crisis():
             self.post_crisis_phase = self.current_phase
             self.post_crisis_round = self.current_round
@@ -463,7 +488,34 @@ class GameState(BaseModel):
     def escalation_debt(self, player: str) -> int:
         return self.escalation_track.count(PlayerActor(name=player))
 
+    def _claim_mandates(self, *, is_instant: bool) -> None:
+        for player_name, player_state in self.players.items():
+            completed = [
+                m
+                for m in player_state.mandates
+                if m.is_instant == is_instant and m.is_met(self, player_name)
+            ]
+
+            for mandate in completed:
+                self._apply_mandate_rewards(mandate, player_name)
+                player_state.mandates.remove(mandate)
+                player_state.completed_mandates.append(mandate)
+
+    def _apply_mandate_rewards(
+        self, mandate: BaseMandate, player_name: str
+    ) -> None:
+        for event in mandate.reward(self, player_name):
+            self.apply_event(event)
+
+    def check_instant_mandates(self) -> None:
+        self._claim_mandates(is_instant=True)
+
+    def check_endgame_mandates(self) -> None:
+        self._claim_mandates(is_instant=False)
+
     def determine_victor(self) -> tuple[str | None, GameOverReason]:
+        self.check_endgame_mandates()
+
         if self.doomsday_clock >= self.rules.max_clock_state:
             return (None, GameOverReason.WORLD_DESTROYED)
 
@@ -853,7 +905,7 @@ async def game_loop(
         players=[p.name for p in players], rules=rules, log_dir=log_dir
     )
 
-    await asyncio.gather(*(p.start_game(rules) for p in players))
+    await asyncio.gather(*(p.start_game(game) for p in players))
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)

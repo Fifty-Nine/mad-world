@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from mad_world.crises import GenericCrisis
     from mad_world.effects import BaseEffect
     from mad_world.events import GameEvent
-    from mad_world.rules import GameRules, OperationDefinition
+    from mad_world.rules import OperationDefinition
 
 
 class PlayerArchetype(StrEnum):
@@ -569,7 +569,9 @@ class OllamaPlayer(GamePlayer):
             wrap_text(self.persona, indent="  "),
         )
 
-    async def start_game(self, rules: GameRules) -> None:
+    @override
+    async def start_game(self, game: GameState) -> None:
+        await super().start_game(game)
         await self.elaborate_persona()
         prompt = (
             f"You are playing the role of Superpower {self.name}, a global "
@@ -584,7 +586,7 @@ class OllamaPlayer(GamePlayer):
             "Core Mechanics:\n"
             "  Game Length: The game lasts for exactly 10 rounds.\n"
             "  The Doomsday Clock: Starts at 0. If it reaches "
-            f"{rules.max_clock_state}, a global crisis occurs (described "
+            f"{game.rules.max_clock_state}, a global crisis occurs (described "
             "later).\n"
             "  Victory Conditions & Elimination:\n"
             "    At the end of the game (either after round 10 or when "
@@ -604,7 +606,7 @@ class OllamaPlayer(GamePlayer):
             "separately for each.\n"
             "    Phase 1: Bidding & Posturing\n"
             "      You and your opponent will each secretly submit an "
-            f"Aggression Bid (one of {rules.allowed_bids}). This value "
+            f"Aggression Bid (one of {game.rules.allowed_bids}). This value "
             "is directly added to your influence pool AND the Doomsday "
             "clock value. If you bid 0, you gain no influence, but the "
             "Doomsday Clock is reduced by 1.\n"
@@ -619,7 +621,7 @@ class OllamaPlayer(GamePlayer):
         )
         prompt += self.format_allowed_ops(
             avail_inf=None,
-            allowed_operations=rules.allowed_operations,
+            allowed_operations=game.rules.allowed_operations,
             indent="        ",
         )
         prompt += (
@@ -666,19 +668,20 @@ class OllamaPlayer(GamePlayer):
             "less than the current escalation budget.\n\n"
             "Aggressor Tax:\n"
             f"  When the doomsday clock is >= "
-            f"{rules.aggressor_tax_clock_threshold}, "
+            f"{game.rules.aggressor_tax_clock_threshold}, "
             "an aggressor tax is applied at the end of the round events "
             "phase. The player(s) with the most escalation debt (i.e. those "
             "who contributed the most to the clock) must pay a tax of "
-            f"{rules.aggressor_tax_inf_cost} influence, or "
-            f"{rules.aggressor_tax_gdp_cost} GDP if they cannot afford it.\n"
+            f"{game.rules.aggressor_tax_inf_cost} influence, or "
+            f"{game.rules.aggressor_tax_gdp_cost} GDP if they cannot afford "
+            "it.\n"
             "Scaling Rewards:\n"
             f"  When the doomsday clock is >= "
-            f"{rules.escalation_reward_clock_threshold}, "
+            f"{game.rules.escalation_reward_clock_threshold}, "
             "global tensions are high and the breaking down of norms "
             "causes escalatory operations (those that increase the clock) to "
             "yield greater rewards. For any escalatory operation, the actor "
-            f"will steal {rules.escalation_reward_gdp} GDP from the "
+            f"will steal {game.rules.escalation_reward_gdp} GDP from the "
             "opponent, representing a zero-sum gain.\n\n"
         )
         if self.persona is not None:
@@ -728,6 +731,16 @@ class OllamaPlayer(GamePlayer):
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
         return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
+
+    @staticmethod
+    def format_mandates(player: PlayerState) -> str:
+        if not player.mandates:
+            return ""
+
+        result = "Your Secret Mandates:\n"
+        for m in player.mandates:
+            result += f"- {m.title}: {m.description}\n"
+        return result + "\n"
 
     @staticmethod
     def format_allowed_ops(
@@ -794,7 +807,9 @@ class OllamaPlayer(GamePlayer):
             OllamaPlayer.format_player_state(p) for p in game.players.values()
         )
 
-        result += "\n" + OllamaPlayer.format_event_log(game.recent_events())
+        result += "\n\n"
+        result += OllamaPlayer.format_mandates(game.players[self.name])
+        result += OllamaPlayer.format_event_log(game.recent_events())
         return result
 
     def doomsday_warning(self, game: GameState) -> str:
