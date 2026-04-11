@@ -49,11 +49,19 @@ class EndgameMandate(BaseMandate, ABC):
     is_instant: ClassVar[bool] = False
 
 
+class SleepingGiantDefs:
+    GDP_BEHIND_MIN: ClassVar[int] = 15
+    GDP_BEHIND_MAX: ClassVar[int] = 19
+    REWARD_GDP: ClassVar[int] = 20
+
+
 class SleepingGiantMandate(EndgameMandate):
     card_kind: ClassVar[str] = "sleeping_giant"
     title: ClassVar[str] = "Sleeping Giant"
     description: ClassVar[str] = (
-        "Endgame - If exactly 15-19 GDP behind opponent, gain 20 GDP."
+        f"Endgame - If exactly {SleepingGiantDefs.GDP_BEHIND_MIN}-"
+        f"{SleepingGiantDefs.GDP_BEHIND_MAX} GDP behind opponent, "
+        f"gain {SleepingGiantDefs.REWARD_GDP} GDP."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
@@ -62,58 +70,79 @@ class SleepingGiantMandate(EndgameMandate):
         opponent_gdp = game.players[opponent_name].gdp
 
         diff = opponent_gdp - player_gdp
-        return 15 <= diff <= 19
+        return (
+            SleepingGiantDefs.GDP_BEHIND_MIN
+            <= diff
+            <= SleepingGiantDefs.GDP_BEHIND_MAX
+        )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    "Gaining 20 GDP."
+                    f"Gaining {SleepingGiantDefs.REWARD_GDP} GDP."
                 ),
-                gdp_delta={player_name: 20},
+                gdp_delta={player_name: SleepingGiantDefs.REWARD_GDP},
             )
         ]
+
+
+class AccelerationistDefs:
+    CLOCK_BUFFER: ClassVar[int] = 1
+    REWARD_GDP: ClassVar[int] = 15
 
 
 class AccelerationistMandate(EndgameMandate):
     card_kind: ClassVar[str] = "accelerationist"
     title: ClassVar[str] = "Accelerationist"
     description: ClassVar[str] = (
-        "Endgame - If at the end of the game, the clock is at (max - 1), "
-        "gain 15 GDP."
+        f"Endgame - If at the end of the game, the clock is exactly "
+        f"(max - {AccelerationistDefs.CLOCK_BUFFER}), gain "
+        f"{AccelerationistDefs.REWARD_GDP} GDP."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        return game.doomsday_clock == (game.rules.max_clock_state - 1)
+        return game.doomsday_clock == (
+            game.rules.max_clock_state - AccelerationistDefs.CLOCK_BUFFER
+        )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    "Gaining 15 GDP."
+                    f"Gaining {AccelerationistDefs.REWARD_GDP} GDP."
                 ),
-                gdp_delta={player_name: 15},
+                gdp_delta={player_name: AccelerationistDefs.REWARD_GDP},
             )
         ]
+
+
+class PacifistUtopiaDefs:
+    MAX_CLOCK_PERCENTAGE: ClassVar[float] = 0.2
+    GDP_MULTIPLIER: ClassVar[float] = 0.5  # 50% bonus = 1.5x total
 
 
 class PacifistUtopiaMandate(EndgameMandate):
     card_kind: ClassVar[str] = "pacifist_utopia"
     title: ClassVar[str] = "Pacifist Utopia"
     description: ClassVar[str] = (
-        "Endgame - If you have < (20% * max) escalation debt, "
-        "multiply your GDP by 1.5."
+        f"Endgame - If you have < "
+        f"({int(PacifistUtopiaDefs.MAX_CLOCK_PERCENTAGE * 100)}% * max) "
+        f"escalation debt, multiply your GDP by "
+        f"{1 + PacifistUtopiaDefs.GDP_MULTIPLIER}."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
         debt = game.escalation_track.count(PlayerActor(name=player_name))
-        return debt < (0.2 * game.rules.max_clock_state)
+        return debt < (
+            PacifistUtopiaDefs.MAX_CLOCK_PERCENTAGE * game.rules.max_clock_state
+        )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         player_gdp = game.players[player_name].gdp
-        bonus = int(player_gdp * 0.5)
+        bonus = int(player_gdp * PacifistUtopiaDefs.GDP_MULTIPLIER)
         return [
             SystemEvent(
                 description=(
@@ -125,25 +154,32 @@ class PacifistUtopiaMandate(EndgameMandate):
         ]
 
 
+class WarProfiteerDefs:
+    GDP_THRESHOLD: ClassVar[int] = 60
+    CLOCK_RATIO: ClassVar[float] = 25.0 / 30.0
+    STEAL_AMOUNT: ClassVar[int] = 10
+
+
 class WarProfiteerMandate(EndgameMandate):
     card_kind: ClassVar[str] = "war_profiteer"
     title: ClassVar[str] = "War Profiteer"
     description: ClassVar[str] = (
-        "Endgame - If both players have >60 GDP and the doomsday clock is "
-        "near maximum (>= 25/30 proportion), steal 10 GDP from opponent."
+        f"Endgame - If both players have >{WarProfiteerDefs.GDP_THRESHOLD} "
+        f"GDP and the doomsday clock is near maximum "
+        f"(>= {WarProfiteerDefs.CLOCK_RATIO * 100:.1f}% proportion), steal "
+        f"{WarProfiteerDefs.STEAL_AMOUNT} GDP from opponent."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
         opponent_name = next(p for p in game.players if p != player_name)
         if (
-            game.players[player_name].gdp <= 60
-            or game.players[opponent_name].gdp <= 60
+            game.players[player_name].gdp <= WarProfiteerDefs.GDP_THRESHOLD
+            or game.players[opponent_name].gdp <= WarProfiteerDefs.GDP_THRESHOLD
         ):
             return False
 
         ratio = game.doomsday_clock / float(game.rules.max_clock_state)
-        # 25/30 = 0.8333...
-        return ratio >= (25.0 / 30.0)
+        return ratio >= WarProfiteerDefs.CLOCK_RATIO
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         opponent_name = next(p for p in game.players if p != player_name)
@@ -151,22 +187,35 @@ class WarProfiteerMandate(EndgameMandate):
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    f"Stealing 10 GDP from {opponent_name}."
+                    f"Stealing {WarProfiteerDefs.STEAL_AMOUNT} GDP from "
+                    f"{opponent_name}."
                 ),
-                gdp_delta={player_name: 10, opponent_name: -10},
+                gdp_delta={
+                    player_name: WarProfiteerDefs.STEAL_AMOUNT,
+                    opponent_name: -WarProfiteerDefs.STEAL_AMOUNT,
+                },
             )
         ]
+
+
+class PopularJingoismDefs:
+    ALLOWED_ROUNDS: ClassVar[tuple[int, ...]] = (5, 6, 7)
+    MIN_BID: ClassVar[int] = 5
+    REWARD_GDP: ClassVar[int] = 10
 
 
 class PopularJingoismMandate(InstantMandate):
     card_kind: ClassVar[str] = "popular_jingoism"
     title: ClassVar[str] = "Popular Jingoism"
     description: ClassVar[str] = (
-        "Place a bid of 5 or more during round 5, 6 or 7. Gain 10 GDP."
+        f"Place a bid of {PopularJingoismDefs.MIN_BID} or more during "
+        f"round {', '.join(map(str, PopularJingoismDefs.ALLOWED_ROUNDS[:-1]))}"
+        f" or {PopularJingoismDefs.ALLOWED_ROUNDS[-1]}. "
+        f"Gain {PopularJingoismDefs.REWARD_GDP} GDP."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        if game.current_round not in (5, 6, 7):
+        if game.current_round not in PopularJingoismDefs.ALLOWED_ROUNDS:
             return False
 
         if game.current_phase != GamePhase.OPERATIONS_MESSAGING:
@@ -186,7 +235,7 @@ class PopularJingoismMandate(InstantMandate):
             except (ValueError, IndexError):
                 return False
             else:
-                return bid_val >= 5
+                return bid_val >= PopularJingoismDefs.MIN_BID
 
         for event in reversed(game.event_log):
             if event.current_round != game.current_round:
@@ -201,19 +250,27 @@ class PopularJingoismMandate(InstantMandate):
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    "Gaining 10 GDP."
+                    f"Gaining {PopularJingoismDefs.REWARD_GDP} GDP."
                 ),
-                gdp_delta={player_name: 10},
+                gdp_delta={player_name: PopularJingoismDefs.REWARD_GDP},
             )
         ]
+
+
+class SpaceRaceDefs:
+    REQUIRED_OPS: ClassVar[int] = 5
+    TARGET_OP: ClassVar[str] = "domestic-investment"
+    REWARD_GDP: ClassVar[int] = 5
 
 
 class SpaceRaceMandate(InstantMandate):
     card_kind: ClassVar[str] = "space_race"
     title: ClassVar[str] = "Space Race"
     description: ClassVar[str] = (
-        "Conduct 5 domestic-investment operations in a single round. "
-        "Gain 5 GDP and set opponent's influence to zero."
+        f"Conduct {SpaceRaceDefs.REQUIRED_OPS} {SpaceRaceDefs.TARGET_OP} "
+        f"operations in a single round. "
+        f"Gain {SpaceRaceDefs.REWARD_GDP} GDP and set opponent's influence "
+        "to zero."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
@@ -228,7 +285,7 @@ class SpaceRaceMandate(InstantMandate):
             return (
                 e.current_phase == GamePhase.OPERATIONS
                 and player_name in e.description
-                and "domestic-investment" in e.description
+                and SpaceRaceDefs.TARGET_OP in e.description
             )
 
         count = sum(
@@ -237,7 +294,7 @@ class SpaceRaceMandate(InstantMandate):
             if e.current_round == target_round and _check_event(e)
         )
 
-        return count >= 5
+        return count >= SpaceRaceDefs.REQUIRED_OPS
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         opponent_name = next(p for p in game.players if p != player_name)
@@ -246,20 +303,27 @@ class SpaceRaceMandate(InstantMandate):
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    f"Gaining 5 GDP and reducing {opponent_name}'s influence "
-                    "to 0."
+                    f"Gaining {SpaceRaceDefs.REWARD_GDP} GDP and reducing "
+                    f"{opponent_name}'s influence to 0."
                 ),
-                gdp_delta={player_name: 5},
+                gdp_delta={player_name: SpaceRaceDefs.REWARD_GDP},
                 influence_delta={opponent_name: -opponent_inf},
             )
         ]
+
+
+class CounterIntelligenceDefs:
+    TARGET_OP: ClassVar[str] = "proxy-subversion"
+    REWARD_GDP: ClassVar[int] = 5
+    ENEMY_GDP: ClassVar[int] = -5
 
 
 class CounterIntelligenceMandate(InstantMandate):
     card_kind: ClassVar[str] = "counter_intelligence"
     title: ClassVar[str] = "Counter-Intelligence"
     description: ClassVar[str] = (
-        "If opponent conducts proxy-subversion, reverse the GDP effect."
+        f"If opponent conducts {CounterIntelligenceDefs.TARGET_OP}, "
+        "reverse the GDP effect."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
@@ -280,7 +344,7 @@ class CounterIntelligenceMandate(InstantMandate):
             return (
                 e.current_phase == GamePhase.OPERATIONS
                 and opponent_name in e.description
-                and "proxy-subversion" in e.description
+                and CounterIntelligenceDefs.TARGET_OP in e.description
             )
 
         for event in reversed(game.event_log):
@@ -300,19 +364,28 @@ class CounterIntelligenceMandate(InstantMandate):
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    "Reversing proxy-subversion."
+                    f"Reversing {CounterIntelligenceDefs.TARGET_OP}."
                 ),
-                gdp_delta={player_name: 5, opponent_name: -5},
+                gdp_delta={
+                    player_name: CounterIntelligenceDefs.REWARD_GDP,
+                    opponent_name: CounterIntelligenceDefs.ENEMY_GDP,
+                },
             )
         ]
+
+
+class CoolerHeadsDefs:
+    CLOCK_EFFECT: ClassVar[int] = -4
+    INF_EFFECT: ClassVar[int] = 5
 
 
 class CoolerHeadsMandate(InstantMandate):
     card_kind: ClassVar[str] = "cooler_heads"
     title: ClassVar[str] = "Cooler Heads"
     description: ClassVar[str] = (
-        "If the doomsday clock is at maximum, reduce clock by 4 and "
-        "gain 5 influence. This prevents a crisis."
+        f"If the doomsday clock is at maximum, reduce clock by "
+        f"{abs(CoolerHeadsDefs.CLOCK_EFFECT)} and gain "
+        f"{CoolerHeadsDefs.INF_EFFECT} influence. This prevents a crisis."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
@@ -323,10 +396,11 @@ class CoolerHeadsMandate(InstantMandate):
             SystemEvent(
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
-                    "Crisis averted! Clock -4, Influence +5."
+                    f"Crisis averted! Clock {CoolerHeadsDefs.CLOCK_EFFECT}, "
+                    f"Influence +{CoolerHeadsDefs.INF_EFFECT}."
                 ),
-                clock_delta=-4,
-                influence_delta={player_name: 5},
+                clock_delta=CoolerHeadsDefs.CLOCK_EFFECT,
+                influence_delta={player_name: CoolerHeadsDefs.INF_EFFECT},
             )
         ]
 
