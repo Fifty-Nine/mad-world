@@ -11,7 +11,7 @@ from mad_world.actions import (
     MessagingAction,
     OperationsAction,
 )
-from mad_world.crises import DoomsdayAsteroidDefs
+from mad_world.crises import DoomsdayAsteroidDefs, NuclearMeltdownDefs
 from mad_world.enums import BlameGamePosture, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -336,6 +336,24 @@ class ParetoEfficientPlayer(TrivialPlayer):
 
         return OperationsAction(operations=result)
 
+    def _get_minimal_survival_bid(self, game: GameState, threshold: int) -> int:
+        opponent_name = next(p for p in game.players if p != self.name)
+        their_gdp = game.players[opponent_name].gdp
+        my_bid = max(0, threshold - their_gdp)
+        return min(my_bid, game.players[self.name].gdp)
+
+    def _get_survival_message(self, bid: int) -> str:
+        return (
+            f"[STATUS] Preparing minimal survival bid of {bid} GDP. "
+            "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
+            "exactly the minimum GDP required to save the world "
+            "assuming you contribute your entire economy to the "
+            "effort. If you do not bid your maximum possible amount up "
+            "to the threshold, the world will be destroyed. I am doing "
+            "this because it is the OPTIMAL STRATEGY to maximize "
+            "relative advantage."
+        )
+
     @override
     async def crisis_message(
         self, game: GameState, crisis: BaseCrisis
@@ -375,25 +393,15 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 )
             )
 
-        if crisis.card_kind == "doomsday-asteroid":
-            opponent_name = next(p for p in game.players if p != self.name)
-            their_gdp = game.players[opponent_name].gdp
-            threshold = DoomsdayAsteroidDefs.GDP_THRESHOLD
-
-            my_bid = max(0, threshold - their_gdp)
-            my_bid = min(my_bid, game.players[self.name].gdp)
-
+        if crisis.card_kind in ("doomsday-asteroid", "nuclear-meltdown"):
+            threshold = (
+                DoomsdayAsteroidDefs.GDP_THRESHOLD
+                if crisis.card_kind == "doomsday-asteroid"
+                else NuclearMeltdownDefs.GDP_THRESHOLD
+            )
             return MessagingAction(
-                message_to_opponent=(
-                    "[STATUS] Preparing minimal survival bid of "
-                    f"{my_bid} GDP.\n"
-                    "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
-                    "exactly the minimum GDP required to save the world "
-                    "assuming you contribute your entire economy to the "
-                    "effort. If you do not bid your maximum possible amount "
-                    "up to the threshold, the world will be destroyed. I am "
-                    "doing this because it is the OPTIMAL STRATEGY to "
-                    "maximize relative advantage."
+                message_to_opponent=self._get_survival_message(
+                    self._get_minimal_survival_bid(game, threshold)
                 )
             )
 
@@ -409,13 +417,9 @@ class ParetoEfficientPlayer(TrivialPlayer):
         crisis: GenericCrisis[T],
     ) -> T:
         if crisis.card_kind == "doomsday-asteroid":
-            opponent_name = next(p for p in game.players if p != self.name)
-            their_gdp = game.players[opponent_name].gdp
-            threshold = DoomsdayAsteroidDefs.GDP_THRESHOLD
-
-            my_bid = max(0, threshold - their_gdp)
-            my_bid = min(my_bid, game.players[self.name].gdp)
-
+            my_bid = self._get_minimal_survival_bid(
+                game, DoomsdayAsteroidDefs.GDP_THRESHOLD
+            )
             return crisis.action_type.model_validate({"investment": my_bid})
 
         if crisis.card_kind == "blame-game":
@@ -429,5 +433,11 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 posture = BlameGamePosture.SHOULDER
 
             return crisis.action_type.model_validate({"posture": posture})
+
+        if crisis.card_kind == "nuclear-meltdown":
+            my_bid = self._get_minimal_survival_bid(
+                game, NuclearMeltdownDefs.GDP_THRESHOLD
+            )
+            return crisis.action_type.model_validate({"investment": my_bid})
 
         return await super().crisis(game, crisis)
