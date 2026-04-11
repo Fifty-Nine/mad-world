@@ -117,7 +117,6 @@ class LLMResponse(BaseModel):
     """
 
     last_key: ClassVar[str]
-    use_thinking: ClassVar[bool] = False
 
     @model_validator(mode="before")
     @classmethod
@@ -139,7 +138,6 @@ class LLMResponse(BaseModel):
 
 class ElaboratedPersonaResponse(LLMResponse):
     last_key: ClassVar[str] = "name"
-    use_thinking: ClassVar[bool] = True
     persona_seed: str
     character_description: str = Field(
         description=(
@@ -845,7 +843,7 @@ class OllamaPlayer(GamePlayer):
             messages=messages,
             format=schema,
             options=self.prompt_options,
-            think=response_model.use_thinking,
+            think=False,
         )
         result = result_obj.message.content
 
