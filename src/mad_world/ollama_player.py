@@ -730,6 +730,16 @@ class OllamaPlayer(GamePlayer):
         return f"{player.name}: {player.gdp} GDP, {player.influence} Inf"
 
     @staticmethod
+    def format_mandates(player: PlayerState) -> str:
+        if not player.mandates:
+            return ""
+
+        result = "Your Secret Mandates:\n"
+        for m in player.mandates:
+            result += f"- {m.title}: {m.description}\n"
+        return result + "\n"
+
+    @staticmethod
     def format_allowed_ops(
         avail_inf: int | None,
         allowed_operations: dict[str, OperationDefinition],
@@ -794,7 +804,10 @@ class OllamaPlayer(GamePlayer):
             OllamaPlayer.format_player_state(p) for p in game.players.values()
         )
 
-        result += "\n" + OllamaPlayer.format_event_log(game.recent_events())
+        result += "\n\n"
+        if self.name in game.players:
+            result += OllamaPlayer.format_mandates(game.players[self.name])
+        result += OllamaPlayer.format_event_log(game.recent_events())
         return result
 
     def doomsday_warning(self, game: GameState) -> str:

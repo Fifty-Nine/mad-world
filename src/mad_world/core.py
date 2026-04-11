@@ -37,6 +37,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
+from mad_world.mandates import BaseMandate, create_mandate_deck
 from mad_world.rng import SerializableRandom
 from mad_world.rules import (
     GameRules,
@@ -67,6 +68,14 @@ class PlayerState(BaseModel):
         default=5,
         description="The player's current influence.",
         ge=0,
+    )
+    mandates: list[BaseMandate] = Field(
+        default_factory=list,
+        description="The active mandates held by the player.",
+    )
+    completed_mandates: list[BaseMandate] = Field(
+        default_factory=list,
+        description="The mandates completed and revealed by the player.",
     )
 
 
@@ -109,6 +118,9 @@ class GameState(BaseModel):
     )
     event_deck: Deck[BaseEventCard] = Field(
         description="The deck from which to draw round events."
+    )
+    mandate_deck: Deck[BaseMandate] = Field(
+        description="The deck from which mandates are drawn."
     )
     pending_crisis: BaseCrisis | None = Field(
         default=None,
@@ -188,9 +200,20 @@ class GameState(BaseModel):
             event_deck=create_event_deck(rng)
             if rules.initial_event_deck is None
             else Deck[BaseEventCard].create(rules.initial_event_deck, rng),
+            mandate_deck=create_mandate_deck(rng)
+            if rules.initial_mandate_deck is None
+            else Deck[BaseMandate].create(rules.initial_mandate_deck, rng),
             **kwargs,
         )
         result.escalate(SystemActor(), rules.initial_clock_state)
+
+        for p_name in players:
+            num_to_draw = min(2, len(result.mandate_deck))
+            for _ in range(num_to_draw):
+                result.players[p_name].mandates.append(
+                    result.mandate_deck.draw(result.rng)
+                )
+
         return result
 
     def player_names(self) -> tuple[str, str]:
@@ -275,6 +298,17 @@ class GameState(BaseModel):
 
         self.event_log.append(event)
         logging.getLogger("mad_world").info(event.description)
+
+        if getattr(event, "cancel_crisis", False) and self.pending_crisis:
+            self.pending_crisis = None
+            if (
+                self.post_crisis_phase is not None
+                and self.post_crisis_round is not None
+            ):
+                self.current_phase = self.post_crisis_phase
+                self.current_round = self.post_crisis_round
+                self.post_crisis_phase = None
+                self.post_crisis_round = None
 
         if not event.world_ending:
             return
@@ -834,6 +868,39 @@ def check_game_over(game: GameState) -> bool:
     ) or game.current_round > game.rules.round_count
 
 
+def _claim_mandates(
+    game: GameState,
+    player_name: str,
+    player_state: PlayerState,
+    *,
+    is_instant: bool,
+) -> None:
+    completed = [
+        m
+        for m in player_state.mandates
+        if m.is_instant == is_instant and m.is_met(game, player_name)
+    ]
+
+    def _apply_reward(mandate: BaseMandate) -> None:
+        for event in mandate.reward(game, player_name):
+            game.apply_event(event)
+
+    for mandate in completed:
+        _apply_reward(mandate)
+        player_state.mandates.remove(mandate)
+        player_state.completed_mandates.append(mandate)
+
+
+def check_instant_mandates(game: GameState) -> None:
+    for player_name, player_state in game.players.items():
+        _claim_mandates(game, player_name, player_state, is_instant=True)
+
+
+def check_endgame_mandates(game: GameState) -> None:
+    for player_name, player_state in game.players.items():
+        _claim_mandates(game, player_name, player_state, is_instant=False)
+
+
 def destroy_world(game: GameState) -> GameState:
     new_game = copy.deepcopy(game)
     new_game.escalate(SystemActor(), 50)
@@ -857,11 +924,13 @@ async def game_loop(
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
+            check_instant_mandates(game)
             await game.autosave()
         except WorldDestroyed:
             game = destroy_world(game)
             break
 
+    check_endgame_mandates(game)
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")
     logger.debug("Victor: %s", winner or "no one")

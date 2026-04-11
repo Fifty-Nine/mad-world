@@ -47,6 +47,14 @@ class HumanPlayer(GamePlayer):
             list(game.allowed_operations.keys()),
         )
 
+    def _print_mandates(self, game: GameState) -> None:
+        player_state = game.players[self.name]
+        if player_state.mandates:
+            print("\n--- Secret Mandates ---")
+            for m in player_state.mandates:
+                print(f"- {m.title}: {m.description}")
+            print("-----------------------\n")
+
     async def prompt_user[T: BaseAction](
         self,
         game: GameState,
@@ -54,6 +62,7 @@ class HumanPlayer(GamePlayer):
         parse: Callable[[str], T],
         completer: WordCompleter | None = None,
     ) -> T | None:
+        self._print_mandates(game)
         try:
             with patch_stdout():
                 user_input = await self.session.prompt_async(

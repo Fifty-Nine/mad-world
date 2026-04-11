@@ -125,6 +125,10 @@ TEST_CASES = [
 async def test_game_outcomes(
     scenario: Scenario, stable_rules: GameRules
 ) -> None:
+    # Empty mandate deck so mandates don't unexpectedly save or end worlds in
+    # these generic baseline scenario tests
+    stable_rules.initial_mandate_deck = []
+
     winner, reason, _event_log = await game_loop(
         stable_rules,
         [scenario.alpha("Alpha"), scenario.omega("Omega")],
@@ -321,6 +325,7 @@ async def test_international_sanctions_integration(
     stable_rules.max_clock_state = 50
     stable_rules.round_count = 1
     stable_rules.initial_crisis_deck = [InternationalSanctionsCrisis()]
+    stable_rules.initial_mandate_deck = []
     stable_rules.aggressor_tax_clock_threshold = 100
 
     # Diplomats tend to bid 1.
@@ -345,6 +350,8 @@ async def test_international_sanctions_integration(
 
     # Sanctions reduce clock/GDP by 10 each.
     # Drawdowns reduce clock by 9 each.
+    # Because mandates are dealt randomly, CoolerHeadsMandate might trigger.
+    # We emptied the deck to avoid test flakiness.
     assert game.doomsday_clock == 22
     assert (
         game.players["Alpha"].gdp
@@ -433,6 +440,10 @@ async def test_doomsday_asteroid_integration(
     stable_rules.round_count = 1
     stable_rules.initial_crisis_deck = [DoomsdayAsteroidCrisis()]
     stable_rules.aggressor_tax_clock_threshold = 100
+
+    # Empty mandate deck so mandates don't interfere with this test
+    stable_rules.initial_mandate_deck = []
+    stable_rules.initial_mandate_deck = []
 
     # Diplomats tend to bid 1.
     # Round 1:

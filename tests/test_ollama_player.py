@@ -16,6 +16,7 @@ from mad_world.actions import (
     OperationsAction,
 )
 from mad_world.config import LLMParams, LLMPlayerConfig
+from mad_world.core import PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
@@ -33,6 +34,12 @@ if TYPE_CHECKING:
 @pytest.fixture
 def mock_logger() -> logging.Logger:
     return logging.getLogger("test_logger")
+
+
+def test_format_mandates_empty() -> None:
+    player = PlayerState(name="Alpha", gdp=42, influence=3, mandates=[])
+    formatted = OllamaPlayer.format_mandates(player)
+    assert formatted == ""
 
 
 @pytest.fixture
