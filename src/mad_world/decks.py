@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     import random
+    from collections.abc import Iterable
     from typing import Self
 
 
@@ -40,8 +41,8 @@ class Deck[T](BaseModel):
     )
 
     @classmethod
-    def create(cls, initial_cards: list[T], rng: random.Random) -> Self:
-        result = cls(draw_pile=initial_cards.copy())
+    def create(cls, initial_cards: Iterable[T], rng: random.Random) -> Self:
+        result = cls(draw_pile=list(initial_cards))
         result.shuffle_draw(rng, with_discard=True)
         return result
 

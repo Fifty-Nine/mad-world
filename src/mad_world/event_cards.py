@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, override
+from itertools import chain
+from typing import TYPE_CHECKING, Any, ClassVar, Self, override
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
@@ -16,7 +17,7 @@ from mad_world.effects import (
     NoZeroBidsEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
-from mad_world.util import gain_or_lose, increase_or_decrease
+from mad_world.util import gain_or_lose, increase_or_decrease, risen_or_fallen
 
 if TYPE_CHECKING:
     import random
@@ -110,12 +111,16 @@ class BaseOngoingEffectEvent(BaseEventCard):
 class ClockChangeEvent(BaseEventCard):
     card_kind: ClassVar[str] = "clock_up"
 
-    title: str = "Tensions Rise"
-    description: str = (
-        "Global tensions rise inexplicably, moving the world closer to "
-        "midnight."
-    )
+    title: str = "Tides of Tension"
+    description: str = ""
     amount: int = 1
+
+    @model_validator(mode="after")
+    def update_description(self) -> Self:
+        self.description = (
+            f"Global tensions have {risen_or_fallen(self.amount)} inexplicably."
+        )
+        return self
 
     @override
     def mechanics(self, _game: GameState) -> str:
@@ -217,23 +222,31 @@ class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
         return ArmsControlEffect
 
 
+default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
+    (ClockChangeEvent(amount=1), 3),
+    (ClockChangeEvent(amount=-1), 3),
+    (ClockChangeEvent(amount=2), 1),
+    (ClockChangeEvent(amount=-2), 1),
+    (InfluenceChangeEvent(player_idx=0), 3),
+    (InfluenceChangeEvent(player_idx=1), 3),
+    (GDPEvent(player_idx=0, amount=4), 3),
+    (GDPEvent(player_idx=1, amount=4), 3),
+    (GDPEvent(player_idx=0, amount=-4), 2),
+    (GDPEvent(player_idx=1, amount=-4), 2),
+    (InfluenceBothEvent(), 3),
+    (BanZeroBidsEvent(), 2),
+    (BanDomesticInvestmentEvent(), 3),
+    (ArmsControlTreatyEvent(), 3),
+)
+
+
 def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
-    cards: list[BaseEventCard] = []
-
-    for _ in range(3):
-        cards.extend(
-            [
-                ClockChangeEvent(amount=1),
-                ClockChangeEvent(amount=-1),
-                InfluenceChangeEvent(player_idx=0),
-                InfluenceChangeEvent(player_idx=1),
-                GDPEvent(player_idx=0),
-                GDPEvent(player_idx=1),
-                InfluenceBothEvent(),
-                BanZeroBidsEvent(),
-                BanDomesticInvestmentEvent(),
-                ArmsControlTreatyEvent(),
-            ]
-        )
-
-    return Deck[BaseEventCard].create(cards, rng)
+    return Deck[BaseEventCard].create(
+        (
+            chain.from_iterable(
+                (card.model_copy() for _ in range(amount))
+                for card, amount in default_frequencies
+            )
+        ),
+        rng,
+    )
