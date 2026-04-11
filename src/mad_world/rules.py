@@ -42,6 +42,15 @@ class OperationDefinition(BaseModel):
         description="The GDP impact on the opposing player.",
         default=0,
     )
+    shift_blame: int = Field(
+        default=0,
+        description=(
+            "If nonzero, swap this number of escalation tokens owned by "
+            "the actor (or System) for an equivalent number of tokens owned "
+            "by the opponent."
+        ),
+    )
+
     model_config = ConfigDict(frozen=True)
 
     @staticmethod
@@ -171,6 +180,7 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "opponent's."
         ),
         influence_cost=1,
+        shift_blame=1,
     ),
 }
 

@@ -29,10 +29,10 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
-    AnyActor,
     BaseGameEvent,
     GameEvent,
     MessageEvent,
+    OptActor,
     PlayerActor,
     StateEvent,
     SystemActor,
@@ -86,7 +86,7 @@ class GameState(BaseModel):
     players: dict[str, PlayerState] = Field(
         description="The state of each player, keyed by their name.",
     )
-    escalation_track: list[SystemActor | PlayerActor | None] = Field(
+    escalation_track: list[OptActor] = Field(
         default_factory=list,
         description=(
             "A literal track of colored cubes (strings of player names "
@@ -283,22 +283,20 @@ class GameState(BaseModel):
             fn(actor)
             amount -= 1
 
+    def reset_escalation(self) -> None:
+        self.escalate(SystemActor(), -self.rules.max_clock_state)
+
     def apply_event(self, event: GameEvent) -> None:
         self.escalate(event.actor, event.clock_delta)
 
-        if event.track_swap is not None:
-            old_actor, new_actor = event.track_swap
-            try:
-                # Find the last occurrence (by searching reversed)
-                # Then map back to the original index.
-                # If there are N elements, reversing means index j maps
-                # to N - 1 - j. Using index() on reversed returns the
-                # first match from the right.
-                rev_idx = self.escalation_track[::-1].index(old_actor)
-                idx = len(self.escalation_track) - 1 - rev_idx
-                self.escalation_track[idx] = new_actor
-            except ValueError:
-                pass
+        if event.shift_blame is not None:
+            old_actor = event.actor
+            new_actor, amount = event.shift_blame
+            old_clock = self.doomsday_clock
+            self.escalate(old_actor, -amount)
+            new_clock = self.doomsday_clock
+
+            self.escalate(new_actor, old_clock - new_clock)
 
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
@@ -685,21 +683,11 @@ def resolve_operation(
             f"the expense of the opponent."
         )
 
-    track_swap: tuple[AnyActor, AnyActor] | None = None
-    if operation_name == "diplomatic-maneuvering":
-        if PlayerActor(name=player_name) in game.escalation_track:
-            track_swap = (
-                PlayerActor(name=player_name),
-                PlayerActor(name=opponent_name),
-            )
-        else:
-            track_swap = (SystemActor(), PlayerActor(name=opponent_name))
-
     return ActionEvent(
         actor=PlayerActor(name=player_name),
         description=desc,
         clock_delta=op_def.clock_effect,
-        track_swap=track_swap,
+        shift_blame=(PlayerActor(name=opponent_name), op_def.shift_blame),
         gdp_delta={
             player_name: friendly_gdp_effect,
             opponent_name: enemy_gdp_effect,

@@ -605,39 +605,38 @@ def test_resolve_operation_diplomatic_maneuvering(
     basic_game: GameState,
 ) -> None:
     basic_game.players["Alpha"].influence = 1
+    assert basic_game.doomsday_clock == 0
+    assert basic_game.rules.max_clock_state > 4
 
     # When Alpha has an escalation token
-    basic_game.escalation_track = [
-        PlayerActor(name="Alpha"),
-        PlayerActor(name="Omega"),
-        SystemActor(),
-    ]
+    basic_game.escalate(PlayerActor(name="Alpha"), 1)
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    basic_game.escalate(SystemActor(), 1)
     event = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
     assert isinstance(event, ActionEvent)
-    assert event.track_swap == (
-        PlayerActor(name="Alpha"),
-        PlayerActor(name="Omega"),
-    )
+    assert event.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 3
 
     # When Alpha only has a system token to swap
-    basic_game.escalation_track = [
-        PlayerActor(name="Omega"),
-        SystemActor(),
-    ]
+    basic_game.reset_escalation()
+    assert basic_game.doomsday_clock == 0
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    basic_game.escalate(SystemActor(), 1)
+    assert basic_game.doomsday_clock == 2
+
     event2 = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
     assert isinstance(event2, ActionEvent)
-    assert event2.track_swap == (SystemActor(), PlayerActor(name="Omega"))
+    assert event2.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 2
 
     # Test apply_event for the swap
     basic_game.apply_event(event2)
-    assert basic_game.escalation_track == [
-        PlayerActor(name="Omega"),
-        PlayerActor(name="Omega"),
-    ]
+    assert basic_game.escalation_debt("Omega") == 2
+    assert basic_game.doomsday_clock == 2
 
 
 def test_resolve_operation_diplomatic_maneuvering_no_tokens(
@@ -645,35 +644,39 @@ def test_resolve_operation_diplomatic_maneuvering_no_tokens(
 ) -> None:
     basic_game.players["Alpha"].influence = 1
 
+    assert basic_game.doomsday_clock == 0
+    assert basic_game.rules.max_clock_state > 3
+    basic_game.escalate(PlayerActor(name="Omega"), 2)
+
     # When Alpha has no token, and no system token exists
-    basic_game.escalation_track = [
-        PlayerActor(name="Omega"),
-        PlayerActor(name="Omega"),
-    ]
     event = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
     assert isinstance(event, ActionEvent)
     # The event resolves with a system swap fallback, but because
     # the system cube isn't on the track, the swap will do nothing when applied.
-    assert event.track_swap == (SystemActor(), PlayerActor(name="Omega"))
+    assert event.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert event.influence_delta["Alpha"] >= -1
+    assert basic_game.doomsday_clock == 2
 
 
 def test_apply_event_track_swap_not_found(basic_game: GameState) -> None:
     # Test that apply_event gracefully handles when the actor to swap
     # is not actually found in the track.
-    basic_game.escalation_track = [
-        PlayerActor(name="Omega"),
-    ]
+    basic_game.reset_escalation()
+    assert basic_game.doomsday_clock == 0
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 1
+
     event = ActionEvent(
         actor=PlayerActor(name="Alpha"),
         description="test",
-        track_swap=(SystemActor(), PlayerActor(name="Omega")),
+        shift_blame=(PlayerActor(name="Omega"), 2),
     )
     basic_game.apply_event(event)
-    assert basic_game.escalation_track == [
-        PlayerActor(name="Omega"),
-    ]
+
+    assert basic_game.doomsday_clock == 1
+    assert basic_game.escalation_debt("Omega") == 1
 
 
 def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:

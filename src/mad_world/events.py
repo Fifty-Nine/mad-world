@@ -39,7 +39,8 @@ class PlayerActor(BaseModel):
         return self.name
 
 
-AnyActor = SystemActor | PlayerActor | None
+AnyActor = SystemActor | PlayerActor
+OptActor = AnyActor | None
 
 
 class EventKind(StrEnum):
@@ -86,9 +87,12 @@ class BaseGameEvent(BaseModel):
         default_factory=list,
         description="Ongoing effects applied by this event.",
     )
-    track_swap: tuple[AnyActor, AnyActor] | None = Field(
+    shift_blame: tuple[AnyActor, int] | None = Field(
         default=None,
-        description="Optional swap of one escalation track actor for another.",
+        description=(
+            "Shift the given number of blame cubes from the event "
+            "actor to another."
+        ),
     )
 
     def done_by_player(self, name: str) -> bool:
