@@ -31,6 +31,14 @@ def gain_or_lose(val: int) -> str:
     return "gain" if val >= 0 else "lose"
 
 
+def risen_or_fallen(val: int) -> str:
+    return "risen" if val >= 0 else "fallen"
+
+
+def rise_or_fall(val: int) -> str:
+    return "rise" if val >= 0 else "fall"
+
+
 class BadClampRangeError(Exception):
     def __init__(
         self, min_val: SupportsRichComparisonT, max_val: SupportsRichComparisonT

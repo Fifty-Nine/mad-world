@@ -26,6 +26,8 @@ from mad_world.util import (
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
+    rise_or_fall,
+    risen_or_fallen,
     wrap_text,
 )
 
@@ -320,21 +322,28 @@ def test_remove_ordering_prefix_other_types() -> None:
 
 
 @pytest.mark.parametrize(
-    ("value", "inc_dec", "cost_gain", "gain_lose"),
+    ("value", "inc_dec", "cost_gain", "gain_lose", "risen_fallen", "rise_fall"),
     [
-        (100, "increase", "gain", "gain"),
-        (-100, "decrease", "cost", "lose"),
-        (0, "increase", "gain", "gain"),
-        (-1, "decrease", "cost", "lose"),
-        (1, "increase", "gain", "gain"),
+        (100, "increase", "gain", "gain", "risen", "rise"),
+        (-100, "decrease", "cost", "lose", "fallen", "fall"),
+        (0, "increase", "gain", "gain", "risen", "rise"),
+        (-1, "decrease", "cost", "lose", "fallen", "fall"),
+        (1, "increase", "gain", "gain", "risen", "rise"),
     ],
 )
 def test_increase_or_decrease(
-    value: int, inc_dec: str, cost_gain: str, gain_lose: str
+    value: int,
+    inc_dec: str,
+    cost_gain: str,
+    gain_lose: str,
+    risen_fallen: str,
+    rise_fall: str,
 ) -> None:
     assert increase_or_decrease(value) == inc_dec
     assert cost_or_gain(value) == cost_gain
     assert gain_or_lose(value) == gain_lose
+    assert risen_or_fallen(value) == risen_fallen
+    assert rise_or_fall(value) == rise_fall
 
 
 @pytest.mark.parametrize(
