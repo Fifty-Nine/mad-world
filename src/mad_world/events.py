@@ -48,6 +48,9 @@ class EventKind(StrEnum):
     STATE = "state"
     ACTION = "action"
     MESSAGE = "message"
+    BIDDING = "bidding"
+    OPERATION_CONDUCTED = "operation_conducted"
+    CRISIS_RESOLUTION = "crisis_resolution"
 
 
 class BaseGameEvent(BaseModel):
@@ -118,6 +121,24 @@ class ActionEvent(BaseGameEvent):
         return self.actor.name == name
 
 
+class BiddingEvent(ActionEvent):
+    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)
+    bid: int
+
+
+class OperationConductedEvent(ActionEvent):
+    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(
+        default=EventKind.OPERATION_CONDUCTED
+    )
+    operation: str
+
+
+class CrisisResolutionEvent(ActionEvent):
+    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(
+        default=EventKind.CRISIS_RESOLUTION
+    )
+
+
 class MessageEvent(BaseGameEvent):
     event_kind: Literal[EventKind.MESSAGE] = Field(default=EventKind.MESSAGE)
     actor: PlayerActor
@@ -128,6 +149,12 @@ class MessageEvent(BaseGameEvent):
 
 
 GameEvent = Annotated[
-    SystemEvent | StateEvent | ActionEvent | MessageEvent,
+    SystemEvent
+    | StateEvent
+    | ActionEvent
+    | MessageEvent
+    | BiddingEvent
+    | OperationConductedEvent
+    | CrisisResolutionEvent,
     Field(discriminator="event_kind"),
 ]

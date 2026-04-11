@@ -31,8 +31,11 @@ from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
     BaseGameEvent,
+    BiddingEvent,
+    CrisisResolutionEvent,
     GameEvent,
     MessageEvent,
+    OperationConductedEvent,
     OptActor,
     PlayerActor,
     StateEvent,
@@ -599,19 +602,21 @@ async def resolve_bidding(
     )
 
     new_game.apply_event(
-        ActionEvent(
+        BiddingEvent(
             actor=alpha_actor,
             description=alpha_desc,
             clock_delta=0,
             influence_delta={alpha_name: alpha_bid},
+            bid=alpha_bid,
         )
     )
     new_game.apply_event(
-        ActionEvent(
+        BiddingEvent(
             actor=omega_actor,
             description=omega_desc,
             clock_delta=0,
             influence_delta={omega_name: omega_bid},
+            bid=omega_bid,
         )
     )
 
@@ -700,7 +705,7 @@ def resolve_operation(
             f"the expense of the opponent."
         )
 
-    return ActionEvent(
+    return OperationConductedEvent(
         actor=PlayerActor(name=player_name),
         description=desc,
         clock_delta=op_def.clock_effect,
@@ -718,6 +723,7 @@ def resolve_operation(
             (-op_def.influence_cost, op_def.enemy_influence_effect),
         ),
         world_ending=operation_name == "first-strike",
+        operation=operation_name,
     )
 
 
@@ -996,3 +1002,8 @@ SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 ActionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+BiddingEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+OperationConductedEvent.model_rebuild(
+    _types_namespace={"BaseEffect": BaseEffect}
+)
+CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})

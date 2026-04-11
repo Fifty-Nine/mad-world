@@ -39,6 +39,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import (
     ActionEvent,
     ActorKind,
+    OperationConductedEvent,
     PlayerActor,
     SystemActor,
     SystemEvent,
@@ -614,7 +615,7 @@ def test_resolve_operation_diplomatic_maneuvering(
     event = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
-    assert isinstance(event, ActionEvent)
+    assert isinstance(event, OperationConductedEvent)
     assert event.shift_blame == (PlayerActor(name="Omega"), 1)
     assert basic_game.doomsday_clock == 3
 
@@ -628,7 +629,7 @@ def test_resolve_operation_diplomatic_maneuvering(
     event2 = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
-    assert isinstance(event2, ActionEvent)
+    assert isinstance(event2, OperationConductedEvent)
     assert event2.shift_blame == (PlayerActor(name="Omega"), 1)
     assert basic_game.doomsday_clock == 2
 
@@ -651,7 +652,7 @@ def test_resolve_operation_diplomatic_maneuvering_no_tokens(
     event = resolve_operation(
         basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
     )
-    assert isinstance(event, ActionEvent)
+    assert isinstance(event, OperationConductedEvent)
     # The event resolves with a system swap fallback, but because
     # the system cube isn't on the track, the swap will do nothing when applied.
     assert event.shift_blame == (PlayerActor(name="Omega"), 1)

@@ -19,7 +19,7 @@ from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import BlameGamePosture, StandoffPosture
 from mad_world.events import (
-    ActionEvent,
+    CrisisResolutionEvent,
     GameEvent,
     PlayerActor,
     SystemEvent,
@@ -203,7 +203,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
         )
         clock_delta = target_clock - game.doomsday_clock
 
-        return ActionEvent(
+        return CrisisResolutionEvent(
             actor=PlayerActor(name=winner),
             description=f"{winner} looked death in the eyes and didn't blink. "
             f"As a result, {loser} has suffered significant losses and is "
@@ -525,12 +525,12 @@ class NuclearMeltdownCrisis(GenericCrisis[NuclearMeltdownAction]):
         )
 
         result: list[GameEvent] = [
-            ActionEvent(
+            CrisisResolutionEvent(
                 actor=PlayerActor(name=player1),
                 description=f"{player1} spent {p1_amount} GDP on containment.",
                 gdp_delta={player1: -p1_amount},
             ),
-            ActionEvent(
+            CrisisResolutionEvent(
                 actor=PlayerActor(name=player2),
                 description=f"{player2} spent {p2_amount} GDP on containment.",
                 gdp_delta={player2: -p2_amount},
@@ -653,7 +653,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
 
     @staticmethod
     def _investment_event(player: str, amount: int) -> GameEvent:
-        return ActionEvent(
+        return CrisisResolutionEvent(
             actor=PlayerActor(name=player),
             description=(
                 f"{player} has invested {amount} GDP into the joint mission to "
@@ -815,12 +815,12 @@ class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
         )
 
         result: list[GameEvent] = [
-            ActionEvent(
+            CrisisResolutionEvent(
                 actor=PlayerActor(name=player1),
                 description=f"{player1} spent {p1_amount} Influence.",
                 influence_delta={player1: -p1_amount},
             ),
-            ActionEvent(
+            CrisisResolutionEvent(
                 actor=PlayerActor(name=player2),
                 description=f"{player2} spent {p2_amount} Influence.",
                 influence_delta={player2: -p2_amount},
