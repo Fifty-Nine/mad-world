@@ -14,6 +14,7 @@ from mad_world.event_cards import (
     GDPEvent,
     InfluenceBothEvent,
     InfluenceChangeEvent,
+    UNPeacekeepingEvent,
     create_event_deck,
 )
 from mad_world.events import BaseGameEvent
@@ -85,9 +86,17 @@ def test_influence_both_event(basic_game: GameState) -> None:
     assert game_events[0].influence_delta == {"Alpha": 2, "Omega": 2}
 
 
+def test_un_peacekeeping_event(basic_game: GameState) -> None:
+    event = UNPeacekeepingEvent()
+    game_events = event.run(basic_game)
+    assert len(game_events) == 1
+    assert len(game_events[0].new_effects) == 1
+    assert game_events[0].new_effects[0].card_kind == "un_peacekeeping"
+
+
 def test_create_event_deck(basic_game: GameState) -> None:
     deck = create_event_deck(basic_game.rng)
-    assert len(deck) == 35
+    assert len(deck) == 38
 
 
 @pytest.mark.asyncio

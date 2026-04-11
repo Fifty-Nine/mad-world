@@ -8,6 +8,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    UNPeacekeepingEffect,
 )
 from mad_world.enums import GamePhase
 from mad_world.event_cards import (
@@ -66,6 +67,18 @@ def test_arms_control_effect(basic_game: GameState) -> None:
     effect = ArmsControlEffect(duration=None)
     bids = effect.modify_bids([0, 1, 3, 5, 10])
     assert bids == [0, 1, 3]
+
+
+def test_un_peacekeeping_effect(basic_game: GameState) -> None:
+    effect = UNPeacekeepingEffect(duration=None)
+    ops = basic_game.allowed_operations
+    assert "proxy-subversion" in ops
+    assert "conventional-offensive" in ops
+
+    modified_ops = effect.modify_operations(ops)
+    assert "proxy-subversion" not in modified_ops
+    assert "conventional-offensive" not in modified_ops
+    assert "aggressive-extraction" in modified_ops
 
 
 def test_no_domestic_investment_effect(basic_game: GameState) -> None:

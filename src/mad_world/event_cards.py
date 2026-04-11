@@ -15,6 +15,7 @@ from mad_world.effects import (
     BaseEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    UNPeacekeepingEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
 from mad_world.util import gain_or_lose, increase_or_decrease, risen_or_fallen
@@ -236,6 +237,21 @@ class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
         return ArmsControlEffect
 
 
+class UNPeacekeepingEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "un_peacekeeping_event"
+
+    title: str = "UN Peacekeeping Mission"
+    description: str = (
+        "The UN has successfully deployed peacekeeping forces to global "
+        "hotspots, making armed conflicts impossible."
+    )
+    duration: int = 2
+
+    @override
+    def effect_type(self) -> type[UNPeacekeepingEffect]:
+        return UNPeacekeepingEffect
+
+
 default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ClockChangeEvent(amount=1), 3),
     (ClockChangeEvent(amount=-1), 3),
@@ -251,6 +267,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (BanZeroBidsEvent(), 2),
     (BanDomesticInvestmentEvent(), 3),
     (ArmsControlTreatyEvent(), 3),
+    (UNPeacekeepingEvent(), 3),
 )
 
 
