@@ -45,7 +45,7 @@ class HumanPlayer(GamePlayer):
     async def start_game(self, game: GameState) -> None:
         await super().start_game(game)
         self.operations_completer = WordCompleter(
-            list(game.rules.allowed_operations.keys()),
+            list(game.allowed_operations.keys()),
         )
 
     def _print_mandates(self, game: GameState) -> None:

@@ -10,7 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
-    Literal,
     override,
 )
 
@@ -445,8 +444,8 @@ def create_persona_schema(persona_seed: str) -> type[ElaboratedPersonaResponse]:
         f"ElaboratedPersonaResponseFor{get_class_name(persona_seed)}",
         __base__=ElaboratedPersonaResponse,
         persona_seed=(
-            Literal[persona_seed],
-            Field(description="The seed persona."),
+            str,
+            Field(default=persona_seed, description="The seed persona."),
         ),
     )
 

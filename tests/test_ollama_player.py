@@ -184,9 +184,7 @@ async def test_retry_action_success(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             pass
 
     class DummyResponse(ActionResponse):
@@ -211,9 +209,7 @@ async def test_retry_action_validation_error(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             pass
 
     class DummyResponse(ActionResponse):
@@ -244,9 +240,7 @@ async def test_retry_action_semantic_error(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             raise InvalidActionError("Test semantics failed")  # noqa: TRY003
 
     class DummyResponse(ActionResponse):
