@@ -43,7 +43,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
-from mad_world.rules import GameRules
+from mad_world.rules import GameRules, OperationDefinition
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,
@@ -601,6 +601,101 @@ async def test_operations_negative_influence_resolution(
     assert "INSUFFICIENT INFLUENCE" in rejected_event.description
 
 
+def test_resolve_operation_diplomatic_maneuvering(
+    basic_game: GameState,
+) -> None:
+    basic_game.players["Alpha"].influence = 1
+    assert basic_game.doomsday_clock == 0
+    assert basic_game.rules.max_clock_state > 4
+
+    # When Alpha has an escalation token
+    basic_game.escalate(PlayerActor(name="Alpha"), 1)
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    basic_game.escalate(SystemActor(), 1)
+    event = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event, ActionEvent)
+    assert event.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 3
+
+    # When Alpha only has a system token to swap
+    basic_game.reset_escalation()
+    assert basic_game.doomsday_clock == 0
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    basic_game.escalate(SystemActor(), 1)
+    assert basic_game.doomsday_clock == 2
+
+    event2 = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event2, ActionEvent)
+    assert event2.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 2
+
+    # Test apply_event for the swap
+    basic_game.apply_event(event2)
+    assert basic_game.escalation_debt("Omega") == 2
+    assert basic_game.doomsday_clock == 2
+
+
+def test_resolve_operation_diplomatic_maneuvering_no_tokens(
+    basic_game: GameState,
+) -> None:
+    basic_game.players["Alpha"].influence = 1
+
+    assert basic_game.doomsday_clock == 0
+    assert basic_game.rules.max_clock_state > 3
+    basic_game.escalate(PlayerActor(name="Omega"), 2)
+
+    # When Alpha has no token, and no system token exists
+    event = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event, ActionEvent)
+    # The event resolves with a system swap fallback, but because
+    # the system cube isn't on the track, the swap will do nothing when applied.
+    assert event.shift_blame == (PlayerActor(name="Omega"), 1)
+    assert event.influence_delta["Alpha"] >= -1
+    assert basic_game.doomsday_clock == 2
+
+
+def test_apply_event_track_swap_not_found(basic_game: GameState) -> None:
+    # Test that apply_event gracefully handles when the actor to swap
+    # is not actually found in the track.
+    basic_game.reset_escalation()
+    assert basic_game.doomsday_clock == 0
+    basic_game.escalate(PlayerActor(name="Omega"), 1)
+    assert basic_game.doomsday_clock == 1
+
+    event = ActionEvent(
+        actor=PlayerActor(name="Alpha"),
+        description="test",
+        shift_blame=(PlayerActor(name="Omega"), 2),
+    )
+    basic_game.apply_event(event)
+
+    assert basic_game.doomsday_clock == 1
+    assert basic_game.escalation_debt("Omega") == 1
+
+
+def test_resolve_operation_defaults(basic_game: GameState) -> None:
+    basic_game.rules.allowed_operations = {
+        "dummy": OperationDefinition(
+            name="dummy", description="desc", influence_cost=0
+        )
+    }
+
+    result = resolve_operation(basic_game, "Alpha", "Omega", "dummy")
+    assert result.clock_delta == 0
+    assert not result.gdp_delta
+    assert not result.influence_delta
+    assert not result.secret
+    assert not result.world_ending
+    assert not result.new_effects
+    assert not result.shift_blame
+
+
 def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
     basic_game.rules.escalation_reward_clock_threshold = 20
     basic_game.rules.escalation_reward_gdp = 3
@@ -611,7 +706,7 @@ def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
         basic_game, "Alpha", "Omega", "aggressive-extraction"
     )
     assert event1.gdp_delta["Alpha"] == 3  # op_def.friendly_gdp_effect
-    assert event1.gdp_delta["Omega"] == 0  # op_def.enemy_gdp_effect
+    assert event1.gdp_delta.get("Omega", 0) == 0  # op_def.enemy_gdp_effect
 
     # At/Above threshold: scaling applied (clock_effect = 1 > 0)
     basic_game.escalation_track = [SystemActor()] * 20
@@ -624,7 +719,7 @@ def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
     # At/Above threshold, but clock_effect <= 0: no scaling
     event3 = resolve_operation(basic_game, "Alpha", "Omega", "stand-down")
     assert event3.gdp_delta["Alpha"] == -5
-    assert event3.gdp_delta["Omega"] == 0
+    assert event3.gdp_delta.get("Omega", 0) == 0
 
 
 @pytest.mark.asyncio

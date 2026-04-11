@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from _typeshed import SupportsRichComparisonT
 
-    from mad_world.events import AnyActor
+    from mad_world.events import OptActor
 
 
 def increase_or_decrease(val: int) -> str:
@@ -300,8 +300,8 @@ def bannerize(text: str) -> str:
     return "=" * 10 + " " + text + " " + "=" * 10 + "\n"
 
 
-def defrag_escalation_track(tracker: list[AnyActor]) -> list[AnyActor]:
-    def key(a: AnyActor) -> Any:
+def defrag_escalation_track(tracker: list[OptActor]) -> list[OptActor]:
+    def key(a: OptActor) -> Any:
         return (
             a is None,
             a is not None and a.is_system(),
@@ -311,8 +311,8 @@ def defrag_escalation_track(tracker: list[AnyActor]) -> list[AnyActor]:
     return sorted(tracker, key=key)
 
 
-def escalation_bar(tracker: list[AnyActor], *, defrag: bool) -> str:
-    def marker(a: AnyActor) -> str:
+def escalation_bar(tracker: list[OptActor], *, defrag: bool) -> str:
+    def marker(a: OptActor) -> str:
         if a is None:
             return " "
 

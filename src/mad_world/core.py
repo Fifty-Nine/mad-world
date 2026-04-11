@@ -9,6 +9,7 @@ import os
 import random
 from dataclasses import dataclass
 from functools import reduce
+from itertools import zip_longest
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, cast
 
@@ -32,6 +33,7 @@ from mad_world.events import (
     BaseGameEvent,
     GameEvent,
     MessageEvent,
+    OptActor,
     PlayerActor,
     StateEvent,
     SystemActor,
@@ -46,6 +48,8 @@ from mad_world.rules import (
 from mad_world.util import bannerize, escalation_bar, wrap_text
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from mad_world.players import GamePlayer
 
 
@@ -85,7 +89,7 @@ class GameState(BaseModel):
     players: dict[str, PlayerState] = Field(
         description="The state of each player, keyed by their name.",
     )
-    escalation_track: list[SystemActor | PlayerActor | None] = Field(
+    escalation_track: list[OptActor] = Field(
         default_factory=list,
         description=(
             "A literal track of colored cubes (strings of player names "
@@ -282,8 +286,21 @@ class GameState(BaseModel):
             fn(actor)
             amount -= 1
 
+    def reset_escalation(self) -> None:
+        self.escalate(SystemActor(), -self.rules.max_clock_state)
+
     def apply_event(self, event: GameEvent) -> None:
         self.escalate(event.actor, event.clock_delta)
+
+        if event.shift_blame is not None:
+            old_actor = event.actor
+            new_actor, amount = event.shift_blame
+            old_clock = self.doomsday_clock
+            self.escalate(old_actor, -amount)
+            new_clock = self.doomsday_clock
+
+            self.escalate(new_actor, old_clock - new_clock)
+
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
@@ -632,6 +649,20 @@ async def resolve_bidding(
     return new_game
 
 
+def effects_to_dict(
+    names: Sequence[str], effects: Sequence[int]
+) -> dict[str, int]:
+
+    result: dict[str, int] = {}
+    for p, e in zip_longest(names, effects):
+        if e == 0:
+            continue
+
+        result |= {p: e}
+
+    return result
+
+
 def resolve_operation(
     game: GameState,
     player_name: str,
@@ -673,14 +704,19 @@ def resolve_operation(
         actor=PlayerActor(name=player_name),
         description=desc,
         clock_delta=op_def.clock_effect,
-        gdp_delta={
-            player_name: friendly_gdp_effect,
-            opponent_name: enemy_gdp_effect,
-        },
-        influence_delta={
-            player_name: -op_def.influence_cost,
-            opponent_name: op_def.enemy_influence_effect,
-        },
+        shift_blame=(
+            (PlayerActor(name=opponent_name), op_def.shift_blame)
+            if op_def.shift_blame
+            else None
+        ),
+        gdp_delta=effects_to_dict(
+            (player_name, opponent_name),
+            (friendly_gdp_effect, enemy_gdp_effect),
+        ),
+        influence_delta=effects_to_dict(
+            (player_name, opponent_name),
+            (-op_def.influence_cost, op_def.enemy_influence_effect),
+        ),
         world_ending=operation_name == "first-strike",
     )
 

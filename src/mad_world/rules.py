@@ -42,6 +42,15 @@ class OperationDefinition(BaseModel):
         description="The GDP impact on the opposing player.",
         default=0,
     )
+    shift_blame: int = Field(
+        default=0,
+        description=(
+            "If nonzero, swap this number of escalation tokens owned by "
+            "the actor (or System) for an equivalent number of tokens owned "
+            "by the opponent."
+        ),
+    )
+
     model_config = ConfigDict(frozen=True)
 
     @staticmethod
@@ -162,6 +171,16 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
             "triggering MAD and ending the game."
         ),
         influence_cost=0,
+    ),
+    "diplomatic-maneuvering": OperationDefinition(
+        name="diplomatic-maneuvering",
+        description=(
+            "Maneuver geopolitically to shift blame for global tensions. Swap "
+            "one of your (or a generic system) escalation track cubes with an "
+            "opponent's."
+        ),
+        influence_cost=1,
+        shift_blame=1,
     ),
 }
 

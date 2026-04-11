@@ -39,7 +39,8 @@ class PlayerActor(BaseModel):
         return self.name
 
 
-AnyActor = SystemActor | PlayerActor | None
+AnyActor = SystemActor | PlayerActor
+OptActor = AnyActor | None
 
 
 class EventKind(StrEnum):
@@ -85,6 +86,13 @@ class BaseGameEvent(BaseModel):
     new_effects: list[BaseEffect] = Field(
         default_factory=list,
         description="Ongoing effects applied by this event.",
+    )
+    shift_blame: tuple[AnyActor, int] | None = Field(
+        default=None,
+        description=(
+            "Shift the given number of blame cubes from the event "
+            "actor to another."
+        ),
     )
 
     def done_by_player(self, name: str) -> bool:
