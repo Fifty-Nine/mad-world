@@ -499,7 +499,7 @@ class NuclearMeltdownCrisis(GenericCrisis[NuclearMeltdownAction]):
     def resolve(
         self, game: GameState, actions: dict[str, NuclearMeltdownAction]
     ) -> list[GameEvent]:
-        player1, player2 = game.players
+        player1, player2 = game.player_names()
         p1_amount, p2_amount = (
             actions[player1].investment,
             actions[player2].investment,
