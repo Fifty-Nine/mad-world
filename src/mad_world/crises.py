@@ -432,6 +432,142 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
         ]
 
 
+class NuclearMeltdownAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of GDP you are willing to invest to contain the "
+            "meltdown. This must be less than or equal to your current GDP."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        gdp = game.players[player_name].gdp
+        if gdp < self.investment:
+            raise InsufficientGDPError(available=gdp, cost=self.investment)
+
+        if self.investment < 0:
+            raise InvalidGDPAmountError
+
+
+class NuclearMeltdownDefs:
+    GDP_THRESHOLD: ClassVar[int] = 10
+    SCALING_FACTOR: ClassVar[int] = 2
+    WINNER_INF: ClassVar[int] = 5
+
+
+class NuclearMeltdownCrisis(GenericCrisis[NuclearMeltdownAction]):
+    card_kind: ClassVar[Literal["nuclear-meltdown"]] = "nuclear-meltdown"
+    action_type: ClassVar[type[NuclearMeltdownAction]] = NuclearMeltdownAction
+
+    title: ClassVar[str] = "Chernobyl Proportions"
+    description: ClassVar[str] = (
+        "A catastrophic failure at a major nuclear facility threatens global "
+        "collapse. The fallout could render vast swaths of the globe "
+        "uninhabitable. Both superpowers must contribute economic resources "
+        "to fund an unprecedented containment effort. However, the distraction "
+        "also presents a unique geopolitical opportunity for whoever manages "
+        "to commit fewer resources to the cleanup."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of GDP to expend towards containing "
+        "the disaster. Your bid will be subtracted from your current GDP. "
+        "The containment effort requires a combined investment of at least "
+        f"{NuclearMeltdownDefs.GDP_THRESHOLD} GDP. If the total GDP possessed "
+        "by both players is less than this threshold, the players must commit "
+        "ALL their combined GDP instead. If the threshold is not met, the "
+        "fallout triggers a global collapse and the game ends. If the "
+        "threshold is met, the Doomsday Clock recedes by 1 point for every "
+        f"{NuclearMeltdownDefs.SCALING_FACTOR} total GDP spent. "
+        "The player who bids the *least* GDP exploits the situation to "
+        "advance their geopolitical agenda, gaining "
+        f"{NuclearMeltdownDefs.WINNER_INF} Influence. If both players bid "
+        "the same amount, no one gains any Influence."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> NuclearMeltdownAction:
+        max_bid = game.players[player].gdp
+
+        # Aggressive players bid less, diplomatic players bid more
+        bid = min(max_bid, 3) if aggressive else min(max_bid, 6)
+        return NuclearMeltdownAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, NuclearMeltdownAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.players
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+        required_gdp = min(
+            NuclearMeltdownDefs.GDP_THRESHOLD,
+            game.players[player1].gdp + game.players[player2].gdp,
+        )
+
+        result: list[GameEvent] = [
+            ActionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} GDP on containment.",
+                gdp_delta={player1: -p1_amount},
+            ),
+            ActionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} GDP on containment.",
+                gdp_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment < required_gdp:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The containment effort was underfunded. The fallout "
+                        "spreads unchecked, causing total ecosystem collapse. "
+                        "No one survives."
+                    ),
+                    world_ending=True,
+                )
+            )
+            return result
+
+        clock_impact = -(total_investment // NuclearMeltdownDefs.SCALING_FACTOR)
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers contributed equally to the "
+                        "containment effort. The disaster is averted, but "
+                        "neither side gains a distinct geopolitical advantage."
+                    ),
+                    clock_delta=clock_impact,
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount < p2_amount else player2
+
+        result.append(
+            SystemEvent(
+                description=(
+                    "The disaster is successfully contained. However, "
+                    f"{winner} forced their opponent to foot most of the bill, "
+                    "securing a significant geopolitical victory."
+                ),
+                influence_delta={winner: NuclearMeltdownDefs.WINNER_INF},
+                clock_delta=clock_impact,
+            )
+        )
+        return result
+
+
 class DoomsdayAsteroidAction(BaseAction):
     investment: int = Field(
         description=(
@@ -719,6 +855,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
     *(ProxyWarCrisis() for _ in range(2)),
+    *(NuclearMeltdownCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
