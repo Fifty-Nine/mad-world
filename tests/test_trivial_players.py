@@ -7,6 +7,7 @@ import pytest
 from mad_world.core import GameState
 from mad_world.crises import (
     DoomsdayAsteroidCrisis,
+    NuclearMeltdownCrisis,
     StandoffAction,
     StandoffCrisis,
 )
@@ -401,3 +402,42 @@ async def test_pareto_doomsday_asteroid_crisis_message(
     action = await player.crisis_message(game, crisis)
     assert action.message_to_opponent is not None
     assert "minimal survival bid of 20" in action.message_to_opponent
+
+
+@pytest.mark.asyncio
+async def test_pareto_nuclear_meltdown_crisis_action(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = NuclearMeltdownCrisis()
+
+    # Threshold is 10. If opponent has 10 GDP, we bid 0.
+    game.players["Omega"].gdp = 10
+    action = await player.crisis(game, crisis)
+    assert action.investment == 0
+
+    # If opponent has 4 GDP, we bid 6.
+    game.players["Omega"].gdp = 4
+    action = await player.crisis(game, crisis)
+    assert action.investment == 6
+
+    # If opponent has 0 GDP, we bid 10, but bounded by our GDP (8).
+    game.players["Omega"].gdp = 0
+    game.players["Alpha"].gdp = 8
+    action = await player.crisis(game, crisis)
+    assert action.investment == 8
+
+
+@pytest.mark.asyncio
+async def test_pareto_nuclear_meltdown_crisis_message(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = NuclearMeltdownCrisis()
+
+    game.players["Omega"].gdp = 4
+    action = await player.crisis_message(game, crisis)
+    assert action.message_to_opponent is not None
+    assert "minimal survival bid of 6" in action.message_to_opponent
