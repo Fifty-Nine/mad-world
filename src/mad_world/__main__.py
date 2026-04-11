@@ -18,6 +18,7 @@ from mad_world.config import (
     LLMPlayerConfig,
     PlayerConfig,
     PlayerKind,
+    TrivialPlayerConfig,
 )
 from mad_world.core import format_results, game_loop
 from mad_world.human_player import HumanPlayer
@@ -100,6 +101,7 @@ def get_player(
     logger = logger or logging.getLogger("mad_world")
 
     if config.kind == PlayerKind.TRIVIAL:
+        assert isinstance(config, TrivialPlayerConfig)
         trivial_player = trivial_players.get_trivial_player(
             config.bot_name, config.name
         )
@@ -108,6 +110,7 @@ def get_player(
             raise ValueError(msg)
         return trivial_player
 
+    assert isinstance(config, LLMPlayerConfig)
     return OllamaPlayer(
         config=config,
         opponent_name=opponent_name,
@@ -133,10 +136,10 @@ def _default_config(
     config: PlayerConfig, explicit_params: set[str] | None = None
 ) -> PlayerConfig:
     updates = {}
-    if config.kind == PlayerKind.LLM and config.persona is None:
-        updates["persona"] = random_persona()
-
     if config.kind == PlayerKind.LLM:
+        assert isinstance(config, LLMPlayerConfig)
+        if config.persona is None:
+            updates["persona"] = random_persona()
         config.with_model_defaults(explicit_params)
 
     return config.model_copy(update=updates, deep=True)

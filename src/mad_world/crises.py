@@ -69,7 +69,9 @@ class BaseCrisis(BaseCard, ABC):
     has_messaging_phase: ClassVar[bool] = True
     consumable: ClassVar[bool] = False
 
-    action_type: ClassVar[type[BaseAction]]
+    @property
+    @abstractmethod
+    def action_type(self) -> type[BaseAction]: ...
 
     @abstractmethod
     async def run(
@@ -80,7 +82,10 @@ class BaseCrisis(BaseCard, ABC):
 
 
 class GenericCrisis[T: BaseAction](BaseCrisis):
-    action_type: ClassVar[type[T]]
+    @property
+    @abstractmethod
+    def action_type(self) -> type[T]:
+        """Returns the type of action this crisis expects."""
 
     @abstractmethod
     def resolve(
@@ -124,7 +129,9 @@ class StandoffAction(BaseAction):
 
 
 class StandoffCrisis(GenericCrisis[StandoffAction]):
-    action_type: ClassVar[type[StandoffAction]] = StandoffAction
+    @property
+    def action_type(self) -> type[StandoffAction]:
+        return StandoffAction
 
     card_kind: ClassVar[Literal["standoff"]] = "standoff"
     title: ClassVar[str] = "The Brink of Midnight"
@@ -158,7 +165,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
 
     @override
     def get_default_action(
-        self, _player: str, _game: GameState, *, aggressive: bool
+        self, player: str, game: GameState, *, aggressive: bool
     ) -> StandoffAction:
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
@@ -227,6 +234,10 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
 
 
 class InternationalSanctionsCrisis(BaseCrisis):
+    @property
+    def action_type(self) -> type[BaseAction]:
+        return BaseAction
+
     card_kind: ClassVar[Literal["international-sanctions"]] = (
         "international-sanctions"
     )
@@ -309,7 +320,9 @@ class BlameGameAction(BaseAction):
 
 
 class BlameGameCrisis(GenericCrisis[BlameGameAction]):
-    action_type: ClassVar[type[BlameGameAction]] = BlameGameAction
+    @property
+    def action_type(self) -> type[BlameGameAction]:
+        return BlameGameAction
 
     card_kind: ClassVar[Literal["blame-game"]] = "blame-game"
     title: ClassVar[str] = "The Blame Game"
@@ -338,7 +351,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
 
     @override
     def get_default_action(
-        self, _player: str, _game: GameState, *, aggressive: bool
+        self, player: str, game: GameState, *, aggressive: bool
     ) -> BlameGameAction:
         return BlameGameAction(
             posture=(
@@ -594,7 +607,10 @@ class DoomsdayAsteroidDefs:
 
 class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
     card_kind: ClassVar[Literal["doomsday-asteroid"]] = "doomsday-asteroid"
-    action_type: ClassVar[type[DoomsdayAsteroidAction]] = DoomsdayAsteroidAction
+
+    @property
+    def action_type(self) -> type[DoomsdayAsteroidAction]:
+        return DoomsdayAsteroidAction
 
     title: ClassVar[str] = "Project Aegis"
     description: ClassVar[str] = (
@@ -742,7 +758,10 @@ class ProxyWarDefs:
 
 class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
     card_kind: ClassVar[Literal["proxy-war"]] = "proxy-war"
-    action_type: ClassVar[type[ProxyWarAction]] = ProxyWarAction
+
+    @property
+    def action_type(self) -> type[ProxyWarAction]:
+        return ProxyWarAction
 
     title: ClassVar[str] = "Proxy War Escalation"
     description: ClassVar[str] = (

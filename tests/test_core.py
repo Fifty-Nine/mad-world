@@ -54,15 +54,13 @@ from mad_world.trivial_players import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from mad_world.players import GamePlayer
 
 
 @dataclass
 class Scenario:
-    alpha: Callable[[str], GamePlayer]
-    omega: Callable[[str], GamePlayer]
+    alpha: type[GamePlayer]
+    omega: type[GamePlayer]
     winner: str | None
     reason: GameOverReason
 
@@ -211,6 +209,7 @@ def test_resolve_operation_invalid_operation(basic_game: GameState) -> None:
     event = resolve_operation(basic_game, "Alpha", "Omega", "invalid-op")
     assert "was rejected" in event.description
     assert event.actor.actor_kind == ActorKind.PLAYER
+    assert isinstance(event.actor, PlayerActor)
     assert event.actor.name == "Alpha"
 
 

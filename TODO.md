@@ -6,3 +6,4 @@
 - Add a TUI interface.
 - Convert GameState.player_names() into a property
 - Clean up sloppy event filtering in mandates.py - see feedback on #69
+- Remove mypy after we have more experience with ty

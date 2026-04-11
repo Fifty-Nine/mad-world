@@ -180,7 +180,10 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
         title: ClassVar[str] = "Dummy"
         description: ClassVar[str] = "Dummy"
         mechanics: ClassVar[str] = "Dummy"
-        action_type: ClassVar[type] = DummyAction
+
+        @property
+        def action_type(self) -> type[DummyAction]:
+            return DummyAction
 
         @override
         def resolve(
@@ -190,7 +193,7 @@ async def test_human_player_crisis_coverage(basic_game: GameState) -> None:
 
         @override
         def get_default_action(
-            self, _player: str, _game: GameState, *, aggressive: bool
+            self, player: str, game: GameState, *, aggressive: bool
         ) -> DummyAction:
             return DummyAction(text_field="default")
 

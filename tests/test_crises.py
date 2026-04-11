@@ -91,6 +91,9 @@ class TestInternationalSanctionsCrisis:
     def crisis(self) -> InternationalSanctionsCrisis:
         return InternationalSanctionsCrisis()
 
+    def test_action_type(self, crisis: InternationalSanctionsCrisis) -> None:
+        assert crisis.action_type is BaseAction
+
     @pytest.fixture
     def basic_game(self) -> GameState:
         return GameState.new_game(
@@ -311,6 +314,10 @@ def test_crisis_default_additional_prompt() -> None:
     class DummyCrisis(BaseCrisis):
         card_kind: ClassVar[Literal["dummy"]] = "dummy"
 
+        @property
+        def action_type(self) -> type[BaseAction]:
+            return BaseAction
+
         @override
         async def run(self, *_args: Any, **_kwargs: Any) -> Any: ...
 
@@ -324,6 +331,10 @@ async def test_resolve_crisis_consumable(basic_game: GameState) -> None:
     class ConsumableCrisis(BaseCrisis):
         card_kind: ClassVar[Literal["consumable-dummy"]] = "consumable-dummy"
         consumable: ClassVar[bool] = True
+
+        @property
+        def action_type(self) -> type[BaseAction]:
+            return BaseAction
 
         @override
         async def run(self, *_args: Any, **_kwargs: Any) -> list[GameEvent]:
@@ -378,6 +389,9 @@ class TestProxyWarCrisis:
     @pytest.fixture
     def crisis(self) -> ProxyWarCrisis:
         return ProxyWarCrisis()
+
+    def test_action_type(self, crisis: ProxyWarCrisis) -> None:
+        assert crisis.action_type is ProxyWarAction
 
     def test_get_default_action(
         self, crisis: ProxyWarCrisis, basic_game: GameState

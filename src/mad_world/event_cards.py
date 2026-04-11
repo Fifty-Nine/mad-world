@@ -97,7 +97,7 @@ class BaseOngoingEffectEvent(BaseEventCard):
         ...
 
     @override
-    def mechanics(self, _game: GameState) -> str:
+    def mechanics(self, game: GameState) -> str:
         return (
             f"A new ongoing effect has been applied: {self.effect_type().title}"
         )
@@ -124,7 +124,7 @@ class ClockChangeEvent(BaseEventCard):
         return self
 
     @override
-    def mechanics(self, _game: GameState) -> str:
+    def mechanics(self, game: GameState) -> str:
         return (
             f"The doomsday clock {increase_or_decrease(self.amount)}s "
             f"by {abs(self.amount)}"
@@ -187,7 +187,7 @@ class InfluenceBothEvent(BaseEventCard):
     amount: int = 2
 
     @override
-    def mechanics(self, _game: GameState) -> str:
+    def mechanics(self, game: GameState) -> str:
         return (
             f"Both players {gain_or_lose(self.amount)} {abs(self.amount)} Inf."
         )

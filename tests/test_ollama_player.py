@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from mad_world.actions import (
     BaseAction,
@@ -26,6 +27,7 @@ from mad_world.ollama_player import (
     GrandStrategy,
     OllamaPlayer,
     PlayerArchetype,
+    create_persona_schema,
 )
 
 if TYPE_CHECKING:
@@ -127,6 +129,30 @@ async def test_elaborate_persona(test_player: Any) -> None:
     assert test_player.client.chat.call_count == 0
 
 
+def test_elaborated_persona_schema_type() -> None:
+    schema_type = create_persona_schema("Big Dummy")
+    schema = schema_type.model_json_schema()
+
+    assert schema["properties"]["persona_seed"]["const"] == "Big Dummy"
+
+    base_args: dict[str, Any] = {
+        "character_description": "",
+        "character_instructions": "",
+        "archetype": PlayerArchetype.SORE_LOSER,
+        "name": "General Truly N. Competent",
+    }
+
+    with pytest.raises(ValidationError, match="Expected persona_seed"):
+        schema_type(persona_seed="not good!", **base_args)
+
+    valid = schema_type(persona_seed="Big Dummy", **base_args)
+
+    dict_val = valid.model_dump()
+    dict_val["persona_seed"] = "invalid"
+    with pytest.raises(ValidationError, match="Expected persona_seed"):
+        schema_type.model_validate_json(json.dumps(dict_val))
+
+
 @pytest.mark.asyncio
 async def test_start_game(
     player_config: LLMPlayerConfig,
@@ -184,9 +210,7 @@ async def test_retry_action_success(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             pass
 
     class DummyResponse(ActionResponse):
@@ -211,9 +235,7 @@ async def test_retry_action_validation_error(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             pass
 
     class DummyResponse(ActionResponse):
@@ -244,9 +266,7 @@ async def test_retry_action_semantic_error(
 ) -> None:
 
     class DummyAction(BaseAction):
-        def validate_semantics(
-            self, game: GameState, current_player: str
-        ) -> None:
+        def validate_semantics(self, game: GameState, player_name: str) -> None:
             raise InvalidActionError("Test semantics failed")  # noqa: TRY003
 
     class DummyResponse(ActionResponse):
