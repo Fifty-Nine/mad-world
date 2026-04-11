@@ -27,10 +27,10 @@ when working in this codebase.
   * Prefer the square-bracket syntax for generics (e.g., `def get_attr[T](...)`)
     instead of manual `TypeVar` declarations.
   * Use the built-in `type[]` instead of the deprecated `typing.Type[]`.
-  * **Abstract Classes:** Note that Mypy does not allow passing abstract base
-    classes (like `GamePlayer`) to parameters typed as `type[T]`. If a utility
-    function must accept an ABC as a filter or type check, use `Any` for that
-    specific parameter to avoid `type-abstract` diagnostic errors.
+  * **Abstract Classes:** Avoid using abstract base classes as type arguments
+    for generic parameters (e.g., type[T]) to prevent mypy type-abstract
+    diagnostic errors; use Any or type instead. This restriction does not apply
+    to non-generic type annotations where a class reference is expected.
 * **Pydantic Models:** The codebase heavily utilizes Pydantic `BaseModel`s for
   state management.
   * Always use **keyword arguments** when instantiating Pydantic models (e.g.,
