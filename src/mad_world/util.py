@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, cast
 from more_itertools import partition
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine, Sequence
+
     from _typeshed import SupportsRichComparisonT
 
     from mad_world.events import AnyActor
@@ -358,3 +360,20 @@ def extract_json_from_response(response: str) -> str:
         return last_valid
 
     return response
+
+
+async def aretry[T](
+    func: Callable[[], Coroutine[None, None, T]],
+    allowed_exceptions: Sequence[type[Exception]],
+    *,
+    on_error: Callable[[Exception], None] | None = None,
+    count: int = 3,
+) -> T | None:
+    on_error = on_error or (lambda x: None)
+    for _ in range(count):
+        try:
+            return await func()
+        except tuple(allowed_exceptions) as e:
+            on_error(e)
+
+    return None

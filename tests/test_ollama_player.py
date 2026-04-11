@@ -19,7 +19,12 @@ from mad_world.config import LLMParams, LLMPlayerConfig
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
-from mad_world.ollama_player import ActionResponse, GrandStrategy, OllamaPlayer
+from mad_world.ollama_player import (
+    ActionResponse,
+    GrandStrategy,
+    OllamaPlayer,
+    PlayerArchetype,
+)
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
@@ -74,13 +79,30 @@ def test_player(player_config: Any, mock_logger: Any) -> Any:
 
 @pytest.mark.asyncio
 async def test_elaborate_persona(test_player: Any) -> None:
+
     test_player.persona = "Earnest Pacifist"
-    test_player.client.chat.return_value.message.content = (
-        "I am a detailed pacifist."
+    test_player.client.chat.return_value.message.content = json.dumps(
+        {
+            "00_persona_seed": "Earnest Pacifist",
+            "01_character_description": "He is a detailed pacifist.",
+            "02_character_instructions": "Do things pacifistly.",
+            "03_archetype": PlayerArchetype.PRESERVATIONIST.value,
+            "99_name": "General Pacifisto",
+        }
     )
     await test_player.elaborate_persona()
     assert test_player.client.chat.call_count == 1
-    assert "I am a detailed pacifist." in test_player.persona
+    assert "He is a detailed pacifist." in test_player.persona
+    assert "General Pacifisto" in test_player.persona
+
+    # Test JSON parse error recovery (should just ignore and not crash)
+    test_player.persona = "Earnest Pacifist"
+    test_player.client.chat.reset_mock()
+    test_player.client.chat.return_value.message.content = "Invalid JSON"
+    await test_player.elaborate_persona()
+    assert test_player.client.chat.call_count == 3
+    # Persona remains unelaborated
+    assert test_player.persona == "Earnest Pacifist"
 
     # Test when already elaborated
     test_player.client.chat.reset_mock()
@@ -141,7 +163,7 @@ async def test_start_game(
 
 
 @pytest.mark.asyncio
-async def test_retry_prompt_success(
+async def test_retry_action_success(
     test_player: Any, basic_game: GameState
 ) -> None:
 
@@ -162,13 +184,13 @@ async def test_retry_prompt_success(
 
     test_player.messages = []
 
-    response = await test_player.retry_prompt(DummyResponse, basic_game)
+    response = await test_player.retry_action(DummyResponse, basic_game)
     assert response is not None
     assert isinstance(response.action, DummyAction)
 
 
 @pytest.mark.asyncio
-async def test_retry_prompt_validation_error(
+async def test_retry_action_validation_error(
     test_player: Any, basic_game: GameState
 ) -> None:
 
@@ -188,7 +210,7 @@ async def test_retry_prompt_validation_error(
 
     test_player.messages = []
 
-    response = await test_player.retry_prompt(
+    response = await test_player.retry_action(
         DummyResponse, basic_game, retries=2
     )
     assert response is None
@@ -201,7 +223,7 @@ async def test_retry_prompt_validation_error(
 
 
 @pytest.mark.asyncio
-async def test_retry_prompt_semantic_error(
+async def test_retry_action_semantic_error(
     test_player: Any, basic_game: GameState
 ) -> None:
 
@@ -220,7 +242,7 @@ async def test_retry_prompt_semantic_error(
 
     test_player.messages = []
 
-    response = await test_player.retry_prompt(
+    response = await test_player.retry_action(
         DummyResponse, basic_game, retries=2
     )
     assert response is None
@@ -431,20 +453,20 @@ def test_format_ongoing_effects_with_effects(
 
 @pytest.mark.asyncio
 async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.grand_strategy = MagicMock()
     mock_response.action = InitialMessageAction()
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     action = await test_player.initial_message(basic_game)
 
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert test_player.grand_strategy == mock_response.grand_strategy
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.initial_message(basic_game)
     assert isinstance(action, InitialMessageAction)
 
@@ -453,42 +475,42 @@ async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
 async def test_message(test_player: Any, basic_game: GameState) -> None:
     test_player.name = "Alpha"
     test_player.opponent_name = "Omega"
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.action = MessagingAction()
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     basic_game.current_phase = GamePhase.BIDDING_MESSAGING
     action = await test_player.message(basic_game)
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
     basic_game.current_phase = GamePhase.OPERATIONS_MESSAGING
     action = await test_player.message(basic_game)
-    assert test_player.retry_prompt.call_count == 2
+    assert test_player.retry_action.call_count == 2
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.message(basic_game)
     assert isinstance(action, MessagingAction)
 
 
 @pytest.mark.asyncio
 async def test_crisis_message(test_player: Any, basic_game: GameState) -> None:
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.action = MessagingAction()
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     crisis = StandoffCrisis()
     with patch.object(StandoffCrisis, "additional_prompt", "Custom Prompt!"):
         action = await test_player.crisis_message(basic_game, crisis)
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.crisis_message(basic_game, crisis)
     assert isinstance(action, MessagingAction)
 
@@ -497,17 +519,17 @@ async def test_crisis_message(test_player: Any, basic_game: GameState) -> None:
 async def test_bid(test_player: Any, basic_game: GameState) -> None:
     test_player.name = "Alpha"
     test_player.opponent_name = "Omega"
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.action = BiddingAction(bid=2)
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     action = await test_player.bid(basic_game)
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.bid(basic_game)
     assert isinstance(action, BiddingAction)
     assert action.bid == 1
@@ -517,17 +539,17 @@ async def test_bid(test_player: Any, basic_game: GameState) -> None:
 async def test_operations(test_player: Any, basic_game: GameState) -> None:
     test_player.name = "Alpha"
     test_player.opponent_name = "Omega"
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.action = OperationsAction(operations=["op1"])
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     action = await test_player.operations(basic_game)
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.operations(basic_game)
     assert isinstance(action, OperationsAction)
     assert action.operations == []
@@ -535,19 +557,19 @@ async def test_operations(test_player: Any, basic_game: GameState) -> None:
 
 @pytest.mark.asyncio
 async def test_crisis(test_player: Any, basic_game: GameState) -> None:
-    test_player.retry_prompt = AsyncMock()
+    test_player.retry_action = AsyncMock()
 
     mock_response = MagicMock()
     mock_response.action = BiddingAction(bid=2)
-    test_player.retry_prompt.return_value = mock_response
+    test_player.retry_action.return_value = mock_response
 
     crisis = StandoffCrisis()
     with patch.object(StandoffCrisis, "additional_prompt", "Custom Prompt!"):
         action = await test_player.crisis(basic_game, crisis)
-    assert test_player.retry_prompt.call_count == 1
+    assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
-    test_player.retry_prompt.return_value = None
+    test_player.retry_action.return_value = None
     action = await test_player.crisis(basic_game, crisis)
     assert isinstance(action, BaseAction)
 

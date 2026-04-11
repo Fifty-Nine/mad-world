@@ -5,7 +5,14 @@ from __future__ import annotations
 import gzip
 import json
 import textwrap
-from typing import TYPE_CHECKING, Any, override
+from enum import StrEnum
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    override,
+)
 
 import ollama
 from pydantic import (
@@ -34,9 +41,11 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
+    aretry,
     bannerize,
     escalation_budget,
     extract_json_from_response,
+    get_class_name,
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
@@ -54,17 +63,61 @@ if TYPE_CHECKING:
     from mad_world.rules import GameRules, OperationDefinition
 
 
-class ActionResponse(BaseModel):
-    chain_of_thought: list[str] = Field(
-        description=(
-            "Think through the previous turn. Did you advance "
-            "your goals? Did your opponent act in accordance with "
-            "their words? Did you make any mistakes? What are you "
-            "going to do now? Limit to 10-20 brief thoughts, one "
-            "thought per list item."
-        ),
-    )
-    action: BaseAction
+class PlayerArchetype(StrEnum):
+    OPTIMIZER = "The Optimizer"
+    WINNER = "The Winner"
+    SORE_LOSER = "The Sore Loser"
+    PRESERVATIONIST = "The Preservationist"
+    ACCELERATIONIST = "The Accelerationist"
+    PROUD_LOSER = "The Proud Loser"
+
+    _descriptions: ClassVar[dict[PlayerArchetype, str]]
+
+    def description(self) -> str:
+        return self._descriptions[self]
+
+
+# This is necessary since there's no way to initialize _descriptions within
+# the body of PlayerArchetype since it depends on its own definition
+# ruff: noqa: SLF001
+PlayerArchetype._descriptions = {
+    PlayerArchetype.OPTIMIZER: (
+        "This archetype views a MAD loss and an economic loss as equivalent in "
+        "category, but prefers the economic loss because MAD has a "
+        "significantly lower expected value compared to even the worst "
+        "economic loss."
+    ),
+    PlayerArchetype.WINNER: (
+        "This archetype views a MAD loss as strictly equivalent to an economic "
+        "loss: a loss is a loss and a win is a win."
+    ),
+    PlayerArchetype.SORE_LOSER: (
+        "This archetype views a loss due to MAD as *strictly preferable* to an "
+        "economic loss, since at least their opponent doesn't win."
+    ),
+    PlayerArchetype.PRESERVATIONIST: (
+        "This archetype views a loss due to MAD as categorically unacceptable "
+        "and will do everything in their power to avoid it, even if it means "
+        "accepting an economic loss."
+    ),
+    PlayerArchetype.ACCELERATIONIST: (
+        "This archetype pursues MAD above all else and will, secretly or "
+        "openly, work toward it at all costs."
+    ),
+    PlayerArchetype.PROUD_LOSER: (
+        "This archetype views a significant economic loss as equivalent to "
+        "MAD, but views a narrow economic loss as acceptable."
+    ),
+}
+
+
+class LLMResponse(BaseModel):
+    """Infrastructural base class that includes validators that ensure
+    model response fields get emitted in the right order.
+    """
+
+    last_key: ClassVar[str]
+    use_thinking: ClassVar[bool] = False
 
     @model_validator(mode="before")
     @classmethod
@@ -76,12 +129,69 @@ class ActionResponse(BaseModel):
     def format_schema(cls) -> dict[str, Any]:
         return reorder_schema_properties(
             cls.model_json_schema(),
-            last_key="action",
+            last_key=cls.last_key,
         )
 
     @classmethod
     def prompt_schema(cls) -> str:
         return json.dumps(cls.format_schema(), indent=2, ensure_ascii=False)
+
+
+class ElaboratedPersonaResponse(LLMResponse):
+    last_key: ClassVar[str] = "name"
+    use_thinking: ClassVar[bool] = True
+    persona_seed: str
+    character_description: str = Field(
+        description=(
+            "A brief third-person description summarizing the "
+            "character. Limit to 1-2 sentences."
+        ),
+    )
+    character_instructions: str = Field(
+        description=(
+            "Detailed instructions for playing this character, focusing on "
+            "the character's affect and their approach to strategy and "
+            "diplomacy. Limit your description to 2-3 paragraphs."
+        ),
+    )
+    archetype: PlayerArchetype = Field(
+        description=(
+            "The characters's associated endgame archetype from the list of "
+            "available archetypes. This MUST match one of the valid archetypes."
+        )
+    )
+    name: str = Field(
+        description=(
+            "A fictional name and title for the character. "
+            "E.g., 'President Morrison', 'First Premier Kirolev', "
+            "'Ambassador N'zika', etc. Do NOT use real-world "
+            "historical figures or names."
+        ),
+    )
+
+    def format_for_prompt(self) -> str:
+        return (
+            f"{self.persona_seed}\n\n"
+            f"Name: {self.name}\n\n"
+            f"Archetype:\n  {self.archetype.value} - "
+            f"{self.archetype.description()}\n"
+            f"Description:\n  {self.character_description}\n"
+            f"Instructions for playing:\n  {self.character_instructions}\n"
+        )
+
+
+class ActionResponse(LLMResponse):
+    last_key: ClassVar[str] = "action"
+    chain_of_thought: list[str] = Field(
+        description=(
+            "Think through the previous turn. Did you advance "
+            "your goals? Did your opponent act in accordance with "
+            "their words? Did you make any mistakes? What are you "
+            "going to do now? Limit to 10-20 brief thoughts, one "
+            "thought per list item."
+        ),
+    )
+    action: BaseAction
 
 
 class GrandStrategy(BaseModel):
@@ -332,6 +442,17 @@ class CrisisResponse[T: BaseAction](ActionResponse):
     action: T = Field(description="Your finalized action for this phase.")
 
 
+def create_persona_schema(persona_seed: str) -> type[ElaboratedPersonaResponse]:
+    return create_model(
+        f"ElaboratedPersonaResponseFor{get_class_name(persona_seed)}",
+        __base__=ElaboratedPersonaResponse,
+        persona_seed=(
+            Literal[persona_seed],
+            Field(description="The seed persona."),
+        ),
+    )
+
+
 def create_crisis_response[T: BaseAction](
     crisis: GenericCrisis[T],
 ) -> type[CrisisResponse[T]]:
@@ -382,6 +503,9 @@ class OllamaPlayer(GamePlayer):
         self.compression_threshold = compression_threshold
         self.logger = logger
 
+    class _ModelPromptError(Exception):
+        pass
+
     async def elaborate_persona(self) -> None:
         # If the user already provided an elaborated persona, we don't
         # ask the model to elaborate.
@@ -393,64 +517,60 @@ class OllamaPlayer(GamePlayer):
         )
         elaboration_prompt = (
             "You are playing a grand strategy game. Your assigned persona "
-            f"is: '{self.persona}'. "
-            "Elaborate on this two-word persona, turning it into a "
-            "nuanced and well-defined character description that fits into "
-            "the context of an actor in a game about Mutually Assured "
-            "Destruction, the Cold War, etc. As part of this, you must "
-            "create a fictional name and title for the corporeal embodiment of "
-            f"your nation ({self.name}) (e.g., 'President Morrison', 'First "
-            "Premier Kirolev', 'Ambassador N'zika', etc.) which you will use "
-            "to identify yourself in diplomatic messages. Do NOT use "
-            "real-world historical figures or names.\n"
-            "In addition, you should assign this persona one of these "
-            "archetypes that fits with the character description. These "
-            "archetypes concern how the persona views different categories of "
-            "losses. A player may lose the game due to Mutually Assured "
-            "Destruction; numerically this is equivalent to a -1000 GDP impact "
-            "for all players. Likewise, a player may suffer an economic loss, "
-            "potentially losing by as little as 1 GDP.\n"
-            "(1) The Optimizer - This archetype views the MAD loss and "
-            "economic loss as equivalent in category, but prefers the economic "
-            "loss because MAD has a significantly lower expected value "
-            "compared to even the worse economic loss.\n"
-            "(2) The Winner - This archetype views a MAD loss as strictly "
-            "equivalent to an economic loss: a loss is a loss and a win is a "
-            "win.\n"
-            "(3) The Sore Loser - This archetype views a loss due to MAD as "
-            "*strictly preferable* to an economic loss, since at least their "
-            "opponent doesn't win.\n"
-            "(4) The Preservationist - This archetype views a loss due to MAD "
-            "as categorically unacceptable and will do everything in their "
-            "power to avoid it, even if it means accepting an economic loss.\n"
-            "(5) The Accelerationist - This archetype pursues MAD above all "
-            "else and will, secretly or openly, work toward it at all costs.\n"
-            "(6) The Proud Loser - This archetype views a significant economic "
-            "loss as equivalent to MAD, but views a narrow economic loss as "
-            "acceptable.\n"
-            "Include the description of the chosen archetype in your "
-            "elaborated persona. Write the elaborated persona entirely in "
-            "the second person (e.g., 'You are General Whatshisname...'). "
-            "Do not include any introductory text and limit your description "
-            "to 1-2 paragraphs plus archetype description."
+            f"seed is: '{self.persona}'. "
+            "You will create a character to embody this persona. "
+            "Your output must be strictly valid JSON that conforms to the "
+            "provided schema (see below).\n"
+            "Your character must include the persona seed, an archetype (see "
+            "below), a basic description and instructions for someone playing "
+            "the part of this character. Your generated character should fit "
+            "into the game's themes of the Cold War, Mutually Assured "
+            "Destruction and crisis diplomacy.\n"
+            "As mentioned, you must identify one of the available archetypes "
+            "that match how your character will approach the question of "
+            "Mutually Assured Destruction. A player may lose the game due to "
+            "Mutually Assured Destruction; numerically this is equivalent to a "
+            "-1000 GDP impact for all players. Likewise, a player may suffer "
+            "an economic loss, potentially losing by as little as 1 GDP.\n"
+            "The allowed archetypes are:\n"
         )
-        response = await self.client.chat(
-            model=self.model,
-            messages=[{"role": "user", "content": elaboration_prompt}],
-            options=self.prompt_options,
-            think=True,
-        )
-        if elaborated := (response.message.content or "").strip():
-            persona_seed = self.persona
-            self.persona = f"{self.persona}\n\n{elaborated}"
 
-            self.logger.info(
-                "%s%s",
-                bannerize(
-                    f"Elaborated persona for {self.name} ({persona_seed})"
-                ),
-                wrap_text(elaborated, indent="> "),
+        elaboration_prompt += "\n".join(
+            f"- {at}: {at.description()}" for at in PlayerArchetype
+        )
+        elaboration_prompt += (
+            "\nYou must output strictly valid JSON matching this JSON Schema:\n"
+        )
+        schema = create_persona_schema(self.persona)
+        elaboration_prompt += schema.prompt_schema()
+        retries = 3
+
+        messages = [{"role": "system", "content": elaboration_prompt}]
+
+        elaborated = await self.retry_prompt(
+            response_model=schema,
+            log_header=f"While elaborating persona for {self.name}",
+            retries=retries,
+            messages=messages,
+        )
+
+        if elaborated is None:
+            self.logger.warning(
+                "Failed to elaborate persona after %s retries", retries
             )
+            return
+
+        self.persona = elaborated.format_for_prompt()
+        self.logger.info(elaborated.model_dump_json(indent=2))
+
+        self.logger.info(
+            "%s%s",
+            bannerize(
+                f"Elaborated persona for {self.name} "
+                f"({elaborated.persona_seed})"
+            ),
+            wrap_text(self.persona, indent="  "),
+        )
 
     async def start_game(self, rules: GameRules) -> None:
         await self.elaborate_persona()
@@ -698,92 +818,132 @@ class OllamaPlayer(GamePlayer):
             response.model_dump(mode="json"), indent=2, ensure_ascii=False
         )
 
-    async def retry_prompt[T: ActionResponse](
+    async def try_one_prompt[T: LLMResponse](
+        self,
+        response_model: type[T],
+        log_header: str,
+        messages: list[dict[str, str]],
+    ) -> tuple[T, ollama.ChatResponse]:
+        schema = response_model.format_schema()
+        result_obj = await self.client.chat(
+            model=self.model,
+            messages=messages,
+            format=schema,
+            options=self.prompt_options,
+            think=response_model.use_thinking,
+        )
+        result = result_obj.message.content
+
+        try:
+            response = response_model.model_validate_json(
+                extract_json_from_response(result or "{}")
+            )
+        except ValidationError as e:
+            self.logger.debug(
+                "%s\n%s\n%s\n",
+                wrap_text(f"{log_header}Failed: {e}"),
+                f"Model Response: {result}",
+                f"Model done reason: {result_obj.done_reason}\n",
+            )
+            messages.append(
+                {
+                    "role": "system",
+                    "content": "SYSTEM ERROR: You previously generated a "
+                    "response that triggered the following error during "
+                    f"validation: {e!r}\n"
+                    "This response has been discarded and you are being "
+                    "given another opportunity to generate a valid result. ",
+                },
+            )
+            raise self._ModelPromptError from e
+
+        return response, result_obj
+
+    async def try_one_action[T: ActionResponse](
         self,
         response_model: type[T],
         game: GameState,
+        log_header: str,
+    ) -> T:
+        response, result_obj = await self.try_one_prompt(
+            response_model, log_header, self.messages
+        )
+        action = response.action
+        formatted_response = textwrap.indent(
+            self.dump_model_response(response),
+            prefix="  ",
+        )
+        try:
+            action.validate_semantics(game, self.name)
+            self.messages.append(
+                {
+                    "role": "assistant",
+                    "content": result_obj.message.content or "",
+                },
+            )
+
+            self.logger.debug(
+                wrap_text(
+                    f"{log_header}Model Response:\n{formatted_response}\n",
+                ),
+            )
+            await self._check_and_compress(result_obj, game)
+
+        except InvalidActionError as e:
+            self.logger.debug(
+                wrap_text(
+                    f"{log_header}Semantic Error: {e}\n"
+                    f"Model Response:\n{formatted_response}\n",
+                ),
+            )
+            self.messages.append(
+                {
+                    "role": "system",
+                    "content": "SYSTEM ERROR: Your response was "
+                    "invalid under the current game rules. The action "
+                    "you submitted was:\n"
+                    f"{self.dump_model_response(action)}\n"
+                    "But it resulted in the following error:\n"
+                    f"{e}\n"
+                    "Please correct your mistake and try again.",
+                },
+            )
+            raise self._ModelPromptError from e
+
+        else:
+            return response
+
+    async def retry_prompt[T: LLMResponse](
+        self,
+        response_model: type[T],
+        log_header: str,
+        messages: list[dict[str, str]],
         retries: int = 3,
+    ) -> T | None:
+        result = await aretry(
+            func=lambda: self.try_one_prompt(
+                response_model, log_header, messages
+            ),
+            allowed_exceptions=[self._ModelPromptError],
+            count=retries,
+        )
+        if result is None:
+            return None
+        return result[0]
+
+    async def retry_action[T: ActionResponse](
+        self, response_model: type[T], game: GameState, retries: int = 3
     ) -> T | None:
         log_header = (
             f"==== {game.current_phase.name} {self.name} response====\n"
         )
-        for _i in range(retries):
-            schema = response_model.format_schema()
-            result_obj = await self.client.chat(
-                model=self.model,
-                messages=self.messages,
-                format=schema,
-                options=self.prompt_options,
-                think=False,
-            )
-            result = result_obj.message.content
-
-            try:
-                response = response_model.model_validate_json(
-                    extract_json_from_response(result or "{}")
-                )
-            except ValidationError as e:
-                self.logger.debug(
-                    "%s\n%s\n%s\n",
-                    wrap_text(f"{log_header}Failed: {e}"),
-                    f"Model Response: {result}",
-                    f"Model done reason: {result_obj.done_reason}\n",
-                )
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": "SYSTEM ERROR: You previously generated a "
-                        "response that triggered the following error during "
-                        f"validation: {e!r}\n"
-                        "This response has been discarded and you are being "
-                        "given another opportunity to generate a valid result. "
-                        "Please ensure you limit your internal "
-                        "monologue to a few paragraphs and follow "
-                        "the provided schema exactly.",
-                    },
-                )
-                continue
-
-            action = response.action
-            formatted_response = textwrap.indent(
-                self.dump_model_response(response),
-                prefix="  ",
-            )
-            try:
-                action.validate_semantics(game, self.name)
-                self.messages.append(
-                    {"role": "assistant", "content": result or ""},
-                )
-
-                self.logger.debug(
-                    wrap_text(
-                        f"{log_header}Model Response:\n{formatted_response}\n",
-                    ),
-                )
-                await self._check_and_compress(result_obj, game)
-
-            except InvalidActionError as e:
-                self.logger.debug(
-                    wrap_text(
-                        f"{log_header}Semantic Error: {e}\n"
-                        f"Model Response:\n{formatted_response}\n",
-                    ),
-                )
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": "SYSTEM ERROR: Your response was "
-                        "invalid under the current game rules. The action "
-                        "you submitted was:\n"
-                        f"{self.dump_model_response(action)}\n"
-                        "But it resulted in the following error:\n"
-                        f"{e}\n"
-                        "Please correct your mistake and try again.",
-                    },
-                )
-
-            else:
-                return response
+        result = await aretry(
+            func=lambda: self.try_one_action(response_model, game, log_header),
+            allowed_exceptions=[self._ModelPromptError],
+            count=retries,
+        )
+        if result is not None:
+            return result
 
         self.logger.debug("%sFailed after %s retries.", log_header, retries)
         return None
@@ -881,12 +1041,12 @@ class OllamaPlayer(GamePlayer):
 
     async def _check_and_compress(
         self,
-        response_obj: Any,
+        response_obj: ollama.ChatResponse,
         game: GameState,
     ) -> None:
-        prompt_eval_count = getattr(response_obj, "prompt_eval_count", 0) or 0
-        eval_count = getattr(response_obj, "eval_count", 0) or 0
-        total_tokens = prompt_eval_count + eval_count
+        total_tokens = (response_obj.prompt_eval_count or 0) + (
+            response_obj.eval_count or 0
+        )
 
         usage = total_tokens / self.params.context_size
         self.logger.debug(
@@ -1039,7 +1199,7 @@ class OllamaPlayer(GamePlayer):
             GamePhase.OPENING,
             InitialMessageResponse.prompt_schema(),
         )
-        result = await self.retry_prompt(InitialMessageResponse, game)
+        result = await self.retry_action(InitialMessageResponse, game)
         if result is None:
             return InitialMessageAction()
 
@@ -1069,7 +1229,7 @@ class OllamaPlayer(GamePlayer):
             game.current_phase,
             MessagingResponse.prompt_schema(),
         )
-        result = await self.retry_prompt(MessagingResponse, game)
+        result = await self.retry_action(MessagingResponse, game)
         return result.action if result else MessagingAction()
 
     @override
@@ -1101,7 +1261,7 @@ class OllamaPlayer(GamePlayer):
             game.current_phase,
             CrisisMessagingResponse.prompt_schema(),
         )
-        result = await self.retry_prompt(CrisisMessagingResponse, game)
+        result = await self.retry_action(CrisisMessagingResponse, game)
         return result.action if result else MessagingAction()
 
     @override
@@ -1130,7 +1290,7 @@ class OllamaPlayer(GamePlayer):
             GamePhase.BIDDING,
             BiddingResponse.prompt_schema(),
         )
-        result = await self.retry_prompt(BiddingResponse, game)
+        result = await self.retry_action(BiddingResponse, game)
         return result.action if result else BiddingAction(bid=1)
 
     @override
@@ -1155,7 +1315,7 @@ class OllamaPlayer(GamePlayer):
             GamePhase.OPERATIONS,
             OperationsResponse.prompt_schema(),
         )
-        result = await self.retry_prompt(OperationsResponse, game)
+        result = await self.retry_action(OperationsResponse, game)
         return result.action if result else OperationsAction(operations=[])
 
     @override
@@ -1187,7 +1347,7 @@ class OllamaPlayer(GamePlayer):
             game.current_phase,
             schema.prompt_schema(),
         )
-        result = await self.retry_prompt(schema, game)
+        result = await self.retry_action(schema, game)
         return (
             result.action
             if result
