@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
     from mad_world.core import GameState
     from mad_world.crises import BaseCrisis, GenericCrisis
-    from mad_world.rules import GameRules
 
 
 class FinishInput(Exception):
@@ -42,9 +41,11 @@ class HumanPlayer(GamePlayer):
         self.session: PromptSession[str] = PromptSession()
         self.operations_completer: WordCompleter | None = None
 
-    async def start_game(self, game: GameRules) -> None:
+    @override
+    async def start_game(self, game: GameState) -> None:
+        await super().start_game(game)
         self.operations_completer = WordCompleter(
-            list(game.allowed_operations.keys()),
+            list(game.rules.allowed_operations.keys()),
         )
 
     def _print_mandates(self, game: GameState) -> None:

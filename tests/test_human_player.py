@@ -79,7 +79,7 @@ async def test_human_player_bid(basic_game: GameState) -> None:
 @pytest.mark.asyncio
 async def test_human_player_operations(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
-    await player.start_game(basic_game.rules)
+    await player.start_game(basic_game)
 
     side_effect = ["domestic-investment", "aggressive-extraction", ""]
     with mock_human_input(player, side_effect=side_effect) as mock_prompt:
@@ -224,7 +224,7 @@ async def test_human_player_crisis_message(basic_game: GameState) -> None:
 @pytest.mark.asyncio
 async def test_human_player_completer_leak(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
-    await player.start_game(basic_game.rules)
+    await player.start_game(basic_game)
 
     with mock_human_input(
         player, side_effect=["domestic-investment", ""]
