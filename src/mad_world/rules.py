@@ -163,6 +163,15 @@ DEFAULT_OPERATIONS: dict[str, OperationDefinition] = {
         ),
         influence_cost=0,
     ),
+    "diplomatic-maneuvering": OperationDefinition(
+        name="diplomatic-maneuvering",
+        description=(
+            "Maneuver geopolitically to shift blame for global tensions. Swap "
+            "one of your (or a generic system) escalation track cubes with an "
+            "opponent's."
+        ),
+        influence_cost=1,
+    ),
 }
 
 

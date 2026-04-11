@@ -86,6 +86,10 @@ class BaseGameEvent(BaseModel):
         default_factory=list,
         description="Ongoing effects applied by this event.",
     )
+    track_swap: tuple[AnyActor, AnyActor] | None = Field(
+        default=None,
+        description="Optional swap of one escalation track actor for another.",
+    )
 
     def done_by_player(self, name: str) -> bool:
         return False

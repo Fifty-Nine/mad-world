@@ -601,6 +601,81 @@ async def test_operations_negative_influence_resolution(
     assert "INSUFFICIENT INFLUENCE" in rejected_event.description
 
 
+def test_resolve_operation_diplomatic_maneuvering(
+    basic_game: GameState,
+) -> None:
+    basic_game.players["Alpha"].influence = 1
+
+    # When Alpha has an escalation token
+    basic_game.escalation_track = [
+        PlayerActor(name="Alpha"),
+        PlayerActor(name="Omega"),
+        SystemActor(),
+    ]
+    event = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event, ActionEvent)
+    assert event.track_swap == (
+        PlayerActor(name="Alpha"),
+        PlayerActor(name="Omega"),
+    )
+
+    # When Alpha only has a system token to swap
+    basic_game.escalation_track = [
+        PlayerActor(name="Omega"),
+        SystemActor(),
+    ]
+    event2 = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event2, ActionEvent)
+    assert event2.track_swap == (SystemActor(), PlayerActor(name="Omega"))
+
+    # Test apply_event for the swap
+    basic_game.apply_event(event2)
+    assert basic_game.escalation_track == [
+        PlayerActor(name="Omega"),
+        PlayerActor(name="Omega"),
+    ]
+
+
+def test_resolve_operation_diplomatic_maneuvering_no_tokens(
+    basic_game: GameState,
+) -> None:
+    basic_game.players["Alpha"].influence = 1
+
+    # When Alpha has no token, and no system token exists
+    basic_game.escalation_track = [
+        PlayerActor(name="Omega"),
+        PlayerActor(name="Omega"),
+    ]
+    event = resolve_operation(
+        basic_game, "Alpha", "Omega", "diplomatic-maneuvering"
+    )
+    assert isinstance(event, ActionEvent)
+    # The event resolves with a system swap fallback, but because
+    # the system cube isn't on the track, the swap will do nothing when applied.
+    assert event.track_swap == (SystemActor(), PlayerActor(name="Omega"))
+
+
+def test_apply_event_track_swap_not_found(basic_game: GameState) -> None:
+    # Test that apply_event gracefully handles when the actor to swap
+    # is not actually found in the track.
+    basic_game.escalation_track = [
+        PlayerActor(name="Omega"),
+    ]
+    event = ActionEvent(
+        actor=PlayerActor(name="Alpha"),
+        description="test",
+        track_swap=(SystemActor(), PlayerActor(name="Omega")),
+    )
+    basic_game.apply_event(event)
+    assert basic_game.escalation_track == [
+        PlayerActor(name="Omega"),
+    ]
+
+
 def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
     basic_game.rules.escalation_reward_clock_threshold = 20
     basic_game.rules.escalation_reward_gdp = 3

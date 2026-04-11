@@ -29,6 +29,7 @@ from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
+    AnyActor,
     BaseGameEvent,
     GameEvent,
     MessageEvent,
@@ -284,6 +285,21 @@ class GameState(BaseModel):
 
     def apply_event(self, event: GameEvent) -> None:
         self.escalate(event.actor, event.clock_delta)
+
+        if event.track_swap is not None:
+            old_actor, new_actor = event.track_swap
+            try:
+                # Find the last occurrence (by searching reversed)
+                # Then map back to the original index.
+                # If there are N elements, reversing means index j maps
+                # to N - 1 - j. Using index() on reversed returns the
+                # first match from the right.
+                rev_idx = self.escalation_track[::-1].index(old_actor)
+                idx = len(self.escalation_track) - 1 - rev_idx
+                self.escalation_track[idx] = new_actor
+            except ValueError:
+                pass
+
         for player_name, player in self.players.items():
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
@@ -669,10 +685,21 @@ def resolve_operation(
             f"the expense of the opponent."
         )
 
+    track_swap: tuple[AnyActor, AnyActor] | None = None
+    if operation_name == "diplomatic-maneuvering":
+        if PlayerActor(name=player_name) in game.escalation_track:
+            track_swap = (
+                PlayerActor(name=player_name),
+                PlayerActor(name=opponent_name),
+            )
+        else:
+            track_swap = (SystemActor(), PlayerActor(name=opponent_name))
+
     return ActionEvent(
         actor=PlayerActor(name=player_name),
         description=desc,
         clock_delta=op_def.clock_effect,
+        track_swap=track_swap,
         gdp_delta={
             player_name: friendly_gdp_effect,
             opponent_name: enemy_gdp_effect,
