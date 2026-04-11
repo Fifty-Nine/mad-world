@@ -8,7 +8,7 @@ from typing import ClassVar
 
 from mad_world.core import GameState
 from mad_world.enums import GamePhase
-from mad_world.events import GameEvent, PlayerActor, SystemEvent
+from mad_world.events import ActionEvent, GameEvent, PlayerActor, SystemEvent
 from mad_world.mandates import (
     AccelerationistMandate,
     BaseMandate,
@@ -171,7 +171,8 @@ def test_popular_jingoism_mandate() -> None:
 
     # Add matching event
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
@@ -181,7 +182,8 @@ def test_popular_jingoism_mandate() -> None:
 
     # Check logic if opponent bid
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Omega"),
             description="Omega bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
@@ -191,7 +193,8 @@ def test_popular_jingoism_mandate() -> None:
 
     # Check invalid string gracefully fails
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Omega"),
             description="Omega bid too_many for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
@@ -202,7 +205,8 @@ def test_popular_jingoism_mandate() -> None:
     # Check loop breaking on older rounds
     game.event_log.insert(
         0,
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=4,
             current_phase=GamePhase.BIDDING,
@@ -210,7 +214,8 @@ def test_popular_jingoism_mandate() -> None:
     )
     game.event_log.insert(
         0,
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
@@ -225,14 +230,16 @@ def test_popular_jingoism_mandate() -> None:
 
     # Check early exit when hitting a different round entirely
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=4,  # different round
             current_phase=GamePhase.BIDDING,
         )
     )
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Omega"),
             description="Omega conducted proxy-subversion.",
             current_round=6,  # future round (continue test)
             current_phase=GamePhase.OPERATIONS,
@@ -263,7 +270,8 @@ def test_space_race_mandate() -> None:
 
     for _ in range(5):
         game.event_log.append(
-            SystemEvent(
+            ActionEvent(
+                actor=PlayerActor(name="Alpha"),
                 description="Alpha conducted domestic-investment.",
                 current_round=1,
                 current_phase=GamePhase.OPERATIONS,
@@ -275,7 +283,8 @@ def test_space_race_mandate() -> None:
     # Test loop break on different round
     game.event_log.insert(
         0,
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha conducted domestic-investment.",
             current_round=0,
             current_phase=GamePhase.OPERATIONS,
@@ -289,7 +298,8 @@ def test_space_race_mandate() -> None:
 
     game.current_round = 1
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha conducted domestic-investment.",
             current_round=0,  # earlier round triggers early break
             current_phase=GamePhase.OPERATIONS,
@@ -299,7 +309,8 @@ def test_space_race_mandate() -> None:
 
     # Check early exit when hitting a different round entirely
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Alpha"),
             description="Alpha conducted domestic-investment.",
             current_round=2,  # different round
             current_phase=GamePhase.OPERATIONS,
@@ -324,7 +335,8 @@ def test_counter_intelligence_mandate() -> None:
     assert mandate.is_met(game, "Alpha") is False
 
     game.event_log.append(
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Omega"),
             description="Omega conducted proxy-subversion.",
             current_round=1,
             current_phase=GamePhase.OPERATIONS,
@@ -343,7 +355,8 @@ def test_counter_intelligence_mandate() -> None:
     game.current_round = 5
     game.event_log.insert(
         0,
-        SystemEvent(
+        ActionEvent(
+            actor=PlayerActor(name="Omega"),
             description="Omega conducted proxy-subversion.",
             current_round=4,  # different round early break
             current_phase=GamePhase.OPERATIONS,

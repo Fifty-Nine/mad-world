@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from itertools import dropwhile, takewhile
 from typing import TYPE_CHECKING, ClassVar
 
 from mad_world.cards import BaseCard
@@ -222,9 +223,12 @@ class PopularJingoismMandate(InstantMandate):
             return False
 
         def _check_event(e: GameEvent) -> bool:
+            # FIXME This is really sloppy. We should introduce a bidding event
+            # that records the exact value of the bid rather than doing this
+            # string parsing.
             if (
                 e.current_phase != GamePhase.BIDDING
-                or player_name not in e.description
+                or not e.done_by_player(player_name)
                 or "bid " not in e.description
             ):
                 return False
@@ -281,17 +285,30 @@ class SpaceRaceMandate(InstantMandate):
         # round number is incremented.
         target_round = game.current_round - 1
 
+        # FIXME As with PopularJingoism, we really need a custom
+        # OperationsEvent to make this check robust.
         def _check_event(e: GameEvent) -> bool:
             return (
                 e.current_phase == GamePhase.OPERATIONS
-                and player_name in e.description
+                and e.done_by_player(player_name)
                 and SpaceRaceDefs.TARGET_OP in e.description
+            )
+
+        def _correct_phase(e: GameEvent) -> bool:
+            return (
+                e.current_phase == GamePhase.OPERATIONS
+                and e.current_round == target_round
             )
 
         count = sum(
             1
-            for e in reversed(game.event_log)
-            if e.current_round == target_round and _check_event(e)
+            for e in takewhile(
+                _correct_phase,
+                dropwhile(
+                    lambda e: not _correct_phase(e), reversed(game.event_log)
+                ),
+            )
+            if _check_event(e)
         )
 
         return count >= SpaceRaceDefs.REQUIRED_OPS
@@ -343,7 +360,7 @@ class CounterIntelligenceMandate(InstantMandate):
         def _check_event(e: GameEvent) -> bool:
             return (
                 e.current_phase == GamePhase.OPERATIONS
-                and opponent_name in e.description
+                and e.done_by_player(opponent_name)
                 and CounterIntelligenceDefs.TARGET_OP in e.description
             )
 
