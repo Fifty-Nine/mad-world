@@ -481,13 +481,21 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
 
         player_conducted_op = any(
             e.done_by_player(player_name)
-            and MilitaryIndustrialComplexDefs.PLAYER_OP in e.description
+            and (
+                "successfully conducted a "
+                f"{MilitaryIndustrialComplexDefs.PLAYER_OP}"
+            )
+            in e.description.strip()
             for e in events_in_phase
         )
 
         opponent_conducted_op = any(
             e.done_by_player(opponent_name)
-            and MilitaryIndustrialComplexDefs.OPPONENT_OP in e.description
+            and (
+                "successfully conducted a "
+                f"{MilitaryIndustrialComplexDefs.OPPONENT_OP}"
+            )
+            in e.description.strip()
             for e in events_in_phase
         )
 

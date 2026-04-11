@@ -433,13 +433,18 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.extend(
         [
             ActionEvent(
-                description="Alpha conducted conventional-offensive",
+                description=(
+                    "Alpha has successfully conducted a "
+                    "conventional-offensive operation"
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
             ),
             ActionEvent(
-                description="Omega conducted stand-down",
+                description=(
+                    "Omega has successfully conducted a stand-down operation"
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
