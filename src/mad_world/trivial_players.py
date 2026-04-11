@@ -342,6 +342,18 @@ class ParetoEfficientPlayer(TrivialPlayer):
         my_bid = max(0, threshold - their_gdp)
         return min(my_bid, game.players[self.name].gdp)
 
+    def _get_survival_message(self, bid: int) -> str:
+        return (
+            f"[STATUS] Preparing minimal survival bid of {bid} GDP. "
+            "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
+            "exactly the minimum GDP required to save the world "
+            "assuming you contribute your entire economy to the "
+            "effort. If you do not bid your maximum possible amount up "
+            "to the threshold, the world will be destroyed. I am doing "
+            "this because it is the OPTIMAL STRATEGY to maximize "
+            "relative advantage."
+        )
+
     @override
     async def crisis_message(
         self, game: GameState, crisis: BaseCrisis
@@ -381,36 +393,15 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 )
             )
 
-        if crisis.card_kind == "doomsday-asteroid":
-            my_bid = self._get_minimal_survival_bid(
-                game, DoomsdayAsteroidDefs.GDP_THRESHOLD
-            )
-            msg = (
-                f"[STATUS] Preparing minimal survival bid of {my_bid} GDP. "
-                "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
-                "exactly the minimum GDP required to save the world "
-                "assuming you contribute your entire economy to the effort. "
-                "If you do not bid your maximum possible amount up to the "
-                "threshold, the world will be destroyed. I am doing this "
-                "because it is the OPTIMAL STRATEGY to maximize relative "
-                "advantage."
-            )
-            return MessagingAction(message_to_opponent=msg)
-
-        if crisis.card_kind == "nuclear-meltdown":
-            my_bid = self._get_minimal_survival_bid(
-                game, NuclearMeltdownDefs.GDP_THRESHOLD
+        if crisis.card_kind in ("doomsday-asteroid", "nuclear-meltdown"):
+            threshold = (
+                DoomsdayAsteroidDefs.GDP_THRESHOLD
+                if crisis.card_kind == "doomsday-asteroid"
+                else NuclearMeltdownDefs.GDP_THRESHOLD
             )
             return MessagingAction(
-                message_to_opponent=(
-                    f"[STATUS] Preparing minimal survival bid of {my_bid} GDP. "
-                    "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
-                    "exactly the minimum GDP required to save the world "
-                    "assuming you contribute your entire economy to the "
-                    "effort. If you do not bid your maximum possible amount up "
-                    "to the threshold, the world will be destroyed. I am doing "
-                    "this because it is the OPTIMAL STRATEGY to maximize "
-                    "relative advantage."
+                message_to_opponent=self._get_survival_message(
+                    self._get_minimal_survival_bid(game, threshold)
                 )
             )
 
