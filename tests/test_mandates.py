@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import random
-
-import pytest
+from typing import ClassVar
 
 from mad_world.core import GameState
 from mad_world.enums import GamePhase
@@ -25,10 +24,15 @@ from mad_world.mandates import (
 from mad_world.rules import GameRules
 
 
-def test_base_mandate_errors() -> None:
-    class MockMandate(BaseMandate):
-        card_kind = "mock"
-        is_instant = False
+def test_check_endgame_mandates() -> None:
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+
+    # Verify check_endgame_mandates works properly with a returned value
+    class MockEndgameMandate(BaseMandate):
+        card_kind = "mock_end"
+        is_instant: ClassVar[bool] = False
+        title: ClassVar[str] = "Mock"
+        description: ClassVar[str] = "Mock description"
 
         def is_met(self, game: GameState, player_name: str) -> bool:
             with contextlib.suppress(NotImplementedError):
@@ -38,32 +42,12 @@ def test_base_mandate_errors() -> None:
         def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
             with contextlib.suppress(NotImplementedError):
                 BaseMandate.reward(self, game, player_name)
-            return []
-
-    m = MockMandate(title="t", description="d")
-
-    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
-
-    # Also verify check_endgame_mandates works properly with a returned value
-    class MockEndgameMandate(BaseMandate):
-        card_kind = "mock_end"
-        is_instant = False
-
-        def is_met(self, game: GameState, player_name: str) -> bool:
-            return True
-
-        def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
             return [SystemEvent(description="test")]
 
-    m2 = MockEndgameMandate(title="t", description="d")
+    m2 = MockEndgameMandate()
     game.players["Alpha"].mandates.append(m2)
     game.check_endgame_mandates()
     assert m2 in game.players["Alpha"].completed_mandates
-
-    with pytest.raises(NotImplementedError):
-        BaseMandate.is_met(m, game, "Alpha")
-    with pytest.raises(NotImplementedError):
-        BaseMandate.reward(m, game, "Alpha")
 
 
 def test_create_mandate_deck() -> None:

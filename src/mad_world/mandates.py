@@ -5,8 +5,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
-from pydantic import Field
-
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import GamePhase
@@ -22,10 +20,8 @@ if TYPE_CHECKING:
 class BaseMandate(BaseCard, ABC):
     """Base class for all mandate cards."""
 
-    title: str = Field(description="The title of the mandate.")
-    description: str = Field(
-        description="The narrative description of the mandate.",
-    )
+    title: ClassVar[str]
+    description: ClassVar[str]
     is_instant: ClassVar[bool]
 
     @abstractmethod
@@ -55,8 +51,8 @@ class EndgameMandate(BaseMandate, ABC):
 
 class SleepingGiantMandate(EndgameMandate):
     card_kind: ClassVar[str] = "sleeping_giant"
-    title: str = "Sleeping Giant"
-    description: str = (
+    title: ClassVar[str] = "Sleeping Giant"
+    description: ClassVar[str] = (
         "Endgame - If exactly 15-19 GDP behind opponent, gain 20 GDP."
     )
 
@@ -82,8 +78,8 @@ class SleepingGiantMandate(EndgameMandate):
 
 class AccelerationistMandate(EndgameMandate):
     card_kind: ClassVar[str] = "accelerationist"
-    title: str = "Accelerationist"
-    description: str = (
+    title: ClassVar[str] = "Accelerationist"
+    description: ClassVar[str] = (
         "Endgame - If at the end of the game, the clock is at (max - 1), "
         "gain 15 GDP."
     )
@@ -105,8 +101,8 @@ class AccelerationistMandate(EndgameMandate):
 
 class PacifistUtopiaMandate(EndgameMandate):
     card_kind: ClassVar[str] = "pacifist_utopia"
-    title: str = "Pacifist Utopia"
-    description: str = (
+    title: ClassVar[str] = "Pacifist Utopia"
+    description: ClassVar[str] = (
         "Endgame - If you have < (20% * max) escalation debt, "
         "multiply your GDP by 1.5."
     )
@@ -131,8 +127,8 @@ class PacifistUtopiaMandate(EndgameMandate):
 
 class WarProfiteerMandate(EndgameMandate):
     card_kind: ClassVar[str] = "war_profiteer"
-    title: str = "War Profiteer"
-    description: str = (
+    title: ClassVar[str] = "War Profiteer"
+    description: ClassVar[str] = (
         "Endgame - If both players have >60 GDP and the doomsday clock is "
         "near maximum (>= 25/30 proportion), steal 10 GDP from opponent."
     )
@@ -164,8 +160,8 @@ class WarProfiteerMandate(EndgameMandate):
 
 class PopularJingoismMandate(InstantMandate):
     card_kind: ClassVar[str] = "popular_jingoism"
-    title: str = "Popular Jingoism"
-    description: str = (
+    title: ClassVar[str] = "Popular Jingoism"
+    description: ClassVar[str] = (
         "Place a bid of 5 or more during round 5, 6 or 7. Gain 10 GDP."
     )
 
@@ -214,8 +210,8 @@ class PopularJingoismMandate(InstantMandate):
 
 class SpaceRaceMandate(InstantMandate):
     card_kind: ClassVar[str] = "space_race"
-    title: str = "Space Race"
-    description: str = (
+    title: ClassVar[str] = "Space Race"
+    description: ClassVar[str] = (
         "Conduct 5 domestic-investment operations in a single round. "
         "Gain 5 GDP and set opponent's influence to zero."
     )
@@ -261,8 +257,8 @@ class SpaceRaceMandate(InstantMandate):
 
 class CounterIntelligenceMandate(InstantMandate):
     card_kind: ClassVar[str] = "counter_intelligence"
-    title: str = "Counter-Intelligence"
-    description: str = (
+    title: ClassVar[str] = "Counter-Intelligence"
+    description: ClassVar[str] = (
         "If opponent conducts proxy-subversion, reverse the GDP effect."
     )
 
@@ -313,10 +309,10 @@ class CounterIntelligenceMandate(InstantMandate):
 
 class CoolerHeadsMandate(InstantMandate):
     card_kind: ClassVar[str] = "cooler_heads"
-    title: str = "Cooler Heads"
-    description: str = (
+    title: ClassVar[str] = "Cooler Heads"
+    description: ClassVar[str] = (
         "If the doomsday clock is at maximum, reduce clock by 4 and "
-        "gain 5 influence."
+        "gain 5 influence. This prevents a crisis."
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
