@@ -27,6 +27,7 @@ from mad_world.core import (
     iterate_game,
     resolve_operation,
     resolve_operations,
+    resolve_round_events,
 )
 from mad_world.crises import (
     SANCTIONS_TIE_GDP_EFFECT,
@@ -320,6 +321,7 @@ async def test_international_sanctions_integration(
     stable_rules.max_clock_state = 50
     stable_rules.round_count = 1
     stable_rules.initial_crisis_deck = [InternationalSanctionsCrisis()]
+    stable_rules.aggressor_tax_clock_threshold = 100
 
     # Diplomats tend to bid 1.
     # Round 1:
@@ -430,6 +432,7 @@ async def test_doomsday_asteroid_integration(
     stable_rules.max_clock_state = 50
     stable_rules.round_count = 1
     stable_rules.initial_crisis_deck = [DoomsdayAsteroidCrisis()]
+    stable_rules.aggressor_tax_clock_threshold = 100
 
     # Diplomats tend to bid 1.
     # Round 1:
@@ -585,3 +588,77 @@ async def test_operations_negative_influence_resolution(
     assert "Alpha" in rejected_event.description
     assert "domestic-investment" in rejected_event.description
     assert "INSUFFICIENT INFLUENCE" in rejected_event.description
+
+
+def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
+    basic_game.rules.escalation_reward_clock_threshold = 20
+    basic_game.rules.escalation_reward_gdp = 3
+
+    # Below threshold: no scaling
+    basic_game.escalation_track = [SystemActor()] * 19
+    event1 = resolve_operation(
+        basic_game, "Alpha", "Omega", "aggressive-extraction"
+    )
+    assert event1.gdp_delta["Alpha"] == 3  # op_def.friendly_gdp_effect
+    assert event1.gdp_delta["Omega"] == 0  # op_def.enemy_gdp_effect
+
+    # At/Above threshold: scaling applied (clock_effect = 1 > 0)
+    basic_game.escalation_track = [SystemActor()] * 20
+    event2 = resolve_operation(
+        basic_game, "Alpha", "Omega", "aggressive-extraction"
+    )
+    assert event2.gdp_delta["Alpha"] == 6  # 3 + 3
+    assert event2.gdp_delta["Omega"] == -3  # 0 - 3
+
+    # At/Above threshold, but clock_effect <= 0: no scaling
+    event3 = resolve_operation(basic_game, "Alpha", "Omega", "stand-down")
+    assert event3.gdp_delta["Alpha"] == -5
+    assert event3.gdp_delta["Omega"] == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_round_events_aggressor_tax(
+    basic_game: GameState,
+) -> None:
+    basic_game.rules.aggressor_tax_clock_threshold = 20
+    basic_game.rules.aggressor_tax_inf_cost = 1
+    basic_game.rules.aggressor_tax_gdp_cost = 2
+
+    # Below threshold: no tax
+    basic_game.escalation_track = [SystemActor()] * 19
+    new_game = await resolve_round_events(basic_game)
+    events = new_game.recent_events()
+    assert not any("Aggressor Tax applied" in e.description for e in events)
+
+    # At threshold, alpha debt > omega debt: Alpha pays Inf
+    basic_game.escalation_track = [SystemActor()] * 20
+    basic_game.escalation_track[0] = PlayerActor(name="Alpha")
+    basic_game.players["Alpha"].influence = 2
+
+    new_game = await resolve_round_events(basic_game)
+    events = new_game.recent_events()
+    tax_event = next(
+        e for e in events if "Aggressor Tax applied" in e.description
+    )
+    assert "Alpha" in tax_event.description
+    assert tax_event.influence_delta["Alpha"] == -1
+    assert tax_event.gdp_delta["Alpha"] == 0
+
+    # Alpha has 0 influence: Alpha pays GDP
+    basic_game.players["Alpha"].influence = 0
+    new_game = await resolve_round_events(basic_game)
+    events = new_game.recent_events()
+    tax_event = next(
+        e for e in events if "Aggressor Tax applied" in e.description
+    )
+    assert tax_event.influence_delta["Alpha"] == 0
+    assert tax_event.gdp_delta["Alpha"] == -2
+
+    # Tied debt: both pay
+    basic_game.escalation_track[1] = PlayerActor(name="Omega")
+    basic_game.players["Alpha"].influence = 5
+    basic_game.players["Omega"].influence = 5
+    new_game = await resolve_round_events(basic_game)
+    events = new_game.recent_events()
+    tax_events = [e for e in events if "Aggressor Tax applied" in e.description]
+    assert len(tax_events) == 2
