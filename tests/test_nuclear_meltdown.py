@@ -53,10 +53,7 @@ def test_nuclear_meltdown_tie(basic_game: GameState) -> None:
         total_investment // NuclearMeltdownDefs.SCALING_FACTOR
     )
     assert events[2].clock_delta == expected_clock_impact
-    assert (
-        not hasattr(events[2], "influence_delta")
-        or not events[2].influence_delta
-    )
+    assert events[2].influence_delta == {}
 
 
 def test_nuclear_meltdown_p1_wins(basic_game: GameState) -> None:
