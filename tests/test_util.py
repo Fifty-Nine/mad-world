@@ -18,6 +18,7 @@ from mad_world.util import (
     escalation_bar,
     escalation_budget,
     extract_json_from_response,
+    gain_or_lose,
     get_class_name,
     get_doomsday_bids,
     get_subclass_by_name,
@@ -319,18 +320,21 @@ def test_remove_ordering_prefix_other_types() -> None:
 
 
 @pytest.mark.parametrize(
-    ("value", "inc_dec", "cost_gain"),
+    ("value", "inc_dec", "cost_gain", "gain_lose"),
     [
-        (100, "increase", "gain"),
-        (-100, "decrease", "cost"),
-        (0, "increase", "gain"),
-        (-1, "decrease", "cost"),
-        (1, "increase", "gain"),
+        (100, "increase", "gain", "gain"),
+        (-100, "decrease", "cost", "lose"),
+        (0, "increase", "gain", "gain"),
+        (-1, "decrease", "cost", "lose"),
+        (1, "increase", "gain", "gain"),
     ],
 )
-def test_increase_or_decrease(value: int, inc_dec: str, cost_gain: str) -> None:
+def test_increase_or_decrease(
+    value: int, inc_dec: str, cost_gain: str, gain_lose: str
+) -> None:
     assert increase_or_decrease(value) == inc_dec
     assert cost_or_gain(value) == cost_gain
+    assert gain_or_lose(value) == gain_lose
 
 
 @pytest.mark.parametrize(

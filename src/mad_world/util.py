@@ -27,6 +27,10 @@ def cost_or_gain(val: int) -> str:
     return "gain" if val >= 0 else "cost"
 
 
+def gain_or_lose(val: int) -> str:
+    return "gain" if val >= 0 else "lose"
+
+
 class BadClampRangeError(Exception):
     def __init__(
         self, min_val: SupportsRichComparisonT, max_val: SupportsRichComparisonT
