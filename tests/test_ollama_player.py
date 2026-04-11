@@ -371,9 +371,6 @@ def test_game_ending_warning(test_player: Any, basic_game: GameState) -> None:
     assert not test_player.game_ending_warning(basic_game)
 
 
-@pytest.mark.xfail(
-    reason="determine_victor incorrectly mutates the game state."
-)
 def test_game_ending_warning_does_not_mutate_game(
     test_player: Any, basic_game: GameState
 ) -> None:
