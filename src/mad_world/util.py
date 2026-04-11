@@ -126,9 +126,7 @@ def get_class_name(name: str) -> str:
     # Replace separators with spaces
     s = s.replace("_", " ").replace("-", " ")
     # Capitalize each word and join, ensuring rest of word is lowercase
-    return "".join(
-        word[0].upper() + word[1:].lower() if word else "" for word in s.split()
-    )
+    return "".join(word.capitalize() for word in s.split())
 
 
 def get_subclass_by_name[T: ABC](
