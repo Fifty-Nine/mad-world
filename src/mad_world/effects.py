@@ -122,3 +122,31 @@ class ArmsControlEffect(BaseEffect):
     @override
     def modify_bids(self, bids: list[int]) -> list[int]:
         return super().modify_bids([b for b in bids if b <= 3])
+
+
+class UNPeacekeepingEffect(BaseEffect):
+    card_kind: ClassVar[str] = "un_peacekeeping"
+
+    title: ClassVar[str] = "UN Peacekeeping Mission"
+    description: ClassVar[str] = (
+        "UN Peacekeeping forces have been deployed, making armed conflicts "
+        "impossible."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, 'proxy-subversion' and "
+        "'conventional-offensive' operations are forbidden while the effect is "
+        "ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        filtered = {
+            k: v
+            for k, v in ops.items()
+            if k not in ["proxy-subversion", "conventional-offensive"]
+        }
+        if not filtered:
+            raise ValueError(f"Effect {self.title} removed all operations!")  # noqa: TRY003
+        return filtered

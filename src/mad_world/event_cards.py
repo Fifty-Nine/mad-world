@@ -13,6 +13,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    UNPeacekeepingEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
 
@@ -198,6 +199,28 @@ class ArmsControlTreatyEvent(BaseEventCard):
         ]
 
 
+class UNPeacekeepingEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "un_peacekeeping_event"
+
+    title: str = "UN Peacekeeping Mission"
+    description: str = (
+        "The UN has successfully deployed peacekeeping forces to global "
+        "hotspots, making armed conflicts impossible."
+    )
+
+    def run(self, game: GameState) -> list[GameEvent]:
+        effect = UNPeacekeepingEffect(duration=2)
+        return [
+            SystemEvent(
+                description=(
+                    f"Event: {self.title} - A new ongoing effect "
+                    f"'{effect.title}' has been applied."
+                ),
+                new_effects=[effect],
+            )
+        ]
+
+
 def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
     cards: list[BaseEventCard] = []
 
@@ -214,6 +237,7 @@ def create_event_deck(rng: random.Random) -> Deck[BaseEventCard]:
                 BanZeroBidsEvent(),
                 BanDomesticInvestmentEvent(),
                 ArmsControlTreatyEvent(),
+                UNPeacekeepingEvent(),
             ]
         )
 
