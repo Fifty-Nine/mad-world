@@ -43,7 +43,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
-from mad_world.rules import GameRules
+from mad_world.rules import GameRules, OperationDefinition
 from mad_world.trivial_players import (
     Capitalist,
     CrazyIvan,
@@ -677,6 +677,30 @@ def test_apply_event_track_swap_not_found(basic_game: GameState) -> None:
 
     assert basic_game.doomsday_clock == 1
     assert basic_game.escalation_debt("Omega") == 1
+
+
+@pytest.mark.xfail(
+    reason=(
+        "We currently add non-empty dictionaries for "
+        "defaulted operation effects that have zero values, "
+        "and so don't have any immediate effect."
+    )
+)
+def test_resolve_operation_defaults(basic_game: GameState) -> None:
+    basic_game.rules.allowed_operations = {
+        "dummy": OperationDefinition(
+            name="dummy", description="desc", influence_cost=0
+        )
+    }
+
+    result = resolve_operation(basic_game, "Alpha", "Omega", "dummy")
+    assert result.clock_delta == 0
+    assert not result.gdp_delta
+    assert not result.influence_delta
+    assert not result.secret
+    assert not result.world_ending
+    assert not result.new_effects
+    assert not result.shift_blame
 
 
 def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
