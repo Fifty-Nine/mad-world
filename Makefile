@@ -21,7 +21,7 @@ lint-sg:
 	uv run sg scan --report-style medium
 
 typecheck:
-	uv run ty check src tests
+	uv run ty check .
 
 test:
 	uv run pytest
