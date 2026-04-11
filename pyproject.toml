@@ -108,6 +108,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["SLF001"]
 
+[tool.ty.terminal]
+output-format = "concise"
+
 [tool.mypy]
 strict = true
 warn_return_any = true

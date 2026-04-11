@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from mad_world.actions import (
     BaseAction,
@@ -26,6 +27,7 @@ from mad_world.ollama_player import (
     GrandStrategy,
     OllamaPlayer,
     PlayerArchetype,
+    create_persona_schema,
 )
 
 if TYPE_CHECKING:
@@ -125,6 +127,30 @@ async def test_elaborate_persona(test_player: Any) -> None:
     test_player.persona = None
     await test_player.elaborate_persona()
     assert test_player.client.chat.call_count == 0
+
+
+def test_elaborated_persona_schema_type() -> None:
+    schema_type = create_persona_schema("Big Dummy")
+    schema = schema_type.model_json_schema()
+
+    assert schema["properties"]["persona_seed"]["const"] == "Big Dummy"
+
+    base_args: dict[str, Any] = {
+        "character_description": "",
+        "character_instructions": "",
+        "archetype": PlayerArchetype.SORE_LOSER,
+        "name": "General Truly N. Competent",
+    }
+
+    with pytest.raises(ValidationError, match="Expected persona_seed"):
+        schema_type(persona_seed="not good!", **base_args)
+
+    valid = schema_type(persona_seed="Big Dummy", **base_args)
+
+    dict_val = valid.model_dump()
+    dict_val["persona_seed"] = "invalid"
+    with pytest.raises(ValidationError, match="Expected persona_seed"):
+        schema_type.model_validate_json(json.dumps(dict_val))
 
 
 @pytest.mark.asyncio

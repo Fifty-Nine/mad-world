@@ -19,6 +19,7 @@ from pydantic import (
     Field,
     ValidationError,
     create_model,
+    field_validator,
     model_validator,
 )
 
@@ -44,7 +45,6 @@ from mad_world.util import (
     bannerize,
     escalation_budget,
     extract_json_from_response,
-    get_class_name,
     pareto_optimal_bid,
     remove_ordering_prefix,
     reorder_schema_properties,
@@ -439,15 +439,30 @@ class CrisisResponse[T: BaseAction](ActionResponse):
     action: T = Field(description="Your finalized action for this phase.")
 
 
-def create_persona_schema(persona_seed: str) -> type[ElaboratedPersonaResponse]:
-    return create_model(
-        f"ElaboratedPersonaResponseFor{get_class_name(persona_seed)}",
-        __base__=ElaboratedPersonaResponse,
-        persona_seed=(
-            str,
-            Field(default=persona_seed, description="The seed persona."),
-        ),
-    )
+def create_persona_schema(
+    persona_seed_val: str,
+) -> type[ElaboratedPersonaResponse]:
+    class BadPersonaSeedError(ValueError):
+        def __init__(self, value: str) -> None:
+            super().__init__(
+                f"Expected persona_seed to be {persona_seed_val}, "
+                f"but got {value}."
+            )
+
+    class NewModel(ElaboratedPersonaResponse):
+        persona_seed: str = Field(
+            description="The seed persona.",
+            json_schema_extra={"const": persona_seed_val},
+        )
+
+        @field_validator("persona_seed", mode="after")
+        @classmethod
+        def enforce_seed_value(cls, v: str) -> str:
+            if v != persona_seed_val:
+                raise BadPersonaSeedError(v)
+            return v
+
+    return NewModel
 
 
 def create_crisis_response[T: BaseAction](
