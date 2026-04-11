@@ -144,7 +144,7 @@ class InfluenceChangeEvent(BasePlayerEffectCard):
     def update_descriptions(self) -> Self:
         kind = "breakthrough" if self.amount >= 0 else "blunder"
         self.title = f"Diplomatic {kind.capitalize()}"
-        self.description = "A player experiences a diplomatic {kind}"
+        self.description = f"A player experiences a diplomatic {kind}"
         return self
 
     @override
