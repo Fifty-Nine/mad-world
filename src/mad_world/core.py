@@ -9,6 +9,7 @@ import os
 import random
 from dataclasses import dataclass
 from functools import reduce
+from itertools import zip_longest
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, cast
 
@@ -47,6 +48,8 @@ from mad_world.rules import (
 from mad_world.util import bannerize, escalation_bar, wrap_text
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from mad_world.players import GamePlayer
 
 
@@ -646,6 +649,20 @@ async def resolve_bidding(
     return new_game
 
 
+def effects_to_dict(
+    names: Sequence[str], effects: Sequence[int]
+) -> dict[str, int]:
+
+    result: dict[str, int] = {}
+    for p, e in zip_longest(names, effects):
+        if e == 0:
+            continue
+
+        result |= {p: e}
+
+    return result
+
+
 def resolve_operation(
     game: GameState,
     player_name: str,
@@ -687,15 +704,19 @@ def resolve_operation(
         actor=PlayerActor(name=player_name),
         description=desc,
         clock_delta=op_def.clock_effect,
-        shift_blame=(PlayerActor(name=opponent_name), op_def.shift_blame),
-        gdp_delta={
-            player_name: friendly_gdp_effect,
-            opponent_name: enemy_gdp_effect,
-        },
-        influence_delta={
-            player_name: -op_def.influence_cost,
-            opponent_name: op_def.enemy_influence_effect,
-        },
+        shift_blame=(
+            (PlayerActor(name=opponent_name), op_def.shift_blame)
+            if op_def.shift_blame
+            else None
+        ),
+        gdp_delta=effects_to_dict(
+            (player_name, opponent_name),
+            (friendly_gdp_effect, enemy_gdp_effect),
+        ),
+        influence_delta=effects_to_dict(
+            (player_name, opponent_name),
+            (-op_def.influence_cost, op_def.enemy_influence_effect),
+        ),
         world_ending=operation_name == "first-strike",
     )
 

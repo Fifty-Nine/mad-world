@@ -679,13 +679,6 @@ def test_apply_event_track_swap_not_found(basic_game: GameState) -> None:
     assert basic_game.escalation_debt("Omega") == 1
 
 
-@pytest.mark.xfail(
-    reason=(
-        "We currently add non-empty dictionaries for "
-        "defaulted operation effects that have zero values, "
-        "and so don't have any immediate effect."
-    )
-)
 def test_resolve_operation_defaults(basic_game: GameState) -> None:
     basic_game.rules.allowed_operations = {
         "dummy": OperationDefinition(
@@ -713,7 +706,7 @@ def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
         basic_game, "Alpha", "Omega", "aggressive-extraction"
     )
     assert event1.gdp_delta["Alpha"] == 3  # op_def.friendly_gdp_effect
-    assert event1.gdp_delta["Omega"] == 0  # op_def.enemy_gdp_effect
+    assert event1.gdp_delta.get("Omega", 0) == 0  # op_def.enemy_gdp_effect
 
     # At/Above threshold: scaling applied (clock_effect = 1 > 0)
     basic_game.escalation_track = [SystemActor()] * 20
@@ -726,7 +719,7 @@ def test_resolve_operation_scaling_rewards(basic_game: GameState) -> None:
     # At/Above threshold, but clock_effect <= 0: no scaling
     event3 = resolve_operation(basic_game, "Alpha", "Omega", "stand-down")
     assert event3.gdp_delta["Alpha"] == -5
-    assert event3.gdp_delta["Omega"] == 0
+    assert event3.gdp_delta.get("Omega", 0) == 0
 
 
 @pytest.mark.asyncio
