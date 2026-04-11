@@ -11,7 +11,9 @@ from pydantic import Field
 from mad_world.actions import (
     BaseAction,
     InsufficientGDPError,
+    InsufficientInfluenceError,
     InvalidGDPAmountError,
+    InvalidInfluenceAmountError,
 )
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
@@ -576,10 +578,147 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
         return result
 
 
+class ProxyWarAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to bid to support "
+            "your proxy in the war. This must be less than or equal to "
+            "your current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class ProxyWarDefs:
+    WINNER_GDP: ClassVar[int] = 10
+    INF_THRESHOLD: ClassVar[int] = 8
+    CLOCK_IMPACT: ClassVar[int] = -15
+
+
+class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
+    card_kind: ClassVar[Literal["proxy-war"]] = "proxy-war"
+    action_type: ClassVar[type[ProxyWarAction]] = ProxyWarAction
+
+    title: ClassVar[str] = "Proxy War Escalation"
+    description: ClassVar[str] = (
+        "A brutal proxy war has brought the world to the precipice of "
+        "nuclear annihilation. The fighting must stop, but brokering a "
+        "ceasefire will require an enormous expenditure of political capital. "
+        "Both superpowers must pressure their respective proxies to stand "
+        "down. Will you contribute your fair share to pull humanity back "
+        "from the brink, or will you hold onto your Influence and let your "
+        "opponent foot the bill, hoping the world doesn't burn in the process?"
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to expend towards "
+        "brokering a ceasefire. Your bid will be subtracted from your current "
+        "Influence pool. The ceasefire requires a combined investment of "
+        f"{ProxyWarDefs.INF_THRESHOLD} Influence. However, if the total "
+        "Influence possessed by both players is less than this threshold, "
+        "the players must commit ALL their combined Influence instead. If "
+        "the players fail to meet the required threshold, the ceasefire "
+        "fails and the conflict spirals into a global nuclear exchange. If "
+        "the threshold is met, the Doomsday Clock recedes by "
+        f"{abs(ProxyWarDefs.CLOCK_IMPACT)}. The player who bids the *least* "
+        "Influence manages to maintain their geopolitical dominance while "
+        f"others pay the price, gaining a reward of {ProxyWarDefs.WINNER_GDP} "
+        "GDP. If both players bid the same amount, no one gains any GDP."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> ProxyWarAction:
+        max_bid = game.players[player].influence
+        bid = min(max_bid, 3) if aggressive else min(max_bid, 7)
+        return ProxyWarAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, ProxyWarAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.players
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+        required_inf = min(
+            ProxyWarDefs.INF_THRESHOLD,
+            game.players[player1].influence + game.players[player2].influence,
+        )
+
+        result: list[GameEvent] = [
+            ActionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} Influence.",
+                influence_delta={player1: -p1_amount},
+            ),
+            ActionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} Influence.",
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment < required_inf:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The factions failed to exert enough pressure. The "
+                        "proxy war escalates beyond control, triggering Mutual "
+                        "Assured Destruction. No one survives."
+                    ),
+                    world_ending=True,
+                )
+            )
+            return result
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers contributed equally to the "
+                        "ceasefire. The world steps back from the brink, but "
+                        "neither side gains a distinct geopolitical advantage."
+                    ),
+                    clock_delta=ProxyWarDefs.CLOCK_IMPACT,
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount < p2_amount else player2
+
+        result.append(
+            SystemEvent(
+                description=(
+                    "A ceasefire is successfully brokered. However, "
+                    f"{winner} forced their opponent to do most of the heavy "
+                    "lifting, securing a massive geopolitical victory."
+                ),
+                gdp_delta={winner: ProxyWarDefs.WINNER_GDP},
+                clock_delta=ProxyWarDefs.CLOCK_IMPACT,
+            )
+        )
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
+    *(ProxyWarCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 

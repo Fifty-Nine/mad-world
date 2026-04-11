@@ -7,7 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mad_world.actions import BaseAction
+from mad_world.actions import (
+    BaseAction,
+    InsufficientInfluenceError,
+    InvalidInfluenceAmountError,
+)
 from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
     SANCTIONS_MIN_EFFECT,
@@ -22,6 +26,9 @@ from mad_world.crises import (
     BaseCrisis,
     GenericCrisis,
     InternationalSanctionsCrisis,
+    ProxyWarAction,
+    ProxyWarCrisis,
+    ProxyWarDefs,
     StandoffAction,
     StandoffCrisis,
 )
@@ -42,7 +49,7 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
     def basic_game(self) -> GameState:
         return GameState.new_game(
             rules=GameRules(max_clock_state=100),
-            players=["Player1", "Player2"],
+            players=["Alpha", "Omega"],
         )
 
     @pytest.fixture
@@ -57,14 +64,14 @@ class CrisisTestBase[T: BaseAction, C: GenericCrisis[Any]]:
     ) -> None:
         """Test the run method which gathers player actions."""
         p1 = MagicMock()
-        p1.name = "Player1"
+        p1.name = "Alpha"
         p1_action = crisis.get_default_action(
             p1.name, basic_game, aggressive=True
         )
         p1.crisis = AsyncMock(return_value=p1_action)
 
         p2 = MagicMock()
-        p2.name = "Player2"
+        p2.name = "Omega"
         p2_action = crisis.get_default_action(
             p2.name, basic_game, aggressive=False
         )
@@ -88,7 +95,7 @@ class TestInternationalSanctionsCrisis:
     def basic_game(self) -> GameState:
         return GameState.new_game(
             rules=GameRules(max_clock_state=100),
-            players=["Player1", "Player2"],
+            players=["Alpha", "Omega"],
         )
 
     @pytest.mark.asyncio
@@ -98,8 +105,8 @@ class TestInternationalSanctionsCrisis:
         basic_game: GameState,
     ) -> None:
         """Test resolution when both players have equal debt."""
-        basic_game.escalate(PlayerActor(name="Player1"), 1)
-        basic_game.escalate(PlayerActor(name="Player2"), 1)
+        basic_game.escalate(PlayerActor(name="Alpha"), 1)
+        basic_game.escalate(PlayerActor(name="Omega"), 1)
 
         events = await crisis.run(basic_game, [])
 
@@ -108,8 +115,8 @@ class TestInternationalSanctionsCrisis:
         assert isinstance(event, SystemEvent)
         assert isinstance(event.actor, SystemActor)
         assert event.clock_delta == SANCTIONS_TIE_CLOCK_EFFECT
-        assert event.gdp_delta["Player1"] == SANCTIONS_TIE_GDP_EFFECT
-        assert event.gdp_delta["Player2"] == SANCTIONS_TIE_GDP_EFFECT
+        assert event.gdp_delta["Alpha"] == SANCTIONS_TIE_GDP_EFFECT
+        assert event.gdp_delta["Omega"] == SANCTIONS_TIE_GDP_EFFECT
 
     @pytest.mark.asyncio
     async def test_run_p1_sanctioned(
@@ -119,8 +126,8 @@ class TestInternationalSanctionsCrisis:
     ) -> None:
         """Test resolution when Player1 has more debt."""
         debt1, debt2 = 3, 1
-        basic_game.escalate(PlayerActor(name="Player1"), debt1)
-        basic_game.escalate(PlayerActor(name="Player2"), debt2)
+        basic_game.escalate(PlayerActor(name="Alpha"), debt1)
+        basic_game.escalate(PlayerActor(name="Omega"), debt2)
 
         events = await crisis.run(basic_game, [])
 
@@ -130,8 +137,8 @@ class TestInternationalSanctionsCrisis:
         assert isinstance(event.actor, SystemActor)
         expected_amount = max(abs(debt1 - debt2), abs(SANCTIONS_MIN_EFFECT))
         assert event.clock_delta == -expected_amount
-        assert event.gdp_delta["Player1"] == -expected_amount
-        assert "Player2" not in event.gdp_delta
+        assert event.gdp_delta["Alpha"] == -expected_amount
+        assert "Omega" not in event.gdp_delta
 
     @pytest.mark.asyncio
     async def test_run_p2_sanctioned_large_debt(
@@ -141,8 +148,8 @@ class TestInternationalSanctionsCrisis:
     ) -> None:
         """Test resolution when Player2 has much more debt."""
         debt1, debt2 = 1, 15
-        basic_game.escalate(PlayerActor(name="Player2"), debt2)
-        basic_game.escalate(PlayerActor(name="Player1"), debt1)
+        basic_game.escalate(PlayerActor(name="Omega"), debt2)
+        basic_game.escalate(PlayerActor(name="Alpha"), debt1)
 
         events = await crisis.run(basic_game, [])
 
@@ -152,8 +159,8 @@ class TestInternationalSanctionsCrisis:
         assert isinstance(event.actor, SystemActor)
         expected_amount = max(abs(debt1 - debt2), abs(SANCTIONS_MIN_EFFECT))
         assert event.clock_delta == -expected_amount
-        assert event.gdp_delta["Player2"] == -expected_amount
-        assert "Player1" not in event.gdp_delta
+        assert event.gdp_delta["Omega"] == -expected_amount
+        assert "Alpha" not in event.gdp_delta
 
 
 class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
@@ -182,8 +189,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     ) -> None:
         """Test resolution when both players stand firm."""
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.STAND_FIRM),
-            "Player2": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Alpha": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Omega": StandoffAction(posture=StandoffPosture.STAND_FIRM),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -201,8 +208,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     ) -> None:
         """Test resolution when both players back down."""
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.BACK_DOWN),
-            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Alpha": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Omega": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -212,10 +219,10 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert isinstance(event.actor, SystemActor)
         assert "cooler heads" in event.description
         assert event.clock_delta == STANDOFF_TIE_CLOCK_EFFECT
-        assert event.gdp_delta["Player1"] == STANDOFF_TIE_GDP_EFFECT
-        assert event.gdp_delta["Player2"] == STANDOFF_TIE_GDP_EFFECT
-        assert event.influence_delta["Player1"] == STANDOFF_TIE_INF_EFFECT
-        assert event.influence_delta["Player2"] == STANDOFF_TIE_INF_EFFECT
+        assert event.gdp_delta["Alpha"] == STANDOFF_TIE_GDP_EFFECT
+        assert event.gdp_delta["Omega"] == STANDOFF_TIE_GDP_EFFECT
+        assert event.influence_delta["Alpha"] == STANDOFF_TIE_INF_EFFECT
+        assert event.influence_delta["Omega"] == STANDOFF_TIE_INF_EFFECT
 
     def test_resolve_tie_clamping(
         self,
@@ -225,8 +232,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         """Test resolution when both players back down, but clock is high."""
         basic_game.escalation_track = [SystemActor()] * 150
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.BACK_DOWN),
-            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Alpha": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Omega": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -245,8 +252,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         """Test resolution when one player stands firm, and clock is high."""
         basic_game.escalation_track = [SystemActor()] * 150
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.STAND_FIRM),
-            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Alpha": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Omega": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -264,8 +271,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     ) -> None:
         """Test resolution when Player1 stands firm and Player2 backs down."""
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.STAND_FIRM),
-            "Player2": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Alpha": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Omega": StandoffAction(posture=StandoffPosture.BACK_DOWN),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -273,10 +280,10 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert len(events) == 1
         event = events[0]
         assert isinstance(event.actor, PlayerActor)
-        assert event.actor.name == "Player1"
+        assert event.actor.name == "Alpha"
         assert event.clock_delta == STANDOFF_WINNER_CLOCK_EFFECT
-        assert event.gdp_delta["Player2"] == STANDOFF_LOSER_GDP_EFFECT
-        assert event.influence_delta["Player2"] == STANDOFF_LOSER_INF_EFFECT
+        assert event.gdp_delta["Omega"] == STANDOFF_LOSER_GDP_EFFECT
+        assert event.influence_delta["Omega"] == STANDOFF_LOSER_INF_EFFECT
 
     def test_resolve_winner_p2(
         self,
@@ -285,8 +292,8 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
     ) -> None:
         """Test resolution when Player2 stands firm and Player1 backs down."""
         actions = {
-            "Player1": StandoffAction(posture=StandoffPosture.BACK_DOWN),
-            "Player2": StandoffAction(posture=StandoffPosture.STAND_FIRM),
+            "Alpha": StandoffAction(posture=StandoffPosture.BACK_DOWN),
+            "Omega": StandoffAction(posture=StandoffPosture.STAND_FIRM),
         }
 
         events = crisis.resolve(basic_game, actions)
@@ -294,10 +301,10 @@ class TestStandoffCrisis(CrisisTestBase[StandoffAction, StandoffCrisis]):
         assert len(events) == 1
         event = events[0]
         assert isinstance(event.actor, PlayerActor)
-        assert event.actor.name == "Player2"
+        assert event.actor.name == "Omega"
         assert event.clock_delta == STANDOFF_WINNER_CLOCK_EFFECT
-        assert event.gdp_delta["Player1"] == STANDOFF_LOSER_GDP_EFFECT
-        assert event.influence_delta["Player1"] == STANDOFF_LOSER_INF_EFFECT
+        assert event.gdp_delta["Alpha"] == STANDOFF_LOSER_GDP_EFFECT
+        assert event.influence_delta["Alpha"] == STANDOFF_LOSER_INF_EFFECT
 
 
 def test_crisis_default_additional_prompt() -> None:
@@ -332,12 +339,188 @@ async def test_resolve_crisis_consumable(basic_game: GameState) -> None:
     basic_game.crisis_deck.in_play.append(crisis_instance)
 
     p1 = MagicMock()
-    p1.name = "Player1"
+    p1.name = "Alpha"
     p2 = MagicMock()
-    p2.name = "Player2"
+    p2.name = "Omega"
 
     new_game = await resolve_crisis(basic_game, [p1, p2])
 
     assert crisis_instance not in new_game.crisis_deck.discard_pile
     assert crisis_instance not in new_game.crisis_deck.in_play
     assert crisis_instance not in new_game.crisis_deck.draw_pile
+
+
+class TestProxyWarAction:
+    def test_validate_semantics_success(self, basic_game: GameState) -> None:
+        action = ProxyWarAction(investment=5)
+        # Assuming basic_game starts with enough influence, e.g. 10
+        basic_game.players["Alpha"].influence = 10
+        action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_insufficient_influence(
+        self, basic_game: GameState
+    ) -> None:
+        action = ProxyWarAction(investment=15)
+        basic_game.players["Alpha"].influence = 10
+        with pytest.raises(InsufficientInfluenceError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_negative_investment(
+        self, basic_game: GameState
+    ) -> None:
+        action = ProxyWarAction(investment=-1)
+        basic_game.players["Alpha"].influence = 10
+        with pytest.raises(InvalidInfluenceAmountError):
+            action.validate_semantics(basic_game, "Alpha")
+
+
+class TestProxyWarCrisis:
+    @pytest.fixture
+    def crisis(self) -> ProxyWarCrisis:
+        return ProxyWarCrisis()
+
+    def test_get_default_action(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        basic_game.players["Alpha"].influence = 10
+
+        # Aggressive default
+        aggressive_action = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=True
+        )
+        assert aggressive_action.investment == 3
+
+        # Cautious default
+        cautious_action = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=False
+        )
+        assert cautious_action.investment == 7
+
+        # Aggressive when inf < 3
+        basic_game.players["Alpha"].influence = 2
+        aggressive_action = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=True
+        )
+        assert aggressive_action.investment == 2
+
+    def test_resolve_mad_dynamic_threshold(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        basic_game.players["Alpha"].influence = 2
+        basic_game.players["Omega"].influence = 3
+        # Threshold is 5. Total bid is 4.
+        actions = {
+            "Alpha": ProxyWarAction(investment=2),
+            "Omega": ProxyWarAction(investment=2),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -2}
+        assert events[1].influence_delta == {"Omega": -2}
+
+        mad_event = events[2]
+        assert isinstance(mad_event, SystemEvent)
+        assert mad_event.world_ending
+
+    def test_resolve_success_dynamic_threshold(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        basic_game.players["Alpha"].influence = 2
+        basic_game.players["Omega"].influence = 3
+        # Threshold is 5. Total bid is 5.
+        actions = {
+            "Alpha": ProxyWarAction(investment=2),
+            "Omega": ProxyWarAction(investment=3),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -2}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Alpha": ProxyWarDefs.WINNER_GDP}
+
+    def test_resolve_mad(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=4),
+            "Omega": ProxyWarAction(investment=3),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -4}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        mad_event = events[2]
+        assert isinstance(mad_event, SystemEvent)
+        assert mad_event.world_ending
+
+    def test_resolve_tie(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=5),
+            "Omega": ProxyWarAction(investment=5),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -5}
+        assert events[1].influence_delta == {"Omega": -5}
+
+        tie_event = events[2]
+        assert isinstance(tie_event, SystemEvent)
+        assert "contributed equally" in tie_event.description
+        assert tie_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert not tie_event.gdp_delta
+
+    def test_resolve_winner_p1(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=3),
+            "Omega": ProxyWarAction(investment=8),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -3}
+        assert events[1].influence_delta == {"Omega": -8}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Alpha": ProxyWarDefs.WINNER_GDP}
+
+    def test_resolve_winner_p2(
+        self, crisis: ProxyWarCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": ProxyWarAction(investment=8),
+            "Omega": ProxyWarAction(investment=3),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -8}
+        assert events[1].influence_delta == {"Omega": -3}
+
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert "geopolitical victory" in win_event.description
+        assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
+        assert win_event.gdp_delta == {"Omega": ProxyWarDefs.WINNER_GDP}

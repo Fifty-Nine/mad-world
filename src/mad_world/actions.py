@@ -56,6 +56,14 @@ class InvalidGDPAmountError(InvalidActionError):
         )
 
 
+class InvalidInfluenceAmountError(InvalidActionError):
+    def __init__(self) -> None:
+        super().__init__(
+            "INVALID INFLUENCE AMOUNT: Influence investment amount cannot be "
+            "negative."
+        )
+
+
 class InvalidOperationError(InvalidActionError):
     def __init__(self, *, operation: str, allowed: list[str]) -> None:
         super().__init__(
