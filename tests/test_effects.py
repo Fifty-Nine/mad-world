@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pytest
-
 from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
@@ -81,21 +79,6 @@ def test_un_peacekeeping_effect(basic_game: GameState) -> None:
     assert "proxy-subversion" not in modified_ops
     assert "conventional-offensive" not in modified_ops
     assert "aggressive-extraction" in modified_ops
-
-
-def test_un_peacekeeping_effect_removes_all_operations(
-    basic_game: GameState,
-) -> None:
-    effect = UNPeacekeepingEffect(duration=None)
-    ops = {
-        "proxy-subversion": basic_game.allowed_operations["proxy-subversion"],
-        "conventional-offensive": basic_game.allowed_operations[
-            "conventional-offensive"
-        ],
-    }
-
-    with pytest.raises(ValueError, match="removed all operations"):
-        effect.modify_operations(ops)
 
 
 def test_no_domestic_investment_effect(basic_game: GameState) -> None:

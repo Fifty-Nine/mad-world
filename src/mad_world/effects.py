@@ -138,15 +138,11 @@ class UNPeacekeepingEffect(BaseEffect):
         "ongoing."
     )
 
+    def is_forbidden(self, op_name: str) -> bool:
+        return op_name in ("proxy-subversion", "conventional-offensive")
+
     @override
     def modify_operations(
         self, ops: dict[str, OperationDefinition]
     ) -> dict[str, OperationDefinition]:
-        filtered = {
-            k: v
-            for k, v in ops.items()
-            if k not in ["proxy-subversion", "conventional-offensive"]
-        }
-        if not filtered:
-            raise ValueError(f"Effect {self.title} removed all operations!")  # noqa: TRY003
-        return filtered
+        return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
