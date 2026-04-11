@@ -20,6 +20,7 @@ from mad_world.core import GameState, PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.events import ActionEvent, PlayerActor
+from mad_world.mandates import PacifistUtopiaMandate
 from mad_world.ollama_player import (
     ActionResponse,
     GrandStrategy,
@@ -368,6 +369,26 @@ def test_game_ending_warning(test_player: Any, basic_game: GameState) -> None:
     basic_game.players["Alpha"].gdp = 10
     basic_game.players["Omega"].gdp = 10
     assert not test_player.game_ending_warning(basic_game)
+
+
+@pytest.mark.xfail(
+    reason="determine_victor incorrectly mutates the game state."
+)
+def test_game_ending_warning_does_not_mutate_game(
+    test_player: Any, basic_game: GameState
+) -> None:
+    test_player.name = "Alpha"
+    test_player.opponent_name = "Omega"
+    basic_game.rules.round_count = 10
+    basic_game.current_round = 9
+    basic_game.players["Alpha"].gdp = 100
+
+    mandate = PacifistUtopiaMandate()
+    basic_game.players["Alpha"].mandates.append(mandate)
+
+    assert len(basic_game.players["Alpha"].completed_mandates) == 0
+    test_player.game_ending_warning(basic_game)
+    assert len(basic_game.players["Alpha"].completed_mandates) == 0
 
 
 def test_doomsday_warning(test_player: Any, basic_game: GameState) -> None:
