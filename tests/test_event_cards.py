@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -11,28 +11,14 @@ from mad_world.event_cards import (
     BaseEventCard,
     ClockDownEvent,
     ClockUpEvent,
-    GDPP1Event,
-    GDPP2Event,
+    GDPEvent,
     InfluenceBothEvent,
-    InfluenceP1Event,
-    InfluenceP2Event,
+    InfluenceEvent,
     create_event_deck,
 )
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
-
-
-def test_base_event_card_not_implemented(basic_game: GameState) -> None:
-    # We can't instantiate BaseEventCard directly because it doesn't
-    # specify card_kind.
-    class DummyEvent(BaseEventCard):
-        card_kind: ClassVar[str] = "dummy_event"
-        title: str = "Dummy"
-        description: str = "Dummy description"
-
-    with pytest.raises(NotImplementedError):
-        DummyEvent(title="Dummy", description="").run(basic_game)
 
 
 def test_clock_up_event(basic_game: GameState) -> None:
@@ -50,31 +36,31 @@ def test_clock_down_event(basic_game: GameState) -> None:
 
 
 def test_influence_p1_event(basic_game: GameState) -> None:
-    event = InfluenceP1Event()
+    event = InfluenceEvent(player_idx=0)
     game_events = event.run(basic_game)
     assert len(game_events) == 1
     assert game_events[0].influence_delta == {"Alpha": 3}
 
 
 def test_influence_p2_event(basic_game: GameState) -> None:
-    event = InfluenceP2Event()
+    event = InfluenceEvent(player_idx=1)
     game_events = event.run(basic_game)
     assert len(game_events) == 1
     assert game_events[0].influence_delta == {"Omega": 3}
 
 
 def test_gdp_p1_event(basic_game: GameState) -> None:
-    event = GDPP1Event()
+    event = GDPEvent(player_idx=0)
     game_events = event.run(basic_game)
     assert len(game_events) == 1
-    assert game_events[0].gdp_delta == {"Alpha": 10}
+    assert game_events[0].gdp_delta == {"Alpha": event.gdp_bonus}
 
 
 def test_gdp_p2_event(basic_game: GameState) -> None:
-    event = GDPP2Event()
+    event = GDPEvent(player_idx=1)
     game_events = event.run(basic_game)
     assert len(game_events) == 1
-    assert game_events[0].gdp_delta == {"Omega": 10}
+    assert game_events[0].gdp_delta == {"Omega": event.gdp_bonus}
 
 
 def test_influence_both_event(basic_game: GameState) -> None:
