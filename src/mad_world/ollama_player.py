@@ -805,8 +805,7 @@ class OllamaPlayer(GamePlayer):
         )
 
         result += "\n\n"
-        if self.name in game.players:
-            result += OllamaPlayer.format_mandates(game.players[self.name])
+        result += OllamaPlayer.format_mandates(game.players[self.name])
         result += OllamaPlayer.format_event_log(game.recent_events())
         return result
 

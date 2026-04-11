@@ -52,7 +52,7 @@ def player_config() -> LLMPlayerConfig:
         repeat_last_n=64,
     )
     return LLMPlayerConfig(
-        name="TestPlayer",
+        name="Alpha",
         persona="TestPersona",
         model="test-model",
         params=params,
@@ -62,11 +62,11 @@ def player_config() -> LLMPlayerConfig:
 def test_ollama_player_init(player_config: Any, mock_logger: Any) -> None:
     player = OllamaPlayer(
         config=player_config,
-        opponent_name="Opponent",
+        opponent_name="Omega",
         logger=mock_logger,
     )
-    assert player.name == "TestPlayer"
-    assert player.opponent_name == "Opponent"
+    assert player.name == "Alpha"
+    assert player.opponent_name == "Omega"
     assert player.persona == "TestPersona"
     assert player.model == "test-model"
     assert player.prompt_options["num_predict"] == 100
@@ -147,15 +147,15 @@ async def test_start_game(
 
     assert len(player.messages) == 1
     assert player.messages[0]["role"] == "system"
-    assert "Superpower TestPlayer" in player.messages[0]["content"]
+    assert "Superpower Alpha" in player.messages[0]["content"]
     assert "Opponent" in player.messages[0]["content"]
     assert "TestPersona" in player.messages[0]["content"]
 
     # Check log files
-    settings_file = log_dir / "TestPlayer.model-settings.json"
+    settings_file = log_dir / "Alpha.model-settings.json"
     assert settings_file.exists()
 
-    schemas_file = log_dir / "TestPlayer.schemas.json.gz"
+    schemas_file = log_dir / "Alpha.schemas.json.gz"
     assert schemas_file.exists()
 
     # Test start_game without log_base
