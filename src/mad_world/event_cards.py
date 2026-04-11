@@ -109,7 +109,7 @@ class BaseOngoingEffectEvent(BaseEventCard):
 
 
 class ClockChangeEvent(BaseEventCard):
-    card_kind: ClassVar[str] = "clock_up"
+    card_kind: ClassVar[str] = "clock_change"
 
     title: str = "Tides of Tension"
     description: str = ""
@@ -134,11 +134,18 @@ class ClockChangeEvent(BaseEventCard):
 
 
 class InfluenceChangeEvent(BasePlayerEffectCard):
-    card_kind: ClassVar[str] = "diplo_breakthrough"
+    card_kind: ClassVar[str] = "diplo_event"
 
-    title: str = "Diplomatic Breakthrough"
-    description: str = "A diplomatic breakthrough grants influence to a player."
+    title: str = ""
+    description: str = ""
     amount: int = 3
+
+    @model_validator(mode="after")
+    def update_descriptions(self) -> Self:
+        kind = "breakthrough" if self.amount >= 0 else "blunder"
+        self.title = f"Diplomatic {kind.capitalize()}"
+        self.description = "A player experiences a diplomatic {kind}"
+        return self
 
     @override
     def effect_units(self) -> str:
@@ -150,10 +157,17 @@ class InfluenceChangeEvent(BasePlayerEffectCard):
 
 
 class GDPEvent(BasePlayerEffectCard):
-    card_kind: ClassVar[str] = "economic_boom"
-    title: str = "Economic Boom"
-    description: str = "A player experiences an economic boom."
+    card_kind: ClassVar[str] = "economic_event"
+    title: str = ""
+    description: str = ""
     amount: int = 4
+
+    @model_validator(mode="after")
+    def update_descriptions(self) -> Self:
+        kind = "boom" if self.amount >= 0 else "recession"
+        self.title = f"Economic {kind.capitalize()}"
+        self.description = f"A player experiences an economic {kind}"
+        return self
 
     @override
     def effect_units(self) -> str:
