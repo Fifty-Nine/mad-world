@@ -118,6 +118,7 @@ class LLMResponse(BaseModel):
     """
 
     last_key: ClassVar[str]
+    use_thinking: ClassVar[bool] = False
 
     @model_validator(mode="before")
     @classmethod
@@ -139,6 +140,7 @@ class LLMResponse(BaseModel):
 
 class ElaboratedPersonaResponse(LLMResponse):
     last_key: ClassVar[str] = "name"
+    use_thinking: ClassVar[bool] = True
     persona_seed: str
     character_description: str = Field(
         description=(
@@ -514,7 +516,6 @@ class OllamaPlayer(GamePlayer):
         self.logger.debug(
             "Elaborating persona for %s: %s", self.name, self.persona
         )
-        schema = create_persona_schema(self.persona)
         elaboration_prompt = (
             "You are playing a grand strategy game. Your assigned persona "
             f"seed is: '{self.persona}'. "
@@ -839,7 +840,7 @@ class OllamaPlayer(GamePlayer):
             messages=messages,
             format=schema,
             options=self.prompt_options,
-            think=False,
+            think=response_model.use_thinking,
         )
         result = result_obj.message.content
 
@@ -854,7 +855,7 @@ class OllamaPlayer(GamePlayer):
                 f"Model Response: {result}",
                 f"Model done reason: {result_obj.done_reason}\n",
             )
-            self.messages.append(
+            messages.append(
                 {
                     "role": "system",
                     "content": "SYSTEM ERROR: You previously generated a "
