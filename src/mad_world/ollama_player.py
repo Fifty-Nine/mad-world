@@ -561,7 +561,6 @@ class OllamaPlayer(GamePlayer):
             return
 
         self.persona = elaborated.format_for_prompt()
-        self.logger.info(elaborated.model_dump_json(indent=2))
 
         self.logger.info(
             "%s%s",
