@@ -8,7 +8,13 @@ from typing import ClassVar
 
 from mad_world.core import GameState
 from mad_world.enums import GamePhase
-from mad_world.events import ActionEvent, GameEvent, PlayerActor, SystemEvent
+from mad_world.events import (
+    BiddingEvent,
+    GameEvent,
+    OperationConductedEvent,
+    PlayerActor,
+    SystemEvent,
+)
 from mad_world.mandates import (
     AccelerationistMandate,
     BaseMandate,
@@ -172,54 +178,50 @@ def test_popular_jingoism_mandate() -> None:
 
     # Add matching event
     game.event_log.append(
-        ActionEvent(
+        BiddingEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
+            bid=5,
         )
     )
     assert mandate.is_met(game, "Alpha") is True
 
     # Check logic if opponent bid
     game.event_log.append(
-        ActionEvent(
+        BiddingEvent(
             actor=PlayerActor(name="Omega"),
             description="Omega bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
+            bid=5,
         )
     )
     assert mandate.is_met(game, "Omega") is True
 
-    # Check invalid string gracefully fails
-    game.event_log.append(
-        ActionEvent(
-            actor=PlayerActor(name="Omega"),
-            description="Omega bid too_many for influence.",
-            current_round=5,
-            current_phase=GamePhase.BIDDING,
-        )
-    )
-    assert mandate.is_met(game, "Omega") is True
+    # (Invalid string graceful fail test removed, since BiddingEvent
+    # requires integer bid and we no longer parse strings)
 
     # Check loop breaking on older rounds
     game.event_log.insert(
         0,
-        ActionEvent(
+        BiddingEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=4,
             current_phase=GamePhase.BIDDING,
+            bid=5,
         ),
     )
     game.event_log.insert(
         0,
-        ActionEvent(
+        BiddingEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=5,
             current_phase=GamePhase.BIDDING,
+            bid=5,
         ),
     )
     # Still matches the recent round 5 valid one
@@ -231,21 +233,23 @@ def test_popular_jingoism_mandate() -> None:
 
     # Check early exit when hitting a different round entirely
     game.event_log.append(
-        ActionEvent(
+        BiddingEvent(
             actor=PlayerActor(name="Alpha"),
             description="Alpha bid 5 for influence.",
             current_round=4,  # different round
             current_phase=GamePhase.BIDDING,
+            bid=5,
         )
     )
     game.event_log.append(
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Omega"),
             description=(
                 "Omega has successfully conducted aproxy-subversion operation."
             ),
             current_round=6,  # future round (continue test)
             current_phase=GamePhase.OPERATIONS,
+            operation="proxy-subversion",
         )
     )
     game.current_round = 5
@@ -273,7 +277,7 @@ def test_space_race_mandate() -> None:
 
     for _ in range(5):
         game.event_log.append(
-            ActionEvent(
+            OperationConductedEvent(
                 actor=PlayerActor(name="Alpha"),
                 description=(
                     "Alpha has successfully conducted a "
@@ -281,6 +285,7 @@ def test_space_race_mandate() -> None:
                 ),
                 current_round=1,
                 current_phase=GamePhase.OPERATIONS,
+                operation="domestic-investment",
             )
         )
 
@@ -289,7 +294,7 @@ def test_space_race_mandate() -> None:
     # Test loop break on different round
     game.event_log.insert(
         0,
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Alpha"),
             description=(
                 "Alpha has successfully conducted a "
@@ -297,6 +302,7 @@ def test_space_race_mandate() -> None:
             ),
             current_round=0,
             current_phase=GamePhase.OPERATIONS,
+            operation="domestic-investment",
         ),
     )
     assert mandate.is_met(game, "Alpha") is True
@@ -307,7 +313,7 @@ def test_space_race_mandate() -> None:
 
     game.current_round = 1
     game.event_log.append(
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Alpha"),
             description=(
                 "Alpha has successfully conducted a "
@@ -315,13 +321,14 @@ def test_space_race_mandate() -> None:
             ),
             current_round=0,  # earlier round triggers early break
             current_phase=GamePhase.OPERATIONS,
+            operation="domestic-investment",
         )
     )
     assert mandate.is_met(game, "Alpha") is False
 
     # Check early exit when hitting a different round entirely
     game.event_log.append(
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Alpha"),
             description=(
                 "Alpha has successfully conducted a "
@@ -329,6 +336,7 @@ def test_space_race_mandate() -> None:
             ),
             current_round=2,  # different round
             current_phase=GamePhase.OPERATIONS,
+            operation="domestic-investment",
         )
     )
     game.current_round = 3
@@ -350,13 +358,14 @@ def test_counter_intelligence_mandate() -> None:
     assert mandate.is_met(game, "Alpha") is False
 
     game.event_log.append(
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Omega"),
             description=(
                 "Omega has successfully conducted a proxy-subversion operation."
             ),
             current_round=1,
             current_phase=GamePhase.OPERATIONS,
+            operation="proxy-subversion",
         )
     )
 
@@ -372,13 +381,14 @@ def test_counter_intelligence_mandate() -> None:
     game.current_round = 5
     game.event_log.insert(
         0,
-        ActionEvent(
+        OperationConductedEvent(
             actor=PlayerActor(name="Omega"),
             description=(
                 "Omega has successfully conducted a proxy-subversionoperation."
             ),
             current_round=4,  # different round early break
             current_phase=GamePhase.OPERATIONS,
+            operation="proxy-subversion",
         ),
     )
     assert mandate.is_met(game, "Alpha") is False
@@ -422,7 +432,7 @@ def test_military_industrial_complex_mandate() -> None:
     # Simulate player doing the operation, but not opponent
     game.event_log.extend(
         [
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Alpha has successfully conducted "
                     "a conventional-offensive operation"
@@ -430,6 +440,7 @@ def test_military_industrial_complex_mandate() -> None:
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
+                operation="conventional-offensive",
             )
         ]
     )
@@ -439,13 +450,14 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Omega has successfully conducted a stand-down operation"
                 ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
+                operation="stand-down",
             )
         ]
     )
@@ -455,7 +467,7 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Alpha has successfully conducted a "
                     "conventional-offensive operation"
@@ -463,14 +475,16 @@ def test_military_industrial_complex_mandate() -> None:
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
+                operation="conventional-offensive",
             ),
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Omega has successfully conducted a stand-down operation"
                 ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
+                operation="stand-down",
             ),
         ]
     )
@@ -480,7 +494,7 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Omega has successfully conducted a conventional-offensive "
                     "operation "
@@ -488,14 +502,16 @@ def test_military_industrial_complex_mandate() -> None:
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
+                operation="conventional-offensive",
             ),
-            ActionEvent(
+            OperationConductedEvent(
                 description=(
                     "Alpha has successfully conducted a stand-down operation."
                 ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
+                operation="stand-down",
             ),
         ]
     )
