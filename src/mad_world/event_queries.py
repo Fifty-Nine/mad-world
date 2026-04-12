@@ -191,7 +191,12 @@ class EventLogQuery[T: GameEvent]:
                 count += 1
             else:
                 break
-        return iter(self._base_events[-count:])
+        return (
+            self._base_events[i]
+            for i in range(
+                len(self._base_events) - count, len(self._base_events)
+            )
+        )
 
     def __iter__(self) -> Iterator[T]:
         if not self._base_events:
