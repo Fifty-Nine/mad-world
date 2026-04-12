@@ -402,6 +402,75 @@ class CoolerHeadsMandate(InstantMandate):
         ]
 
 
+class MoralHighGroundDefs:
+    PLAYER_MIN_BID: ClassVar[int] = 5
+    OPPONENT_MAX_BID: ClassVar[int] = 0
+    REWARD_GDP: ClassVar[int] = 10
+    REWARD_INF: ClassVar[int] = 2
+
+
+class MoralHighGroundMandate(InstantMandate):
+    card_kind: ClassVar[str] = "moral_high_ground"
+    title: ClassVar[str] = "Moral High Ground"
+    description: ClassVar[str] = (
+        f"If you bid {MoralHighGroundDefs.PLAYER_MIN_BID} or more while your "
+        f"opponent bids {MoralHighGroundDefs.OPPONENT_MAX_BID} in the same "
+        f"round, gain {MoralHighGroundDefs.REWARD_GDP} GDP and "
+        f"{MoralHighGroundDefs.REWARD_INF} influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        if game.current_phase != GamePhase.OPERATIONS_MESSAGING:
+            return False
+
+        def _correct_phase(e: GameEvent) -> bool:
+            return (
+                e.current_phase == GamePhase.BIDDING
+                and e.current_round == game.current_round
+            )
+
+        events_in_phase = list(
+            takewhile(
+                _correct_phase,
+                dropwhile(
+                    lambda e: not _correct_phase(e), reversed(game.event_log)
+                ),
+            )
+        )
+
+        player_bid_high = any(
+            isinstance(e, BiddingEvent)
+            and e.done_by_player(player_name)
+            and e.bid >= MoralHighGroundDefs.PLAYER_MIN_BID
+            for e in events_in_phase
+        )
+
+        opponent_bid_zero = any(
+            isinstance(e, BiddingEvent)
+            and e.done_by_player(opponent_name)
+            and e.bid <= MoralHighGroundDefs.OPPONENT_MAX_BID
+            for e in events_in_phase
+        )
+
+        return player_bid_high and opponent_bid_zero
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            SystemEvent(
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Capitalizing on international goodwill: "
+                    f"+{MoralHighGroundDefs.REWARD_GDP} GDP, "
+                    f"+{MoralHighGroundDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: MoralHighGroundDefs.REWARD_GDP},
+                influence_delta={player_name: MoralHighGroundDefs.REWARD_INF},
+            )
+        ]
+
+
 def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
     cards: list[BaseMandate] = [
         SleepingGiantMandate(),
@@ -413,6 +482,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         CounterIntelligenceMandate(),
         CoolerHeadsMandate(),
         MilitaryIndustrialComplexMandate(),
+        MoralHighGroundMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
