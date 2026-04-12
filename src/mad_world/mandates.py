@@ -432,5 +432,89 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         SpaceRaceMandate(),
         CounterIntelligenceMandate(),
         CoolerHeadsMandate(),
+        MilitaryIndustrialComplexMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
+
+
+class MilitaryIndustrialComplexDefs:
+    PLAYER_OP: ClassVar[str] = "conventional-offensive"
+    OPPONENT_OP: ClassVar[str] = "stand-down"
+    REWARD_GDP: ClassVar[int] = 10
+    REWARD_INF: ClassVar[int] = 2
+
+
+class MilitaryIndustrialComplexMandate(InstantMandate):
+    card_kind: ClassVar[str] = "military_industrial_complex"
+    title: ClassVar[str] = "Military-Industrial Complex"
+    description: ClassVar[str] = (
+        f"If you conduct {MilitaryIndustrialComplexDefs.PLAYER_OP} while your "
+        f"opponent conducts {MilitaryIndustrialComplexDefs.OPPONENT_OP} in the "
+        f"same round, gain {MilitaryIndustrialComplexDefs.REWARD_GDP} GDP and "
+        f"{MilitaryIndustrialComplexDefs.REWARD_INF} influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        if game.current_phase != GamePhase.ROUND_EVENTS:
+            return False
+
+        # When the phase advances from OPERATIONS to ROUND_EVENTS, the
+        # round number is incremented.
+        target_round = game.current_round - 1
+
+        def _correct_phase(e: GameEvent) -> bool:
+            return (
+                e.current_phase == GamePhase.OPERATIONS
+                and e.current_round == target_round
+            )
+
+        events_in_phase = list(
+            takewhile(
+                _correct_phase,
+                dropwhile(
+                    lambda e: not _correct_phase(e), reversed(game.event_log)
+                ),
+            )
+        )
+
+        player_conducted_op = any(
+            e.done_by_player(player_name)
+            and (
+                "successfully conducted a "
+                f"{MilitaryIndustrialComplexDefs.PLAYER_OP}"
+            )
+            in e.description.strip()
+            for e in events_in_phase
+        )
+
+        opponent_conducted_op = any(
+            e.done_by_player(opponent_name)
+            and (
+                "successfully conducted a "
+                f"{MilitaryIndustrialComplexDefs.OPPONENT_OP}"
+            )
+            in e.description.strip()
+            for e in events_in_phase
+        )
+
+        return player_conducted_op and opponent_conducted_op
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            SystemEvent(
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Profiting from asymmetric conflict: "
+                    f"+{MilitaryIndustrialComplexDefs.REWARD_GDP} GDP, "
+                    f"+{MilitaryIndustrialComplexDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={
+                    player_name: MilitaryIndustrialComplexDefs.REWARD_GDP
+                },
+                influence_delta={
+                    player_name: MilitaryIndustrialComplexDefs.REWARD_INF
+                },
+            )
+        ]

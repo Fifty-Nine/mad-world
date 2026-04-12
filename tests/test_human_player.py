@@ -244,3 +244,26 @@ async def test_human_player_completer_leak(basic_game: GameState) -> None:
         assert mock_prompt.call_count == 1
         last_call_kwargs = mock_prompt.call_args.kwargs
         assert isinstance(last_call_kwargs.get("completer"), DummyCompleter)
+
+
+def test_human_player_print_mandates(
+    basic_game: GameState, capsys: pytest.CaptureFixture[str]
+) -> None:
+    player = HumanPlayer("Alpha")
+
+    # Test with mandates
+    player._print_mandates(basic_game)
+    captured2 = capsys.readouterr()
+    assert "--- Secret Mandates ---" in captured2.out
+    assert (
+        "- Trivial Mandate Title: Trivial Mandate Description." in captured2.out
+    )
+
+    # Test without mandates
+    (
+        basic_game.players["Alpha"].completed_mandates,
+        basic_game.players["Alpha"].mandates,
+    ) = basic_game.players["Alpha"].mandates, []
+    player._print_mandates(basic_game)
+    captured = capsys.readouterr()
+    assert "--- Secret Mandates ---" not in captured.out

@@ -9,7 +9,7 @@ import random
 import tempfile
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar, override
 from unittest.mock import patch
 
 import pytest
@@ -17,10 +17,40 @@ import pytest
 from mad_world.core import GameState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GamePhase
+from mad_world.event_cards import BaseEventCard
+from mad_world.mandates import InstantMandate
 from mad_world.rules import GameRules
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from mad_world.events import GameEvent
+
+
+class TrivialMandate(InstantMandate):
+    card_kind: ClassVar[str] = "trivial_mandate"
+    title: ClassVar[str] = "Trivial Mandate Title"
+    description: ClassVar[str] = "Trivial Mandate Description."
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        return False
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return []
+
+
+class TrivialEvent(BaseEventCard):
+    card_kind: ClassVar[str] = "trivial_event"
+    title: str = "Trivial Event"
+    description: str = "Nothing Happens!"
+
+    @override
+    def run(self, game: GameState) -> list[GameEvent]:
+        return self.create_event(game)
+
+    @override
+    def mechanics(self, game: GameState) -> str:
+        return "Still nothing."
 
 
 class BadTestWriteException(Exception):
@@ -83,7 +113,8 @@ def stable_rules() -> GameRules:
     return GameRules(
         seed=0,
         initial_crisis_deck=[StandoffCrisis()],
-        initial_event_deck=[],
+        initial_event_deck=[TrivialEvent() for _ in range(10)],
+        initial_mandate_deck=[TrivialMandate() for _ in range(5)],
     )
 
 
