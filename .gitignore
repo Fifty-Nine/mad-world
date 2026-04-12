@@ -8,7 +8,7 @@ __pycache__/
 build/
 dist/
 *.egg-info/
-logs/
+logs*/
 .coverage
 .vscode/
 plan-docs/
