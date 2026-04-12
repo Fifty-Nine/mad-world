@@ -41,3 +41,9 @@ class StandoffPosture(StrEnum):
 class BlameGamePosture(StrEnum):
     SHOULDER = "shoulder"
     DEFLECT = "deflect"
+
+
+class OpenChannelPreference(StrEnum):
+    REQUEST = "request"
+    ACCEPT = "accept"
+    REJECT = "reject"

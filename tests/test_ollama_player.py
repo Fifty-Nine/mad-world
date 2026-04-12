@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
@@ -514,6 +515,25 @@ def test_format_ongoing_effects_with_effects(
         "\n"
     )
     assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_chat(test_player: Any, basic_game: GameState) -> None:
+    test_player.retry_action = AsyncMock()
+
+    mock_response = MagicMock()
+    mock_response.action = ChatAction(message="test", end_channel=False)
+    test_player.retry_action.return_value = mock_response
+
+    action = await test_player.chat(basic_game, remaining_messages=5)
+
+    assert test_player.retry_action.call_count == 1
+    assert action == mock_response.action
+
+    test_player.retry_action.return_value = None
+    action = await test_player.chat(basic_game, remaining_messages=5)
+    assert isinstance(action, ChatAction)
+    assert action.end_channel is True
 
 
 @pytest.mark.asyncio

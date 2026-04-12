@@ -26,7 +26,7 @@ from mad_world.actions import (
 from mad_world.crises import BaseCrisis, create_crisis_deck
 from mad_world.decks import Deck
 from mad_world.effects import BaseEffect
-from mad_world.enums import GameOverReason, GamePhase
+from mad_world.enums import GameOverReason, GamePhase, OpenChannelPreference
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
@@ -84,6 +84,11 @@ class PlayerState(BaseModel):
     completed_mandates: list[BaseMandate] = Field(
         default_factory=list,
         description="The mandates completed and revealed by the player.",
+    )
+    channels_opened: int = Field(
+        default=0,
+        description="The number of direct communication channels this player "
+        "has opened or participated in this game.",
     )
 
 
@@ -772,6 +777,101 @@ async def resolve_operations(
     return new_game
 
 
+async def resolve_chat_channel(
+    new_game: GameState,
+    players: list[GamePlayer],
+    alpha_msg: MessagingAction,
+    omega_msg: MessagingAction,
+) -> None:
+    alpha_pref = alpha_msg.channel_preference
+    omega_pref = omega_msg.channel_preference
+
+    channel_open = False
+    if (
+        alpha_pref == OpenChannelPreference.REQUEST
+        and omega_pref
+        in (OpenChannelPreference.ACCEPT, OpenChannelPreference.REQUEST)
+    ) or (
+        omega_pref == OpenChannelPreference.REQUEST
+        and alpha_pref
+        in (OpenChannelPreference.ACCEPT, OpenChannelPreference.REQUEST)
+    ):
+        channel_open = True
+
+    if not channel_open:
+        return
+
+    alpha_name, omega_name = new_game.player_names
+    new_game.players[alpha_name].channels_opened += 1
+    new_game.players[omega_name].channels_opened += 1
+
+    new_game.apply_event(
+        SystemEvent(
+            description="A direct communication channel has been opened.",
+        )
+    )
+
+    max_messages = 10
+    messages_left = {
+        alpha_name: max_messages,
+        omega_name: max_messages,
+    }
+
+    if (
+        alpha_pref == OpenChannelPreference.REQUEST
+        and omega_pref == OpenChannelPreference.REQUEST
+    ):
+        first_player_idx = new_game.rng.choice([0, 1])
+    elif alpha_pref == OpenChannelPreference.REQUEST:
+        first_player_idx = 0
+    else:
+        first_player_idx = 1
+
+    current_idx = first_player_idx
+    while messages_left[alpha_name] > 0 and messages_left[omega_name] > 0:
+        current_player = players[current_idx]
+        opponent_player = players[1 - current_idx]
+        remaining = messages_left[current_player.name]
+
+        chat_action = await current_player.chat(new_game, remaining)
+
+        new_game.apply_event(
+            MessageEvent(
+                actor=PlayerActor(name=current_player.name),
+                description=(
+                    f"{current_player.name} sent a direct message to "
+                    f"{opponent_player.name}:\n"
+                    + wrap_text(
+                        chat_action.message,
+                        width=80,
+                        indent="  ",
+                    )
+                ),
+            ),
+        )
+
+        if chat_action.end_channel:
+            new_game.apply_event(
+                SystemEvent(
+                    description=f"{current_player.name} closed the channel.",
+                )
+            )
+            break
+
+        messages_left[current_player.name] -= 1
+        current_idx = 1 - current_idx
+
+    else:
+        new_game.apply_event(
+            SystemEvent(
+                description=(
+                    "The communication channel was closed after "
+                    "reaching the limit."
+                ),
+            )
+        )
+
+
 async def resolve_messaging(
     game: GameState,
     players: list[GamePlayer],
@@ -794,6 +894,8 @@ async def resolve_messaging(
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
 
+    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
+
     new_game.advance_phase()
 
     return new_game
@@ -814,6 +916,8 @@ async def resolve_opening(
 
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
+
+    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
 
     new_game.advance_phase()
 

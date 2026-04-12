@@ -26,6 +26,7 @@ from pydantic import (
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
@@ -1224,8 +1225,38 @@ class OllamaPlayer(GamePlayer):
         )
 
     @override
+    async def chat(
+        self, game: GameState, remaining_messages: int
+    ) -> ChatAction:
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
+        prompt = (
+            "You are currently in a direct communication channel with your "
+            "opponent. You can go back and forth up to 10 times. "
+            f"You have {remaining_messages} messages left to send in this "
+            f"channel.\nYou have {channels_left} total channels left you "
+            "can request this game. Think about what you want to achieve "
+            "with this message and what information you want to convey "
+            "or extract from your opponent."
+        )
+        self.add_prompt(prompt, game.current_phase, None)
+
+        class ChatResponse(ActionResponse):
+            action: ChatAction
+
+        result = await self.retry_action(ChatResponse, game)
+        if result is None:
+            return ChatAction(
+                message="[CONNECTION LOST]",
+                end_channel=True,
+            )
+        return result.action
+
+    @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = self.format_game_state(game)
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
@@ -1235,6 +1266,9 @@ class OllamaPlayer(GamePlayer):
             "to inquiries, issue threats, etc. Remember to explicitly "
             "identify yourself by your chosen name and title in your first "
             "message.\n"
+            "You also must indicate your preference for opening a direct "
+            "back-and-forth communication channel. You have "
+            f"{channels_left} channels left to participate in this game.\n"
         )
         self.add_prompt(
             prompt,
@@ -1260,11 +1294,16 @@ class OllamaPlayer(GamePlayer):
             if game.current_phase == GamePhase.BIDDING_MESSAGING
             else "OPERATIONS"
         )
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             f"You may now provide a message to your opponent. They will see "
             f"this message BEFORE they commit to their actions in the upcoming "
             f"{target_phase} phase. Use this channel to conduct diplomacy, "
             f"respond to inquiries, issue threats, etc.\n"
+            f"You also must indicate your preference for opening a direct "
+            f"back-and-forth communication channel. You have {channels_left} "
+            f"channels left to participate in this game.\n"
         )
         self.add_prompt(
             prompt,
@@ -1290,12 +1329,17 @@ class OllamaPlayer(GamePlayer):
         if crisis.additional_prompt:
             prompt += f"{crisis.additional_prompt}\n\n"
 
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             "You are currently in the Crisis Messaging Phase. "
             "You may now provide a single message to your opponent. "
             "They will see this message BEFORE they commit to their action "
             "in the upcoming Crisis Resolution phase. Use this channel to "
             "conduct diplomacy, threaten, or deceive your opponent.\n"
+            "You also must indicate your preference for opening a direct "
+            "back-and-forth communication channel. You have "
+            f"{channels_left} channels left to participate in this game.\n"
         )
 
         self.add_prompt(

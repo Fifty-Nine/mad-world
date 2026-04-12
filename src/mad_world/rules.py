@@ -260,6 +260,11 @@ class GameRules(BaseModel):
             "The zero-sum GDP reward for escalatory operations at high clock."
         ),
     )
+    max_channels_per_game: int = Field(
+        default=3,
+        description="The maximum number of direct back-and-forth channels "
+        "a player can request or participate in during a single game.",
+    )
 
     def get_doomsday_bids(
         self,

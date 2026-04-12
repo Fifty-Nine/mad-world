@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, override
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     MessagingAction,
     OperationsAction,
@@ -30,6 +31,17 @@ class TrivialPlayer(GamePlayer):
     def __init__(self, name: str, *, aggressive: bool) -> None:
         super().__init__(name)
         self.aggressive = aggressive
+
+    @override
+    async def chat(
+        self, game: GameState, remaining_messages: int
+    ) -> ChatAction:
+        return ChatAction(
+            message=(
+                "[STATUS] Optimal algorithms indicate chatter is inefficient."
+            ),
+            end_channel=True,
+        )  # pragma: no cover
 
     @override
     async def crisis[T: BaseAction](

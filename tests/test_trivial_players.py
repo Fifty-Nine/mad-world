@@ -25,6 +25,18 @@ from mad_world.trivial_players import (
 
 
 @pytest.mark.asyncio
+async def test_trivial_player_chat() -> None:
+    player = CrazyIvan("Test")
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
+    action = await player.chat(game_state, 5)
+    assert (
+        action.message
+        == "[STATUS] Optimal algorithms indicate chatter is inefficient."
+    )
+    assert action.end_channel is True
+
+
+@pytest.mark.asyncio
 async def test_crazy_ivan_initial_message() -> None:
     """Test Crazy Ivan's initial message."""
     player = CrazyIvan("TestIvan")

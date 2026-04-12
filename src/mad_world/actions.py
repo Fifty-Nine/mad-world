@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+from mad_world.enums import OpenChannelPreference
+
 if TYPE_CHECKING:
     from mad_world.core import GameState
 
@@ -72,6 +74,15 @@ class InvalidOperationError(InvalidActionError):
         )
 
 
+class InvalidChannelRequestError(InvalidActionError):
+    def __init__(self, *, limit: int) -> None:
+        super().__init__(
+            f"INVALID CHANNEL PREFERENCE: You have already opened "
+            f"or participated in {limit} channels this game and cannot "
+            f"request any more."
+        )
+
+
 class BaseAction(BaseModel):
     def validate_semantics(self, game: GameState, player_name: str) -> None:
         pass
@@ -83,6 +94,33 @@ class MessagingAction(BaseAction):
         description="A message that will be passed to your opponent. You can "
         "use this to conduct diplomacy, respond to inquiries, "
         "issue threats, etc.",
+    )
+    channel_preference: OpenChannelPreference = Field(
+        default=OpenChannelPreference.REJECT,
+        description="Your preference for opening a direct back-and-forth "
+        "communication channel with your opponent this phase. "
+        "REQUEST will attempt to open a channel. ACCEPT will open a channel "
+        "if your opponent requested one. REJECT will never open a channel.",
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        limit = game.rules.max_channels_per_game
+        if (
+            self.channel_preference == OpenChannelPreference.REQUEST
+            and game.players[player_name].channels_opened >= limit
+        ):
+            raise InvalidChannelRequestError(limit=limit)
+
+
+class ChatAction(BaseAction):
+    message: str = Field(
+        max_length=256,
+        description="Your message to the opponent.",
+    )
+    end_channel: bool = Field(
+        default=False,
+        description="If true, the channel will be closed immediately after "
+        "this message is sent.",
     )
 
 

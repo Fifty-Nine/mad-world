@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from mad_world.actions import (
         BaseAction,
         BiddingAction,
+        ChatAction,
         InitialMessageAction,
         MessagingAction,
         OperationsAction,
@@ -54,6 +55,12 @@ class GamePlayer(ABC):
     @abstractmethod
     async def operations(self, game: GameState) -> OperationsAction:
         """Get the player's input for the operations phase."""
+
+    @abstractmethod
+    async def chat(
+        self, game: GameState, remaining_messages: int
+    ) -> ChatAction:
+        """Get the player's response in an active back-and-forth channel."""
 
     @abstractmethod
     async def crisis[T: BaseAction](
