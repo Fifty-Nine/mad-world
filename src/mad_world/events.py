@@ -53,6 +53,7 @@ class EventKind(StrEnum):
     CRISIS_RESOLUTION = "crisis_resolution"
     MANDATE_FULFILLED = "mandate_fulfilled"
     CHANNEL_OPENED = "channel_opened"
+    CHANNEL_REJECTED = "channel_rejected"
 
 
 class BaseGameEvent(BaseModel):
@@ -183,6 +184,15 @@ class ChannelOpenedEvent(BaseGameEvent):
     )
 
 
+class ChannelRejectedEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.CHANNEL_REJECTED] = Field(
+        default=EventKind.CHANNEL_REJECTED
+    )
+    initiator: PlayerActor = Field(
+        description="The player that requested the channel."
+    )
+
+
 GameEvent = Annotated[
     SystemEvent
     | StateEvent
@@ -192,6 +202,7 @@ GameEvent = Annotated[
     | OperationConductedEvent
     | CrisisResolutionEvent
     | MandateFulfilledEvent
-    | ChannelOpenedEvent,
+    | ChannelOpenedEvent
+    | ChannelRejectedEvent,
     Field(discriminator="event_kind"),
 ]

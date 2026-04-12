@@ -49,6 +49,7 @@ from mad_world.events import (
     ActionEvent,
     ActorKind,
     ChannelOpenedEvent,
+    ChannelRejectedEvent,
     OperationConductedEvent,
     PlayerActor,
     SystemActor,
@@ -202,6 +203,47 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
 
     events = basic_game.event_log
     assert any(isinstance(e, ChannelOpenedEvent) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
+    alpha_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+    omega_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REJECT,
+    )
+
+    class TestPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="test", end_channel=True)
+
+    players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
+
+    # Alpha requests, Omega rejects
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    events = basic_game.event_log
+    assert any(isinstance(e, ChannelRejectedEvent) for e in events)
+    reject_event = next(
+        e for e in events if isinstance(e, ChannelRejectedEvent)
+    )
+    assert reject_event.initiator.name == "Alpha"
+    assert reject_event.actor.name == "Omega"
+
+    # Omega requests, Alpha rejects
+    await resolve_chat_channel(basic_game, players, omega_msg, alpha_msg)
+    events = basic_game.event_log
+    reject_events = [e for e in events if isinstance(e, ChannelRejectedEvent)]
+    assert len(reject_events) == 2
+    reject_event2 = reject_events[-1]
+    assert reject_event2.initiator.name == "Omega"
+    assert reject_event2.actor.name == "Alpha"
 
 
 @pytest.mark.asyncio
