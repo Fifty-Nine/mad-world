@@ -19,7 +19,7 @@ def _load_model_defaults() -> dict[str, LLMParams]:
         return TypeAdapter(dict[str, LLMParams]).validate_json(text)
     except FileNotFoundError:
         logging.getLogger(__name__).exception(
-            "Error occured loading model defaults"
+            "Error occurred loading model defaults"
         )
         return {}
 

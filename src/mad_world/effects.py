@@ -44,7 +44,7 @@ class BaseEffect(BaseCard, ABC):
         return ops
 
     def modify_bids(self, bids: list[int]) -> list[int]:
-        assert bids, "Effect {self.title} removed all possible bids!"
+        assert bids, f"Effect {self.title} removed all possible bids!"
         return bids
 
     def on_expire(self, game: GameState) -> list[GameEvent]:
