@@ -171,15 +171,18 @@ def test_popular_jingoism_mandate() -> None:
     # Wrong round
     game.current_round = 4
     game.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
 
     # Right round, wrong phase
     game.current_round = 5
     game.current_phase = GamePhase.OPERATIONS
+    game.last_phase = GamePhase.OPERATIONS_MESSAGING
     assert mandate.is_met(game, "Alpha") is False
 
     # Right round and phase, no matching event
     game.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
 
     # Add matching event
@@ -237,30 +240,6 @@ def test_popular_jingoism_mandate() -> None:
     game.event_log = []
     assert mandate.is_met(game, "Alpha") is False
 
-    # Check early exit when hitting a different round entirely
-    game.event_log.append(
-        BiddingEvent(
-            actor=PlayerActor(name="Alpha"),
-            description="Alpha bid 5 for influence.",
-            current_round=4,  # different round
-            current_phase=GamePhase.BIDDING,
-            bid=5,
-        )
-    )
-    game.event_log.append(
-        OperationConductedEvent(
-            actor=PlayerActor(name="Omega"),
-            description=(
-                "Omega has successfully conducted aproxy-subversion operation."
-            ),
-            current_round=6,  # future round (continue test)
-            current_phase=GamePhase.OPERATIONS,
-            operation="proxy-subversion",
-        )
-    )
-    game.current_round = 5
-    assert mandate.is_met(game, "Alpha") is False
-
     events = mandate.reward(game, "Alpha")
     assert len(events) == 1
     assert events[0].gdp_delta == {"Alpha": 10}
@@ -271,16 +250,15 @@ def test_space_race_mandate() -> None:
     game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
 
     # Test early phase exit
-    game.current_phase = GamePhase.OPERATIONS
+    game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
-
-    game.current_phase = GamePhase.ROUND_EVENTS
 
     # Right phase, but no operations
-    game.current_phase = GamePhase.ROUND_EVENTS
-    game.current_round = 2
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 2
     assert mandate.is_met(game, "Alpha") is False
 
+    game.last_round = 1
     for _ in range(5):
         game.event_log.append(
             OperationConductedEvent(
@@ -298,54 +276,12 @@ def test_space_race_mandate() -> None:
     assert mandate.is_met(game, "Alpha") is True
 
     # Test loop break on different round
-    game.event_log.insert(
-        0,
-        OperationConductedEvent(
-            actor=PlayerActor(name="Alpha"),
-            description=(
-                "Alpha has successfully conducted a "
-                "domestic-investment operation."
-            ),
-            current_round=0,
-            current_phase=GamePhase.OPERATIONS,
-            operation="domestic-investment",
-        ),
-    )
-    assert mandate.is_met(game, "Alpha") is True
+    game.last_round = 2
+    assert mandate.is_met(game, "Alpha") is False
+    game.last_round = 1
 
     # Check loop break on empty event log
     game.event_log = []
-    assert mandate.is_met(game, "Alpha") is False
-
-    game.current_round = 1
-    game.event_log.append(
-        OperationConductedEvent(
-            actor=PlayerActor(name="Alpha"),
-            description=(
-                "Alpha has successfully conducted a "
-                "domestic-investment operation."
-            ),
-            current_round=0,  # earlier round triggers early break
-            current_phase=GamePhase.OPERATIONS,
-            operation="domestic-investment",
-        )
-    )
-    assert mandate.is_met(game, "Alpha") is False
-
-    # Check early exit when hitting a different round entirely
-    game.event_log.append(
-        OperationConductedEvent(
-            actor=PlayerActor(name="Alpha"),
-            description=(
-                "Alpha has successfully conducted a "
-                "domestic-investment operation."
-            ),
-            current_round=2,  # different round
-            current_phase=GamePhase.OPERATIONS,
-            operation="domestic-investment",
-        )
-    )
-    game.current_round = 3
     assert mandate.is_met(game, "Alpha") is False
 
     game.players["Omega"].influence = 10
@@ -359,10 +295,11 @@ def test_counter_intelligence_mandate() -> None:
     mandate = CounterIntelligenceMandate()
     game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
 
-    game.current_phase = GamePhase.ROUND_EVENTS
-    game.current_round = 2
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 2
     assert mandate.is_met(game, "Alpha") is False
 
+    game.last_round = 1
     game.event_log.append(
         OperationConductedEvent(
             actor=PlayerActor(name="Omega"),
@@ -377,26 +314,13 @@ def test_counter_intelligence_mandate() -> None:
 
     assert mandate.is_met(game, "Alpha") is True
 
-    # Test early exit and loop break coverage
-    game.current_phase = GamePhase.BIDDING
+    # Test early exit
+    game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
-    game.current_phase = GamePhase.OPERATIONS
 
-    # We clear out the log and test an early break on a different round entirely
-    game.event_log = []
-    game.current_round = 5
-    game.event_log.insert(
-        0,
-        OperationConductedEvent(
-            actor=PlayerActor(name="Omega"),
-            description=(
-                "Omega has successfully conducted a proxy-subversionoperation."
-            ),
-            current_round=4,  # different round early break
-            current_phase=GamePhase.OPERATIONS,
-            operation="proxy-subversion",
-        ),
-    )
+    # Test mismatch on round
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 4
     assert mandate.is_met(game, "Alpha") is False
 
     events = mandate.reward(game, "Alpha")
@@ -429,8 +353,8 @@ def test_military_industrial_complex_mandate() -> None:
     # Not met by default
     assert mandate.is_met(game, "Alpha") is False
 
-    game.current_phase = GamePhase.ROUND_EVENTS
-    game.current_round = 2
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 1
 
     # Still not met
     assert mandate.is_met(game, "Alpha") is False

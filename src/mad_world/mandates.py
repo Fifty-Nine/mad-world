@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from itertools import dropwhile, takewhile
 from typing import TYPE_CHECKING, ClassVar
 
 from mad_world.cards import BaseCard
@@ -229,27 +228,25 @@ class PopularJingoismMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        if game.current_round not in PopularJingoismDefs.ALLOWED_ROUNDS:
-            return False
-
-        if game.current_phase != GamePhase.OPERATIONS_MESSAGING:
+        if game.last_phase != GamePhase.BIDDING:
             return False
 
         def _check_event(e: GameEvent) -> bool:
             return (
                 isinstance(e, BiddingEvent)
-                and e.current_phase == GamePhase.BIDDING
                 and e.done_by_player(player_name)
                 and e.bid >= PopularJingoismDefs.MIN_BID
             )
 
-        for event in reversed(game.event_log):
-            if event.current_round != game.current_round:
-                break  # Prune search early
-            if _check_event(event):
-                return True
-
-        return False
+        return any(
+            _check_event(e)
+            for e in game.query_event_log()
+            .between_rounds(
+                min(PopularJingoismDefs.ALLOWED_ROUNDS),
+                max(PopularJingoismDefs.ALLOWED_ROUNDS),
+            )
+            .in_phase(GamePhase.BIDDING)
+        )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
@@ -282,35 +279,21 @@ class SpaceRaceMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        if game.current_phase != GamePhase.ROUND_EVENTS:
+        if game.last_phase != GamePhase.OPERATIONS:
             return False
-
-        # When the phase advances from OPERATIONS to ROUND_EVENTS, the
-        # round number is incremented.
-        target_round = game.current_round - 1
 
         def _check_event(e: GameEvent) -> bool:
             return (
                 isinstance(e, OperationConductedEvent)
-                and e.current_phase == GamePhase.OPERATIONS
                 and e.done_by_player(player_name)
                 and e.operation == SpaceRaceDefs.TARGET_OP
             )
 
-        def _correct_phase(e: GameEvent) -> bool:
-            return (
-                e.current_phase == GamePhase.OPERATIONS
-                and e.current_round == target_round
-            )
-
         count = sum(
             1
-            for e in takewhile(
-                _correct_phase,
-                dropwhile(
-                    lambda e: not _correct_phase(e), reversed(game.event_log)
-                ),
-            )
+            for e in game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
             if _check_event(e)
         )
 
@@ -349,37 +332,24 @@ class CounterIntelligenceMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        opponent_name = next(p for p in game.players if p != player_name)
-
-        if game.current_phase not in (
-            GamePhase.ROUND_EVENTS,
-            GamePhase.OPERATIONS,
-        ):
+        if game.last_phase != GamePhase.OPERATIONS:
             return False
 
-        # If the phase just advanced to ROUND_EVENTS, the round was incremented.
-        target_round = game.current_round
-        if game.current_phase == GamePhase.ROUND_EVENTS:
-            target_round -= 1
+        opponent_name = next(p for p in game.players if p != player_name)
 
         def _check_event(e: GameEvent) -> bool:
             return (
                 isinstance(e, OperationConductedEvent)
-                and e.current_phase == GamePhase.OPERATIONS
                 and e.done_by_player(opponent_name)
                 and e.operation == CounterIntelligenceDefs.TARGET_OP
             )
 
-        for event in reversed(game.event_log):
-            if event.current_round == target_round and _check_event(event):
-                return True
-
-            # We can safely break if we go past the target round, but if
-            # event.current_round > target_round we just continue back.
-            if event.current_round and event.current_round < target_round:
-                break
-
-        return False
+        return any(
+            _check_event(e)
+            for e in game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
+        )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         opponent_name = next(p for p in game.players if p != player_name)
@@ -465,42 +435,29 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        opponent_name = next(p for p in game.players if p != player_name)
-
-        if game.current_phase != GamePhase.ROUND_EVENTS:
+        if game.last_phase != GamePhase.OPERATIONS:
             return False
 
-        # When the phase advances from OPERATIONS to ROUND_EVENTS, the
-        # round number is incremented.
-        target_round = game.current_round - 1
+        opponent_name = next(p for p in game.players if p != player_name)
 
-        def _correct_phase(e: GameEvent) -> bool:
-            return (
-                e.current_phase == GamePhase.OPERATIONS
-                and e.current_round == target_round
-            )
-
-        events_in_phase = list(
-            takewhile(
-                _correct_phase,
-                dropwhile(
-                    lambda e: not _correct_phase(e), reversed(game.event_log)
-                ),
-            )
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
         )
 
         player_conducted_op = any(
             isinstance(e, OperationConductedEvent)
             and e.done_by_player(player_name)
             and e.operation == MilitaryIndustrialComplexDefs.PLAYER_OP
-            for e in events_in_phase
+            for e in events
         )
 
         opponent_conducted_op = any(
             isinstance(e, OperationConductedEvent)
             and e.done_by_player(opponent_name)
             and e.operation == MilitaryIndustrialComplexDefs.OPPONENT_OP
-            for e in events_in_phase
+            for e in events
         )
 
         return player_conducted_op and opponent_conducted_op

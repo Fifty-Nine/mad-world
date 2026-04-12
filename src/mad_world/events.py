@@ -105,6 +105,22 @@ class BaseGameEvent(BaseModel):
         description="The change to per-player channel quotas.",
     )
 
+    @property
+    def round(self) -> int:
+        """Same as self.current_round, but asserts if current_round is unset.
+        This is the expected case, as events should always be written to the
+        game's event log before being inspected or queried."""
+        assert self.current_round is not None
+        return self.current_round
+
+    @property
+    def phase(self) -> GamePhase:
+        """Same as self.current_phase, but asserts if current_phase is unset.
+        This is the expected case, as events should always be written to the
+        game's event log before being inspected or queried."""
+        assert self.current_phase is not None
+        return self.current_phase
+
     def done_by_player(self, name: str) -> bool:
         return False
 

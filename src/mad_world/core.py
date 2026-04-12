@@ -29,6 +29,7 @@ from mad_world.decks import Deck
 from mad_world.effects import BaseEffect
 from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
+from mad_world.event_stream import EventStream
 from mad_world.events import (
     ActionEvent,
     BaseGameEvent,
@@ -567,6 +568,9 @@ class GameState(BaseModel):
             return (omega.name, GameOverReason.ECONOMIC_VICTORY)
 
         return (None, GameOverReason.STALEMATE)
+
+    def query_event_log(self) -> EventStream[GameEvent]:
+        return EventStream(reversed(self.event_log))
 
 
 def get_bid_impact(
