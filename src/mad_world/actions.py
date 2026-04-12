@@ -120,6 +120,9 @@ class MessagingAction(BaseAction):
             OpenChannelPreference.ACCEPT,
         )
 
+    def rejects_channel(self) -> bool:
+        return self.channel_preference == OpenChannelPreference.REJECT
+
 
 class ChatAction(BaseAction):
     message: str = Field(
