@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from mad_world.actions import (
     BiddingAction,
+    ChatAction,
     InsufficientInfluenceError,
     InvalidActionError,
     InvalidOperationError,
@@ -335,9 +336,15 @@ class GameState(BaseModel):
         self,
         self_player: str,
         opponent_player: str,
-        action: MessagingAction,
+        action: MessagingAction | ChatAction,
     ) -> None:
-        if action.message_to_opponent is None:
+        message = (
+            action.message_to_opponent
+            if isinstance(action, MessagingAction)
+            else action.message
+        )
+
+        if message is None:
             return
 
         self.apply_event(
@@ -347,11 +354,13 @@ class GameState(BaseModel):
                     f"{self_player} sent a message to "
                     f"{opponent_player}:\n"
                     + wrap_text(
-                        action.message_to_opponent,
+                        message,
                         width=80,
                         indent="  ",
                     )
                 ),
+                message=message,
+                channel_message=isinstance(action, ChatAction),
             ),
         )
 
@@ -834,26 +843,16 @@ async def resolve_chat_channel(
         remaining = messages_left[current_player.name]
 
         chat_action = await current_player.chat(new_game, remaining)
-
-        new_game.apply_event(
-            MessageEvent(
-                actor=PlayerActor(name=current_player.name),
-                description=(
-                    f"{current_player.name} sent a direct message to "
-                    f"{opponent_player.name}:\n"
-                    + wrap_text(
-                        chat_action.message,
-                        width=80,
-                        indent="  ",
-                    )
-                ),
-            ),
+        new_game.log_message(
+            current_player.name, opponent_player.name, chat_action
         )
 
         if chat_action.end_channel:
             new_game.apply_event(
                 SystemEvent(
-                    description=f"{current_player.name} closed the channel.",
+                    description=(
+                        f"{current_player.name} terminated the channel."
+                    )
                 )
             )
             break

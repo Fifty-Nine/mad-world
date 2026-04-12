@@ -4,20 +4,23 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.unimplemented_player import UnimplementedPlayer
+
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from mad_world.players import GamePlayer
 
 
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
     ChatAction,
-    InitialMessageAction,
     InvalidActionError,
     InvalidBiddingActionError,
     InvalidChannelRequestError,
@@ -50,7 +53,6 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
-from mad_world.players import GamePlayer
 from mad_world.rules import GameRules, OperationDefinition
 from mad_world.trivial_players import (
     Capitalist,
@@ -158,7 +160,6 @@ def test_validate_operation_insufficient_influence(
 
 
 @pytest.mark.asyncio
-# ruff: noqa: C901
 async def test_resolve_chat_channel(basic_game: GameState) -> None:
     alpha_msg = MessagingAction(
         message_to_opponent="Let's talk",
@@ -169,7 +170,7 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
         channel_preference=OpenChannelPreference.ACCEPT,
     )
 
-    class TestAlphaPlayer(GamePlayer):
+    class TestAlphaPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
@@ -177,45 +178,11 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
                 message=f"Alpha chat {remaining_messages}", end_channel=False
             )
 
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
-
-    class TestOmegaPlayer(GamePlayer):
+    class TestOmegaPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
             return ChatAction(message="Omega done", end_channel=True)
-
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
 
     players: list[GamePlayer] = [
         TestAlphaPlayer("Alpha"),
@@ -244,28 +211,11 @@ async def test_resolve_chat_channel_double_request(
         channel_preference=OpenChannelPreference.REQUEST,
     )
 
-    class TestPlayer(GamePlayer):
+    class TestPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=True)
-
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -284,28 +234,11 @@ async def test_resolve_chat_channel_omega_request(
         channel_preference=OpenChannelPreference.REQUEST,
     )
 
-    class TestPlayer(GamePlayer):
+    class TestPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=True)
-
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -324,28 +257,11 @@ async def test_resolve_chat_channel_max_messages(
         channel_preference=OpenChannelPreference.ACCEPT,
     )
 
-    class TestPlayer(GamePlayer):
+    class TestPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=False)
-
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -369,28 +285,11 @@ async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
         channel_preference=OpenChannelPreference.REJECT,
     )
 
-    class TestPlayer(GamePlayer):
+    class TestPlayer(UnimplementedPlayer):
         async def chat(
             self, game: GameState, remaining_messages: int
         ) -> ChatAction:
             return ChatAction(message="Never called", end_channel=True)
-
-        async def operations(self, game: GameState) -> OperationsAction:
-            raise NotImplementedError
-
-        async def bid(self, game: GameState) -> BiddingAction:
-            raise NotImplementedError
-
-        async def initial_message(
-            self, game: GameState
-        ) -> InitialMessageAction:
-            raise NotImplementedError
-
-        async def message(self, game: GameState) -> MessagingAction:
-            raise NotImplementedError
-
-        async def crisis(self, game: GameState, crisis: Any) -> Any:
-            raise NotImplementedError
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)

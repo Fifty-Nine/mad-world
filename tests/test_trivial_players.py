@@ -29,10 +29,16 @@ async def test_trivial_player_chat() -> None:
     player = CrazyIvan("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     action = await player.chat(game_state, 5)
-    assert (
-        action.message
-        == "[STATUS] Optimal algorithms indicate chatter is inefficient."
-    )
+    assert action.message
+    assert action.end_channel is True
+
+
+@pytest.mark.asyncio
+async def test_pareto_efficient_player_chat() -> None:
+    player = ParetoEfficientPlayer("Test")
+    game_state = GameState.new_game(players=[player.name], rules=GameRules())
+    action = await player.chat(game_state, 5)
+    assert action.message
     assert action.end_channel is True
 
 

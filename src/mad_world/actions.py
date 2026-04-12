@@ -96,7 +96,7 @@ class MessagingAction(BaseAction):
         "issue threats, etc.",
     )
     channel_preference: OpenChannelPreference = Field(
-        default=OpenChannelPreference.REJECT,
+        default=OpenChannelPreference.ACCEPT,
         description="Your preference for opening a direct back-and-forth "
         "communication channel with your opponent this phase. "
         "REQUEST will attempt to open a channel. ACCEPT will open a channel "

@@ -155,6 +155,10 @@ class MandateFulfilledEvent(BaseActionEvent):
 class MessageEvent(BaseGameEvent):
     event_kind: Literal[EventKind.MESSAGE] = Field(default=EventKind.MESSAGE)
     actor: PlayerActor
+    message: str | None = Field(description="The body of the message.")
+    channel_message: bool = Field(
+        description="True if this was sent as part of an open channel."
+    )
 
     @override
     def done_by_player(self, name: str) -> bool:

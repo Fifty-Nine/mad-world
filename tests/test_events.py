@@ -36,6 +36,8 @@ from mad_world.events import (
             MessageEvent(
                 actor=PlayerActor(name="foo"),
                 description=("foo sent a message to bar:\n  sup?"),
+                message="sup?",
+                channel_message=False,
             ),
             False,
         ),
@@ -44,6 +46,8 @@ from mad_world.events import (
             MessageEvent(
                 actor=PlayerActor(name="bar"),
                 description=("bar sent a message to foo:\n  nmu?"),
+                message="nmu?",
+                channel_message=False,
             ),
             True,
         ),
