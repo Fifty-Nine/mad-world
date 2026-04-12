@@ -224,7 +224,7 @@ class GameState(BaseModel):
         return result
 
     @property
-    def player_names(self) -> Sequence[str]:
+    def player_names(self) -> tuple[str, str]:
         assert len(self.players) == 2
         return cast("tuple[str, str]", tuple(self.players))
 
