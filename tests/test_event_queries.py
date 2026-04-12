@@ -55,8 +55,8 @@ def sample_events() -> Sequence[GameEvent]:
 
 def test_empty_events() -> None:
     query = EventLogQuery[GameEvent]([])
-    assert list(query) == []
-    assert list(query.reverse()) == []
+    assert not query
+    assert not query.reverse()
 
 
 def test_basic_iteration(sample_events: Sequence[GameEvent]) -> None:
@@ -192,3 +192,26 @@ def test_lazy_evaluation() -> None:
     # This should crash
     with pytest.raises(ValueError, match="Iterated!"):
         list(q2)
+
+
+def test_bool_operator(sample_events: Sequence[GameEvent]) -> None:
+    query = EventLogQuery(sample_events)
+    assert query
+
+    query = query.reverse()
+    assert query
+
+    query = query.in_round(1)
+    assert query
+
+    query = query.reverse()
+    assert query
+
+    query = EventLogQuery([])
+    assert not query
+
+    query = query.reverse()
+    assert not query
+
+    query = query.in_recent_phase()
+    assert not query
