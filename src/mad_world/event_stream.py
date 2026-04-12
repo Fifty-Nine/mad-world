@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
 
 class EventStream[T: GameEvent]:
-    """A pure functional stream wrapper for game events."""
+    """A pure functional stream wrapper for game events.
+    Note that this interface is assumed to be a single-shot
+    iterator, so you need to either save your query result to
+    a list (acceptable if only querying a small number of events)
+    or ensure you only traverse the items once."""
 
     def __init__(self, stream: Iterable[T]) -> None:
         self._stream = stream
