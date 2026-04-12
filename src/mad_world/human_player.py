@@ -106,7 +106,7 @@ class HumanPlayer(GamePlayer):
     ) -> T:
         while True:
             try:
-                action = await self._prompt_crisis_action(action_class)
+                action = await self._prompt_action_fields(action_class)
                 self._validate_action(action, game)
             except (ValidationError, InvalidActionError) as e:
                 print(f"Invalid input: {e}")
@@ -229,7 +229,7 @@ class HumanPlayer(GamePlayer):
 
         return user_input.strip() or None
 
-    async def _prompt_crisis_field(
+    async def _prompt_action_field(
         self, field_name: str, field_info: FieldInfo
     ) -> Any:
         prompt_text = f"Enter value for '{field_name}'"
@@ -242,13 +242,13 @@ class HumanPlayer(GamePlayer):
 
         return await self._prompt_standard_field(prompt_text)
 
-    async def _prompt_crisis_action[T: BaseAction](
+    async def _prompt_action_fields[T: BaseAction](
         self, action_class: type[T]
     ) -> T:
         field_values: dict[str, Any] = {}
         for field_name, field_info in action_class.model_fields.items():
             if (
-                val := await self._prompt_crisis_field(field_name, field_info)
+                val := await self._prompt_action_field(field_name, field_info)
             ) is not None:
                 field_values[field_name] = val
         return action_class(**field_values)
@@ -278,7 +278,7 @@ class HumanPlayer(GamePlayer):
 
         while True:
             try:
-                action = await self._prompt_crisis_action(crisis.action_type)
+                action = await self._prompt_action_fields(crisis.action_type)
                 action.validate_semantics(game, self.name)
             except (ValidationError, InvalidActionError) as e:
                 print(f"Invalid input: {e}")
