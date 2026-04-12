@@ -8,6 +8,7 @@ from mad_world.core import GameState
 from mad_world.crises import (
     DoomsdayAsteroidCrisis,
     NuclearMeltdownCrisis,
+    RogueProliferationCrisis,
     StandoffAction,
     StandoffCrisis,
 )
@@ -456,6 +457,47 @@ async def test_pareto_nuclear_meltdown_crisis_message(
     crisis = NuclearMeltdownCrisis()
 
     game.players["Omega"].gdp = 4
+    action = await player.crisis_message(game, crisis)
+    assert action.message_to_opponent is not None
+    assert "minimal survival bid of 6" in action.message_to_opponent
+
+
+@pytest.mark.asyncio
+async def test_pareto_rogue_proliferation_crisis_action(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = RogueProliferationCrisis()
+
+    # Threshold is 10. If opponent has 10 influence, we bid 0.
+    game.players["Omega"].influence = 10
+    action = await player.crisis(game, crisis)
+    assert action.investment == 0
+
+    # If opponent has 4 influence, we bid 6.
+    game.players["Alpha"].influence = 10
+    game.players["Omega"].influence = 4
+    action = await player.crisis(game, crisis)
+    assert action.investment == 6
+
+    # If opponent has 0 influence, we bid 10, but bounded by our influence (8).
+    game.players["Omega"].influence = 0
+    game.players["Alpha"].influence = 8
+    action = await player.crisis(game, crisis)
+    assert action.investment == 8
+
+
+@pytest.mark.asyncio
+async def test_pareto_rogue_proliferation_crisis_message(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = RogueProliferationCrisis()
+
+    game.players["Alpha"].influence = 10
+    game.players["Omega"].influence = 4
     action = await player.crisis_message(game, crisis)
     assert action.message_to_opponent is not None
     assert "minimal survival bid of 6" in action.message_to_opponent

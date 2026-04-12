@@ -12,7 +12,11 @@ from mad_world.actions import (
     MessagingAction,
     OperationsAction,
 )
-from mad_world.crises import DoomsdayAsteroidDefs, NuclearMeltdownDefs
+from mad_world.crises import (
+    DoomsdayAsteroidDefs,
+    NuclearMeltdownDefs,
+    RogueProliferationDefs,
+)
 from mad_world.enums import BlameGamePosture, GamePhase
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -372,6 +376,26 @@ class ParetoEfficientPlayer(TrivialPlayer):
             "relative advantage."
         )
 
+    def _get_minimal_survival_inf_bid(
+        self, game: GameState, threshold: int
+    ) -> int:
+        opponent_name = next(p for p in game.players if p != self.name)
+        their_inf = game.players[opponent_name].influence
+        my_bid = max(0, threshold - their_inf)
+        return min(my_bid, game.players[self.name].influence)
+
+    def _get_inf_survival_message(self, bid: int) -> str:
+        return (
+            f"[STATUS] Preparing minimal survival bid of {bid} Influence. "
+            "Greetings {OPPONENT NAME HERE}. I am programmed to bid "
+            "exactly the minimum Influence required to save the world "
+            "assuming you contribute your entire influence pool to the "
+            "effort. If you do not bid your maximum possible amount up "
+            "to the threshold, the world will be destroyed. I am doing "
+            "this because it is the OPTIMAL STRATEGY to maximize "
+            "relative advantage."
+        )
+
     @override
     async def crisis_message(
         self, game: GameState, crisis: BaseCrisis
@@ -423,6 +447,15 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 )
             )
 
+        if crisis.card_kind == "rogue-proliferation":
+            return MessagingAction(
+                message_to_opponent=self._get_inf_survival_message(
+                    self._get_minimal_survival_inf_bid(
+                        game, RogueProliferationDefs.INF_THRESHOLD
+                    )
+                )
+            )
+
         raise NotImplementedError(
             "Need logic for pareto-optimal crisis handling for "
             f"{crisis.card_kind}."
@@ -455,6 +488,12 @@ class ParetoEfficientPlayer(TrivialPlayer):
         if crisis.card_kind == "nuclear-meltdown":
             my_bid = self._get_minimal_survival_bid(
                 game, NuclearMeltdownDefs.GDP_THRESHOLD
+            )
+            return crisis.action_type.model_validate({"investment": my_bid})
+
+        if crisis.card_kind == "rogue-proliferation":
+            my_bid = self._get_minimal_survival_inf_bid(
+                game, RogueProliferationDefs.INF_THRESHOLD
             )
             return crisis.action_type.model_validate({"investment": my_bid})
 
