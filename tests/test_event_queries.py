@@ -191,8 +191,10 @@ def test_lazy_evaluation() -> None:
 
         @overload
         def __getitem__(self, index: int) -> GameEvent: ...
+
         @overload
         def __getitem__(self, index: slice) -> Sequence[GameEvent]: ...
+
         def __getitem__(self, index: Any) -> Any:
             raise ValueError("Iterated!")
 
