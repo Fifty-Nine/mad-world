@@ -216,3 +216,42 @@ def test_take_latest_phase_block_empty() -> None:
     query = EventStream[GameEvent]([]).take_latest_phase_block()
     assert not query
     assert list(query) == []
+
+
+def test_take_rounds(extended_events: Sequence[GameEvent]) -> None:
+    query = EventStream(extended_events).between_rounds(2, 4)
+    assert query
+
+    results = list(query)
+    assert len(results) == 7
+    assert results == extended_events[3:10]
+
+    query = EventStream(reversed(extended_events)).between_rounds(2, 4)
+    assert query
+    results = list(query)
+    assert len(results) == 7
+    assert results == list(reversed(extended_events[3:10]))
+
+    query = EventStream(extended_events).between_rounds(4, 2)
+    assert not query
+    assert list(query) == []
+
+    query = (
+        EventStream(extended_events).between_rounds(1, 2).between_rounds(3, 4)
+    )
+    assert not query
+    assert list(query) == []
+
+    query = EventStream(extended_events).between_rounds(1, 1)
+    assert query
+    assert list(query) == list(EventStream(extended_events).in_round(1))
+
+    query = EventStream(reversed(extended_events)).between_rounds(1, 1)
+    assert query
+    assert list(query) == list(
+        EventStream(reversed(extended_events)).in_round(1)
+    )
+
+    query = EventStream[GameEvent]([]).between_rounds(1, 3)
+    assert not query
+    assert list(query) == []

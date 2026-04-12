@@ -66,6 +66,36 @@ class EventStream[T: GameEvent]:
 
         return EventStream(_generator())
 
+    def between_rounds(self, start: int, end: int) -> EventStream[T]:
+        """Yield events that occurred between 'start' and 'end' rounds,
+        inclusive. This works whether the stream is reversed or not."""
+
+        def _generator() -> Iterator[T]:
+            iterator = iter(self._stream)
+            first_event = next(iterator, None)
+            if first_event is None:
+                return
+
+            forward = first_event.round <= end
+            inner = itertools.chain([first_event], iterator)
+
+            take = (
+                (lambda e: e.round <= end)
+                if forward
+                else (lambda e: e.round >= start)
+            )
+            drop = (
+                (lambda e: e.round < start)
+                if forward
+                else (lambda e: e.round > end)
+            )
+
+            yield from itertools.takewhile(
+                take, itertools.dropwhile(drop, inner)
+            )
+
+        return EventStream(_generator())
+
     def __bool__(self) -> bool:
         """Evaluate truthiness by checking if the stream yields any elements.
         Because checking this consumes the first element of any underlying
