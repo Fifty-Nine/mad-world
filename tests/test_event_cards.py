@@ -66,7 +66,7 @@ def test_player_effect_cards(
     assert len(game_events) == 1
 
     event = game_events[0]
-    player = basic_game.player_names()[idx]
+    player = basic_game.player_names[idx]
     key = event_card.effect_key()
     units = event_card.effect_units()
     desc = gain_or_lose(amount)
