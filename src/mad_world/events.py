@@ -48,6 +48,9 @@ class EventKind(StrEnum):
     STATE = "state"
     ACTION = "action"
     MESSAGE = "message"
+    BIDDING = "bidding"
+    OPERATION_CONDUCTED = "operation_conducted"
+    CRISIS_RESOLUTION = "crisis_resolution"
 
 
 class BaseGameEvent(BaseModel):
@@ -109,13 +112,36 @@ class StateEvent(BaseGameEvent):
     actor: SystemActor = Field(default_factory=SystemActor)
 
 
-class ActionEvent(BaseGameEvent):
-    event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
+class BaseActionEvent(BaseGameEvent):
+    """Intermediate base class for events initiated by a player actor."""
+
     actor: PlayerActor
 
     @override
     def done_by_player(self, name: str) -> bool:
         return self.actor.name == name
+
+
+class ActionEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
+
+
+class BiddingEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)
+    bid: int
+
+
+class OperationConductedEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(
+        default=EventKind.OPERATION_CONDUCTED
+    )
+    operation: str
+
+
+class CrisisResolutionEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(
+        default=EventKind.CRISIS_RESOLUTION
+    )
 
 
 class MessageEvent(BaseGameEvent):
@@ -128,6 +154,12 @@ class MessageEvent(BaseGameEvent):
 
 
 GameEvent = Annotated[
-    SystemEvent | StateEvent | ActionEvent | MessageEvent,
+    SystemEvent
+    | StateEvent
+    | ActionEvent
+    | MessageEvent
+    | BiddingEvent
+    | OperationConductedEvent
+    | CrisisResolutionEvent,
     Field(discriminator="event_kind"),
 ]
