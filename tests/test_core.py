@@ -306,7 +306,6 @@ def test_base_action_validate_semantics(basic_game: GameState) -> None:
 async def test_survived_crisis(stable_rules: GameRules) -> None:
     stable_rules.initial_clock_state = 29
     stable_rules.max_clock_state = 30
-    stable_rules.initial_mandate_deck = []
     winner, reason, _game = await game_loop(
         stable_rules,
         [Diplomat("Alpha"), Diplomat("Omega")],

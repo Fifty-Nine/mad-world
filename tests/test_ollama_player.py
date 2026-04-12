@@ -29,6 +29,7 @@ from mad_world.ollama_player import (
     PlayerArchetype,
     create_persona_schema,
 )
+from tests.conftest import TrivialMandate
 
 if TYPE_CHECKING:
     from mad_world.rules import GameRules
@@ -43,6 +44,17 @@ def test_format_mandates_empty() -> None:
     player = PlayerState(name="Alpha", gdp=42, influence=3, mandates=[])
     formatted = OllamaPlayer.format_mandates(player)
     assert formatted == ""
+
+
+def test_format_mandates_non_empty() -> None:
+    player = PlayerState(
+        name="Alpha", gdp=42, influence=3, mandates=[TrivialMandate()]
+    )
+    formatted = OllamaPlayer.format_mandates(player)
+    assert "Your Secret Mandates:\n" in formatted
+    assert (
+        "- Trivial Mandate Title: Trivial Mandate Description.\n" in formatted
+    )
 
 
 @pytest.fixture
