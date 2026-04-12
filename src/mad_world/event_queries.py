@@ -1,213 +1,105 @@
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from mad_world.events import GameEvent
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator
 
     from mad_world.enums import GamePhase
 
 
-class EventLogQuery[T: GameEvent]:
-    """A composable, lazily-evaluated query builder for game events."""
+class EventStream[T: GameEvent]:
+    """A pure functional stream wrapper for game events."""
 
-    def __init__(
-        self,
-        base_events: Sequence[T],
-        *,
-        is_reversed: bool = False,
-        predicates: list[Callable[[T], bool]] | None = None,
-        round_bounds: tuple[int | None, int | None] | None = None,
-        recent_phase_only: bool = False,
-    ) -> None:
-        self._base_events = base_events
-        self._is_reversed = is_reversed
-        self._predicates: list[Callable[[T], bool]] = predicates or []
-        self._round_bounds = round_bounds
-        self._recent_phase_only = recent_phase_only
-
-    def _copy(
-        self,
-        *,
-        is_reversed: bool | None = None,
-        predicates: list[Callable[[T], bool]] | None = None,
-        round_bounds: tuple[int | None, int | None] | None = None,
-        recent_phase_only: bool | None = None,
-    ) -> EventLogQuery[T]:
-        return EventLogQuery(
-            base_events=self._base_events,
-            is_reversed=self._is_reversed
-            if is_reversed is None
-            else is_reversed,
-            predicates=self._predicates + (predicates or []),
-            round_bounds=self._round_bounds
-            if round_bounds is None
-            else round_bounds,
-            recent_phase_only=self._recent_phase_only
-            if recent_phase_only is None
-            else recent_phase_only,
-        )
-
-    def reverse(self) -> EventLogQuery[T]:
-        """Reverse the direction of iteration."""
-        return self._copy(is_reversed=not self._is_reversed)
-
-    def filter(self, predicate: Callable[[T], bool]) -> EventLogQuery[T]:
-        """Filter events based on a predicate."""
-        return self._copy(predicates=[predicate])
-
-    def of_type[U: GameEvent](self, event_type: type[U]) -> EventLogQuery[U]:
-        """Filter events strictly by their subclass type."""
-        new_query = self._copy(predicates=[lambda e: isinstance(e, event_type)])
-        # Use a cast since we know the new query will only contain U
-        return cast("EventLogQuery[U]", new_query)
-
-    def in_round(self, round_num: int) -> EventLogQuery[T]:
-        """Limit iteration to exactly this round."""
-        return self.in_rounds(round_num, round_num)
-
-    def in_rounds(
-        self,
-        start_round: int | None,
-        end_round: int | None,
-    ) -> EventLogQuery[T]:
-        """Limit iteration to a range of rounds (inclusive)."""
-        new_start, new_end = start_round, end_round
-
-        if self._round_bounds:
-            old_start, old_end = self._round_bounds
-            if old_start is not None:
-                new_start = (
-                    max(new_start, old_start)
-                    if new_start is not None
-                    else old_start
-                )
-            if old_end is not None:
-                new_end = (
-                    min(new_end, old_end) if new_end is not None else old_end
-                )
-
-        return self._copy(round_bounds=(new_start, new_end))
-
-    def in_phase(self, phase: GamePhase) -> EventLogQuery[T]:
-        """Filter events strictly by phase."""
-        return self._copy(predicates=[lambda e: e.current_phase == phase])
-
-    def in_recent_phase(self) -> EventLogQuery[T]:
-        """Limit iteration to only the most recent continuous block
-        of the current round and phase.
-        """
-        return self._copy(recent_phase_only=True)
-
-    def _create_iterator(self) -> Iterable[T]:
-        if self._recent_phase_only:
-            it = self._iter_recent_phase()
-        else:
-            it = (
-                reversed(self._base_events)
-                if self._is_reversed
-                else iter(self._base_events)
-            )
-
-        if self._round_bounds:
-            it = self._apply_round_bounds(it)
-
-        return it
-
-    def _apply_round_bounds(self, it: Iterable[T]) -> Iterable[T]:
-        assert self._round_bounds is not None
-        start_r, end_r = self._round_bounds
-
-        if not self._is_reversed:
-            if start_r is not None:
-                it = itertools.dropwhile(
-                    lambda e: (
-                        e.current_round is not None
-                        and e.current_round < start_r
-                    ),
-                    it,
-                )
-            if end_r is not None:
-                it = itertools.takewhile(
-                    lambda e: (
-                        e.current_round is None or e.current_round <= end_r
-                    ),
-                    it,
-                )
-        else:
-            if end_r is not None:
-                it = itertools.dropwhile(
-                    lambda e: (
-                        e.current_round is not None and e.current_round > end_r
-                    ),
-                    it,
-                )
-            if start_r is not None:
-                it = itertools.takewhile(
-                    lambda e: (
-                        e.current_round is None or e.current_round >= start_r
-                    ),
-                    it,
-                )
-
-        if start_r is not None:
-            it = (
-                e
-                for e in it
-                if e.current_round is not None and e.current_round >= start_r
-            )
-
-        if end_r is not None:
-            it = (
-                e
-                for e in it
-                if e.current_round is not None and e.current_round <= end_r
-            )
-
-        return it
-
-    def _iter_recent_phase(self) -> Iterable[T]:
-        last_event = self._base_events[-1]
-        assert last_event.current_round is not None
-        assert last_event.current_phase is not None
-        target_round = last_event.current_round
-        target_phase = last_event.current_phase
-
-        def _is_target(e: T) -> bool:
-            return (
-                e.current_round == target_round
-                and e.current_phase == target_phase
-            )
-
-        if self._is_reversed:
-            return itertools.takewhile(_is_target, reversed(self._base_events))
-
-        count = 0
-        for e in reversed(self._base_events):
-            if _is_target(e):
-                count += 1
-            else:
-                break
-        return (
-            self._base_events[i]
-            for i in range(
-                len(self._base_events) - count, len(self._base_events)
-            )
-        )
+    def __init__(self, stream: Iterable[T]) -> None:
+        self._stream = stream
 
     def __iter__(self) -> Iterator[T]:
-        if not self._base_events:
-            return iter([])
+        return iter(self._stream)
 
-        it = self._create_iterator()
+    def filter(self, predicate: Callable[[T], bool]) -> EventStream[T]:
+        """Wraps the current stream in a new generator expression."""
+        return EventStream(e for e in self._stream if predicate(e))
 
-        for predicate in self._predicates:
-            it = (e for e in it if predicate(e))
+    def of_type[U: GameEvent](self, event_type: type[U]) -> EventStream[U]:
+        """Filter events strictly by their subclass type."""
+        return EventStream(e for e in self._stream if isinstance(e, event_type))
 
-        return iter(it)
+    def take_while(self, predicate: Callable[[T], bool]) -> EventStream[T]:
+        """Yield events as long as the predicate is true, then stop."""
+
+        def _generator() -> Iterator[T]:
+            for e in self._stream:
+                if predicate(e):
+                    yield e
+                else:
+                    break
+
+        return EventStream(_generator())
+
+    def drop_while(self, predicate: Callable[[T], bool]) -> EventStream[T]:
+        """Drop events as long as the predicate is true, then yield the rest."""
+
+        def _generator() -> Iterator[T]:
+            iterator = iter(self._stream)
+            for e in iterator:
+                if not predicate(e):
+                    yield e
+                    break
+            for e in iterator:
+                yield e
+
+        return EventStream(_generator())
+
+    def in_round(self, round_num: int) -> EventStream[T]:
+        """Filter events strictly by round."""
+        return self.filter(lambda e: e.current_round == round_num)
+
+    def in_phase(self, phase: GamePhase) -> EventStream[T]:
+        """Filter events strictly by phase."""
+        return self.filter(lambda e: e.current_phase == phase)
+
+    def take_latest_phase_block(self) -> EventStream[T]:
+        """Yield events matching the round and phase of the first event,
+        stopping when either changes. Assumes the stream is reversed.
+        """
+
+        def _generator() -> Iterator[T]:
+            iterator = iter(self._stream)
+            try:
+                first_event = next(iterator)
+            except StopIteration:
+                return
+
+            yield first_event
+            target_round = first_event.current_round
+            target_phase = first_event.current_phase
+
+            for e in iterator:
+                if (
+                    e.current_round == target_round
+                    and e.current_phase == target_phase
+                ):
+                    yield e
+                else:
+                    break
+
+        return EventStream(_generator())
 
     def __bool__(self) -> bool:
-        return any(True for _ in self)
+        """Evaluate truthiness by checking if the stream yields any elements.
+        Because checking this consumes the first element of any underlying
+        generators, we must wrap the stream with itertools.chain to restore it
+        so it can be safely iterated again later.
+        """
+        iterator = iter(self._stream)
+        try:
+            first = next(iterator)
+        except StopIteration:
+            return False
+        else:
+            self._stream = itertools.chain([first], iterator)
+            return True
