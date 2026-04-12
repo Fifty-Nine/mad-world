@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING, cast
+from dataclasses import KW_ONLY, dataclass, field, replace
+from typing import TYPE_CHECKING, Any, cast
 
 from mad_world.events import GameEvent
 
@@ -11,23 +12,16 @@ if TYPE_CHECKING:
     from mad_world.enums import GamePhase
 
 
+@dataclass(frozen=True)
 class EventLogQuery[T: GameEvent]:
     """A composable, lazily-evaluated query builder for game events."""
 
-    def __init__(
-        self,
-        base_events: Sequence[T],
-        *,
-        is_reversed: bool = False,
-        predicates: list[Callable[[T], bool]] | None = None,
-        round_bounds: tuple[int | None, int | None] | None = None,
-        recent_phase_only: bool = False,
-    ) -> None:
-        self._base_events = base_events
-        self._is_reversed = is_reversed
-        self._predicates: list[Callable[[T], bool]] = predicates or []
-        self._round_bounds = round_bounds
-        self._recent_phase_only = recent_phase_only
+    _base_events: Sequence[T]
+    _: KW_ONLY
+    _is_reversed: bool = False
+    _predicates: list[Callable[[T], bool]] = field(default_factory=list)
+    _round_bounds: tuple[int | None, int | None] | None = None
+    _recent_phase_only: bool = False
 
     def _copy(
         self,
@@ -37,19 +31,16 @@ class EventLogQuery[T: GameEvent]:
         round_bounds: tuple[int | None, int | None] | None = None,
         recent_phase_only: bool | None = None,
     ) -> EventLogQuery[T]:
-        return EventLogQuery(
-            base_events=self._base_events,
-            is_reversed=self._is_reversed
-            if is_reversed is None
-            else is_reversed,
-            predicates=self._predicates + (predicates or []),
-            round_bounds=self._round_bounds
-            if round_bounds is None
-            else round_bounds,
-            recent_phase_only=self._recent_phase_only
-            if recent_phase_only is None
-            else recent_phase_only,
-        )
+        kwargs: dict[str, Any] = {}
+        if is_reversed is not None:
+            kwargs["_is_reversed"] = is_reversed
+        if predicates is not None:
+            kwargs["_predicates"] = self._predicates + predicates
+        if round_bounds is not None:
+            kwargs["_round_bounds"] = round_bounds
+        if recent_phase_only is not None:
+            kwargs["_recent_phase_only"] = recent_phase_only
+        return replace(self, **kwargs)
 
     def reverse(self) -> EventLogQuery[T]:
         """Reverse the direction of iteration."""
@@ -205,7 +196,7 @@ class EventLogQuery[T: GameEvent]:
         it = self._create_iterator()
 
         for predicate in self._predicates:
-            it = (e for e in it if predicate(e))
+            it = filter(predicate, it)
 
         return iter(it)
 
