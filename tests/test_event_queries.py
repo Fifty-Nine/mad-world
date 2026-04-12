@@ -46,7 +46,6 @@ def sample_events() -> Sequence[GameEvent]:
         make_system_event(1, GamePhase.OPENING, "1"),
         make_system_event(1, GamePhase.ROUND_EVENTS, "2"),
         make_bidding_event(1, GamePhase.BIDDING, 5),
-        make_system_event(None, None, "null round"),
         make_system_event(2, GamePhase.ROUND_EVENTS, "3"),
         make_bidding_event(2, GamePhase.BIDDING, 10),
         make_bidding_event(2, GamePhase.BIDDING, 15),
@@ -61,9 +60,7 @@ def extended_events(sample_events: Sequence[GameEvent]) -> Sequence[GameEvent]:
             [
                 sample_events,
                 (
-                    x.model_copy(
-                        update={"current_round": (x.current_round or 0) + 3}
-                    )
+                    x.model_copy(update={"current_round": x.round + 3})
                     for x in sample_events
                 ),
             ]
@@ -110,29 +107,23 @@ def test_in_round(sample_events: Sequence[GameEvent]) -> None:
     query = EventStream(sample_events).in_round(2)
     result = list(query)
     assert len(result) == 3
-    assert all(e.current_round == 2 or e.current_round is None for e in result)
+    assert all(e.round == 2 or e.round is None for e in result)
     # The null round is filtered out by the strict equality in in_round
-    assert all(e.current_round == 2 for e in result)
+    assert all(e.round == 2 for e in result)
 
 
 def test_take_while(sample_events: Sequence[GameEvent]) -> None:
-    query = EventStream(sample_events).take_while(
-        lambda e: e.current_round is None or e.current_round < 2
-    )
+    query = EventStream(sample_events).take_while(lambda e: e.round < 2)
     result = list(query)
-    assert len(result) == 4  # 1, 1, 1, None
-    assert all(e.current_round is None or e.current_round < 2 for e in result)
+    assert len(result) == 3  # 1, 1, 1
+    assert all(e.round < 2 for e in result)
 
 
 def test_drop_while(sample_events: Sequence[GameEvent]) -> None:
-    query = EventStream(sample_events).drop_while(
-        lambda e: e.current_round is None or e.current_round < 2
-    )
+    query = EventStream(sample_events).drop_while(lambda e: e.round < 2)
     result = list(query)
     assert len(result) == 4  # 2, 2, 2, 3
-    assert all(
-        e.current_round is not None and e.current_round >= 2 for e in result
-    )
+    assert all(e.round >= 2 for e in result)
 
 
 def test_take_latest_phase_block(sample_events: Sequence[GameEvent]) -> None:
@@ -209,8 +200,8 @@ def test_trivial_predicate(extended_events: Sequence[GameEvent]) -> None:
 def test_composability(extended_events: Sequence[GameEvent]) -> None:
     query = (
         EventStream(extended_events)
-        .drop_while(lambda e: e.current_round is None or e.current_round < 2)
-        .take_while(lambda e: e.current_round is None or e.current_round <= 4)
+        .drop_while(lambda e: e.round < 2)
+        .take_while(lambda e: e.round <= 4)
         .filter(lambda e: e.current_phase == GamePhase.BIDDING)
         .of_type(BiddingEvent)
     )
@@ -218,7 +209,7 @@ def test_composability(extended_events: Sequence[GameEvent]) -> None:
     assert len(result) == 3  # Two bids in round 2, one bid in round 4
     assert all(isinstance(e, BiddingEvent) for e in result)
     assert all(e.current_phase == GamePhase.BIDDING for e in result)
-    assert all(e.current_round in (2, 4) for e in result)
+    assert all(e.round in (2, 4) for e in result)
 
 
 def test_take_latest_phase_block_empty() -> None:

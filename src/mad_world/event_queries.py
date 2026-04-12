@@ -38,11 +38,11 @@ class EventStream[T: GameEvent]:
 
     def in_round(self, round_num: int) -> EventStream[T]:
         """Filter events strictly by round."""
-        return self.filter(lambda e: e.current_round == round_num)
+        return self.filter(lambda e: e.round == round_num)
 
     def in_phase(self, phase: GamePhase) -> EventStream[T]:
         """Filter events strictly by phase."""
-        return self.filter(lambda e: e.current_phase == phase)
+        return self.filter(lambda e: e.phase == phase)
 
     def take_latest_phase_block(self) -> EventStream[T]:
         """Yield events matching the round and phase of the first event,
@@ -58,8 +58,8 @@ class EventStream[T: GameEvent]:
             yield first_event
             yield from itertools.takewhile(
                 lambda e: (
-                    e.current_round == first_event.current_round
-                    and e.current_phase == first_event.current_phase
+                    e.round == first_event.round
+                    and e.phase == first_event.phase
                 ),
                 iterator,
             )
