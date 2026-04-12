@@ -208,3 +208,6 @@ class EventLogQuery[T: GameEvent]:
             it = (e for e in it if predicate(e))
 
         return iter(it)
+
+    def __bool__(self) -> bool:
+        return any(True for _ in self)
