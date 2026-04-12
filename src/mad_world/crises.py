@@ -701,7 +701,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
     def resolve(
         self, game: GameState, actions: dict[str, DoomsdayAsteroidAction]
     ) -> list[GameEvent]:
-        player1, player2 = game.players
+        player1, player2 = game.player_names
         p1_amount, p2_amount = (
             actions[player1].investment,
             actions[player2].investment,
@@ -802,7 +802,7 @@ class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
     def resolve(
         self, game: GameState, actions: dict[str, ProxyWarAction]
     ) -> list[GameEvent]:
-        player1, player2 = game.players
+        player1, player2 = game.player_names
         p1_amount, p2_amount = (
             actions[player1].investment,
             actions[player2].investment,
@@ -869,12 +869,169 @@ class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
         return result
 
 
+class RogueProliferationAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to bid to coordinate "
+            "special operations to disarm the rogue state. This must be less "
+            "than or equal to your current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class RogueProliferationDefs:
+    INF_THRESHOLD: ClassVar[int] = 10
+    WINNER_GDP: ClassVar[int] = 15
+    WINNER_INF: ClassVar[int] = 5
+    LOSER_GDP: ClassVar[int] = -5
+    CLOCK_IMPACT: ClassVar[int] = -10
+
+
+class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
+    card_kind: ClassVar[Literal["rogue-proliferation"]] = "rogue-proliferation"
+
+    @property
+    def action_type(self) -> type[RogueProliferationAction]:
+        return RogueProliferationAction
+
+    title: ClassVar[str] = "Rogue Proliferation"
+    description: ClassVar[str] = (
+        "A rogue, unaligned nation is on the verge of developing nuclear "
+        "weapons. If successful, it would destabilize the global order and "
+        "plunge the world into chaos. Both superpowers must use their soft "
+        "power and coordinate special operations to disarm the threat. "
+        "However, the superpower that contributes the most to the operation "
+        "will be positioned to seize the rogue nation's assets, gaining a "
+        "massive economic advantage at the expense of the other."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to expend towards "
+        "disarming the rogue state. Your bid will be subtracted from your "
+        "current Influence pool. The disarmament requires a combined "
+        f"investment of {RogueProliferationDefs.INF_THRESHOLD} Influence. If "
+        "the total Influence possessed by both players is less than this "
+        "threshold, the players must commit ALL their combined Influence "
+        "instead. If the players fail to meet the required threshold, the "
+        "rogue state detonates a nuclear device, triggering global collapse "
+        "and ending the game. If the threshold is met, the Doomsday Clock "
+        f"recedes by {abs(RogueProliferationDefs.CLOCK_IMPACT)}. The player "
+        "who bids the *most* Influence secures the rogue nation's assets, "
+        f"gaining {RogueProliferationDefs.WINNER_GDP} GDP and "
+        f"{RogueProliferationDefs.WINNER_INF} Influence. The player who bids "
+        "the *least* suffers a geopolitical setback, losing "
+        f"{abs(RogueProliferationDefs.LOSER_GDP)} GDP. If both players bid "
+        "the same amount, no one gains or loses any GDP or Influence."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> RogueProliferationAction:
+        max_bid = game.players[player].influence
+        half_bid = RogueProliferationDefs.INF_THRESHOLD // 2
+        bid = (
+            min(max_bid, half_bid + 2) if aggressive else min(max_bid, half_bid)
+        )
+        return RogueProliferationAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, RogueProliferationAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+        total_available_inf = sum(p.influence for p in game.players.values())
+        required_inf = min(
+            RogueProliferationDefs.INF_THRESHOLD, total_available_inf
+        )
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} Influence.",
+                influence_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} Influence.",
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment < required_inf:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The factions failed to coordinate their operations "
+                        "in time. The rogue state successfully detonates a "
+                        "nuclear device, destabilizing the globe and "
+                        "triggering a chain reaction of nuclear launches. "
+                        "No one survives."
+                    ),
+                    world_ending=True,
+                )
+            )
+            return result
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers contributed equally to disarming "
+                        "the rogue state. The threat is neutralized, and "
+                        "the doomsday clock recedes, but neither side manages "
+                        "to seize the rogue state's assets."
+                    ),
+                    clock_delta=RogueProliferationDefs.CLOCK_IMPACT,
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount > p2_amount else player2
+        loser = player2 if winner == player1 else player1
+
+        result.append(
+            SystemEvent(
+                description=(
+                    "The rogue state is successfully disarmed. "
+                    f"{winner} leveraged their superior intelligence network "
+                    "to seize the rogue nation's lucrative assets, scoring a "
+                    f"massive victory at the expense of {loser}."
+                ),
+                gdp_delta={
+                    winner: RogueProliferationDefs.WINNER_GDP,
+                    loser: RogueProliferationDefs.LOSER_GDP,
+                },
+                influence_delta={winner: RogueProliferationDefs.WINNER_INF},
+                clock_delta=RogueProliferationDefs.CLOCK_IMPACT,
+            )
+        )
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
     *(ProxyWarCrisis() for _ in range(2)),
     *(NuclearMeltdownCrisis() for _ in range(2)),
+    *(RogueProliferationCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
