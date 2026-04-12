@@ -29,6 +29,9 @@ from mad_world.crises import (
     ProxyWarAction,
     ProxyWarCrisis,
     ProxyWarDefs,
+    RogueProliferationAction,
+    RogueProliferationCrisis,
+    RogueProliferationDefs,
     StandoffAction,
     StandoffCrisis,
 )
@@ -538,3 +541,144 @@ class TestProxyWarCrisis:
         assert "geopolitical victory" in win_event.description
         assert win_event.clock_delta == ProxyWarDefs.CLOCK_IMPACT
         assert win_event.gdp_delta == {"Omega": ProxyWarDefs.WINNER_GDP}
+
+
+class TestRogueProliferationAction:
+    def test_validate_semantics_success(self, basic_game: GameState) -> None:
+        action = RogueProliferationAction(investment=5)
+        # Should not raise
+        action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_insufficient_influence(
+        self, basic_game: GameState
+    ) -> None:
+        action = RogueProliferationAction(investment=20)
+        with pytest.raises(InsufficientInfluenceError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_negative_investment(
+        self, basic_game: GameState
+    ) -> None:
+        action = RogueProliferationAction(investment=-5)
+        with pytest.raises(InvalidInfluenceAmountError):
+            action.validate_semantics(basic_game, "Alpha")
+
+
+class TestRogueProliferationCrisis(
+    CrisisTestBase[RogueProliferationAction, RogueProliferationCrisis]
+):
+    @pytest.fixture
+    @override
+    def crisis(self) -> RogueProliferationCrisis:
+        return RogueProliferationCrisis()
+
+    @pytest.fixture
+    def default_action(self) -> RogueProliferationAction:
+        return RogueProliferationAction(investment=5)
+
+    def test_action_type(self, crisis: RogueProliferationCrisis) -> None:
+        assert crisis.action_type is RogueProliferationAction
+
+    def test_resolve_success_winner(
+        self, basic_game: GameState, crisis: RogueProliferationCrisis
+    ) -> None:
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": RogueProliferationAction(investment=6),
+                "Omega": RogueProliferationAction(investment=4),
+            },
+        )
+
+        assert len(events) == 3
+        # Cost events
+        assert events[0].influence_delta == {"Alpha": -6}
+        assert events[1].influence_delta == {"Omega": -4}
+
+        # Resolution event
+        assert not events[2].world_ending
+        assert events[2].clock_delta == RogueProliferationDefs.CLOCK_IMPACT
+        assert events[2].gdp_delta == {
+            "Alpha": RogueProliferationDefs.WINNER_GDP,
+            "Omega": RogueProliferationDefs.LOSER_GDP,
+        }
+        assert events[2].influence_delta == {
+            "Alpha": RogueProliferationDefs.WINNER_INF
+        }
+
+    def test_resolve_success_tie(
+        self, basic_game: GameState, crisis: RogueProliferationCrisis
+    ) -> None:
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": RogueProliferationAction(investment=5),
+                "Omega": RogueProliferationAction(investment=5),
+            },
+        )
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -5}
+        assert events[1].influence_delta == {"Omega": -5}
+
+        assert not events[2].world_ending
+        assert events[2].clock_delta == RogueProliferationDefs.CLOCK_IMPACT
+        assert events[2].gdp_delta == {}
+        assert events[2].influence_delta == {}
+
+    def test_resolve_failure(
+        self, basic_game: GameState, crisis: RogueProliferationCrisis
+    ) -> None:
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": RogueProliferationAction(investment=2),
+                "Omega": RogueProliferationAction(investment=2),
+            },
+        )
+
+        assert len(events) == 3
+        assert events[0].influence_delta == {"Alpha": -2}
+        assert events[1].influence_delta == {"Omega": -2}
+
+        assert events[2].world_ending
+
+    def test_resolve_insufficient_total_inf(
+        self, basic_game: GameState, crisis: RogueProliferationCrisis
+    ) -> None:
+        basic_game.players["Alpha"].influence = 2
+        basic_game.players["Omega"].influence = 2
+
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": RogueProliferationAction(investment=2),
+                "Omega": RogueProliferationAction(investment=2),
+            },
+        )
+
+        assert len(events) == 3
+        assert not events[2].world_ending
+        assert events[2].clock_delta == RogueProliferationDefs.CLOCK_IMPACT
+        assert events[2].gdp_delta == {}
+        assert events[2].influence_delta == {}
+
+    def test_get_default_action(
+        self, basic_game: GameState, crisis: RogueProliferationCrisis
+    ) -> None:
+        basic_game.players["Alpha"].influence = 10
+
+        aggressive = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=True
+        )
+        assert aggressive.investment == 7
+
+        cautious = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=False
+        )
+        assert cautious.investment == 5
+
+        # Test capping by available influence
+        basic_game.players["Alpha"].influence = 3
+        capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
+        assert capped.investment == 3
