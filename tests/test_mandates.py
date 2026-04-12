@@ -21,6 +21,7 @@ from mad_world.mandates import (
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     MilitaryIndustrialComplexMandate,
+    MoralHighGroundMandate,
     PacifistUtopiaMandate,
     PopularJingoismMandate,
     SleepingGiantMandate,
@@ -66,7 +67,7 @@ def test_check_endgame_mandates() -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 9
+    assert len(deck) == 10
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -454,3 +455,118 @@ def test_military_industrial_complex_mandate() -> None:
     assert isinstance(event, MandateFulfilledEvent)
     assert event.gdp_delta == {"Alpha": 10}
     assert event.influence_delta == {"Alpha": 2}
+
+
+def test_moral_high_ground_mandate() -> None:
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+    mandate = MoralHighGroundMandate()
+
+    # Not met by default
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.last_phase = GamePhase.BIDDING
+    game.last_round = 1
+
+    # Still not met
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Positive Case: Alpha bids 0, Omega bids 5
+    game.event_log.extend(
+        [
+            BiddingEvent(
+                description="Alpha bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Alpha"),
+                bid=0,
+            ),
+            BiddingEvent(
+                description="Omega bid 5",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Omega"),
+                bid=5,
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is True
+    # Omega does not meet it because they bid 5, not 0
+    assert mandate.is_met(game, "Omega") is False
+
+    # Verify reward logic
+    events = mandate.reward(game, "Alpha")
+    assert len(events) == 1
+    sys_event = events[0]
+    assert isinstance(sys_event, MandateFulfilledEvent)
+    assert sys_event.gdp_delta == {"Alpha": 10}
+    assert sys_event.influence_delta == {"Alpha": 2}
+
+    # Reset event log for negative cases
+    game.event_log = []
+
+    # Negative Case 1: Alpha bids 0, Omega bids 3 (less than 5)
+    game.event_log.extend(
+        [
+            BiddingEvent(
+                description="Alpha bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Alpha"),
+                bid=0,
+            ),
+            BiddingEvent(
+                description="Omega bid 3",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Omega"),
+                bid=3,
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.event_log = []
+
+    # Negative Case 2: Alpha bids 1 (more than 0), Omega bids 5
+    game.event_log.extend(
+        [
+            BiddingEvent(
+                description="Alpha bid 1",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Alpha"),
+                bid=1,
+            ),
+            BiddingEvent(
+                description="Omega bid 5",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Omega"),
+                bid=5,
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.event_log = []
+
+    # Negative Case 3: Both bid 0
+    game.event_log.extend(
+        [
+            BiddingEvent(
+                description="Alpha bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Alpha"),
+                bid=0,
+            ),
+            BiddingEvent(
+                description="Omega bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Omega"),
+                bid=0,
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
