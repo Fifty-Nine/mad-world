@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING, ClassVar
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import GamePhase
-from mad_world.events import PlayerActor, SystemEvent
+from mad_world.events import (
+    BiddingEvent,
+    OperationConductedEvent,
+    PlayerActor,
+    SystemEvent,
+)
 
 if TYPE_CHECKING:
     import random
@@ -223,23 +228,12 @@ class PopularJingoismMandate(InstantMandate):
             return False
 
         def _check_event(e: GameEvent) -> bool:
-            # FIXME This is really sloppy. We should introduce a bidding event
-            # that records the exact value of the bid rather than doing this
-            # string parsing.
-            if (
-                e.current_phase != GamePhase.BIDDING
-                or not e.done_by_player(player_name)
-                or "bid " not in e.description
-            ):
-                return False
-            try:
-                words = e.description.split()
-                idx = words.index("bid")
-                bid_val = int(words[idx + 1])
-            except (ValueError, IndexError):
-                return False
-            else:
-                return bid_val >= PopularJingoismDefs.MIN_BID
+            return (
+                isinstance(e, BiddingEvent)
+                and e.current_phase == GamePhase.BIDDING
+                and e.done_by_player(player_name)
+                and e.bid >= PopularJingoismDefs.MIN_BID
+            )
 
         for event in reversed(game.event_log):
             if event.current_round != game.current_round:
@@ -285,13 +279,12 @@ class SpaceRaceMandate(InstantMandate):
         # round number is incremented.
         target_round = game.current_round - 1
 
-        # FIXME As with PopularJingoism, we really need a custom
-        # OperationsEvent to make this check robust.
         def _check_event(e: GameEvent) -> bool:
             return (
-                e.current_phase == GamePhase.OPERATIONS
+                isinstance(e, OperationConductedEvent)
+                and e.current_phase == GamePhase.OPERATIONS
                 and e.done_by_player(player_name)
-                and SpaceRaceDefs.TARGET_OP in e.description
+                and e.operation == SpaceRaceDefs.TARGET_OP
             )
 
         def _correct_phase(e: GameEvent) -> bool:
@@ -359,9 +352,10 @@ class CounterIntelligenceMandate(InstantMandate):
 
         def _check_event(e: GameEvent) -> bool:
             return (
-                e.current_phase == GamePhase.OPERATIONS
+                isinstance(e, OperationConductedEvent)
+                and e.current_phase == GamePhase.OPERATIONS
                 and e.done_by_player(opponent_name)
-                and CounterIntelligenceDefs.TARGET_OP in e.description
+                and e.operation == CounterIntelligenceDefs.TARGET_OP
             )
 
         for event in reversed(game.event_log):
@@ -480,22 +474,16 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
         )
 
         player_conducted_op = any(
-            e.done_by_player(player_name)
-            and (
-                "successfully conducted a "
-                f"{MilitaryIndustrialComplexDefs.PLAYER_OP}"
-            )
-            in e.description.strip()
+            isinstance(e, OperationConductedEvent)
+            and e.done_by_player(player_name)
+            and e.operation == MilitaryIndustrialComplexDefs.PLAYER_OP
             for e in events_in_phase
         )
 
         opponent_conducted_op = any(
-            e.done_by_player(opponent_name)
-            and (
-                "successfully conducted a "
-                f"{MilitaryIndustrialComplexDefs.OPPONENT_OP}"
-            )
-            in e.description.strip()
+            isinstance(e, OperationConductedEvent)
+            and e.done_by_player(opponent_name)
+            and e.operation == MilitaryIndustrialComplexDefs.OPPONENT_OP
             for e in events_in_phase
         )
 
