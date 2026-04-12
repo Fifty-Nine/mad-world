@@ -7,7 +7,7 @@ from typing import Any, overload
 import pytest
 
 from mad_world.enums import GamePhase
-from mad_world.event_queries import EventStream
+from mad_world.event_stream import EventStream
 from mad_world.events import (
     BiddingEvent,
     GameEvent,
