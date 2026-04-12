@@ -34,6 +34,7 @@ from mad_world.events import (
     BaseGameEvent,
     BiddingEvent,
     ChannelOpenedEvent,
+    ChannelRejectedEvent,
     CrisisResolutionEvent,
     GameEvent,
     MandateFulfilledEvent,
@@ -805,6 +806,30 @@ async def resolve_chat_channel(
         initiator = PlayerActor(name=alpha_name)
     elif omega_msg.requests_channel() and alpha_msg.accepts_channel():
         initiator = PlayerActor(name=omega_name)
+    elif alpha_msg.requests_channel() and omega_msg.rejects_channel():
+        new_game.apply_event(
+            ChannelRejectedEvent(
+                description=(
+                    "A request for a direct communication channel by "
+                    f"{alpha_name} was rejected by {omega_name}."
+                ),
+                initiator=PlayerActor(name=alpha_name),
+                actor=PlayerActor(name=omega_name),
+            )
+        )
+        return
+    elif omega_msg.requests_channel() and alpha_msg.rejects_channel():
+        new_game.apply_event(
+            ChannelRejectedEvent(
+                description=(
+                    "A request for a direct communication channel by "
+                    f"{omega_name} was rejected by {alpha_name}."
+                ),
+                initiator=PlayerActor(name=omega_name),
+                actor=PlayerActor(name=alpha_name),
+            )
+        )
+        return
     else:
         return
 
@@ -1100,6 +1125,7 @@ ActionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 BiddingEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 ChannelOpenedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+ChannelRejectedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
