@@ -470,27 +470,27 @@ def test_moral_high_ground_mandate() -> None:
     # Still not met
     assert mandate.is_met(game, "Alpha") is False
 
-    # Positive Case: Alpha bids 5, Omega bids 0
+    # Positive Case: Alpha bids 0, Omega bids 5
     game.event_log.extend(
         [
             BiddingEvent(
-                description="Alpha bid 5",
+                description="Alpha bid 0",
                 current_phase=GamePhase.BIDDING,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
-                bid=5,
+                bid=0,
             ),
             BiddingEvent(
-                description="Omega bid 0",
+                description="Omega bid 5",
                 current_phase=GamePhase.BIDDING,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
-                bid=0,
+                bid=5,
             ),
         ]
     )
     assert mandate.is_met(game, "Alpha") is True
-    # Omega does not meet it because Alpha bid > 0
+    # Omega does not meet it because they bid 5, not 0
     assert mandate.is_met(game, "Omega") is False
 
     # Verify reward logic
@@ -504,45 +504,22 @@ def test_moral_high_ground_mandate() -> None:
     # Reset event log for negative cases
     game.event_log = []
 
-    # Negative Case 1: Alpha bids 3 (less than 5), Omega bids 0
+    # Negative Case 1: Alpha bids 0, Omega bids 3 (less than 5)
     game.event_log.extend(
         [
             BiddingEvent(
-                description="Alpha bid 3",
+                description="Alpha bid 0",
                 current_phase=GamePhase.BIDDING,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
-                bid=3,
-            ),
-            BiddingEvent(
-                description="Omega bid 0",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
                 bid=0,
             ),
-        ]
-    )
-    assert mandate.is_met(game, "Alpha") is False
-
-    game.event_log = []
-
-    # Negative Case 2: Alpha bids 5, Omega bids 1 (more than 0)
-    game.event_log.extend(
-        [
             BiddingEvent(
-                description="Alpha bid 5",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                bid=5,
-            ),
-            BiddingEvent(
-                description="Omega bid 1",
+                description="Omega bid 3",
                 current_phase=GamePhase.BIDDING,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
-                bid=1,
+                bid=3,
             ),
         ]
     )
@@ -550,15 +527,15 @@ def test_moral_high_ground_mandate() -> None:
 
     game.event_log = []
 
-    # Negative Case 3: Both bid 5
+    # Negative Case 2: Alpha bids 1 (more than 0), Omega bids 5
     game.event_log.extend(
         [
             BiddingEvent(
-                description="Alpha bid 5",
+                description="Alpha bid 1",
                 current_phase=GamePhase.BIDDING,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
-                bid=5,
+                bid=1,
             ),
             BiddingEvent(
                 description="Omega bid 5",
@@ -566,6 +543,29 @@ def test_moral_high_ground_mandate() -> None:
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
                 bid=5,
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.event_log = []
+
+    # Negative Case 3: Both bid 0
+    game.event_log.extend(
+        [
+            BiddingEvent(
+                description="Alpha bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Alpha"),
+                bid=0,
+            ),
+            BiddingEvent(
+                description="Omega bid 0",
+                current_phase=GamePhase.BIDDING,
+                current_round=1,
+                actor=PlayerActor(name="Omega"),
+                bid=0,
             ),
         ]
     )

@@ -403,8 +403,8 @@ class CoolerHeadsMandate(InstantMandate):
 
 
 class MoralHighGroundDefs:
-    PLAYER_MIN_BID: ClassVar[int] = 5
-    OPPONENT_MAX_BID: ClassVar[int] = 0
+    PLAYER_MAX_BID: ClassVar[int] = 0
+    OPPONENT_MIN_BID: ClassVar[int] = 5
     REWARD_GDP: ClassVar[int] = 10
     REWARD_INF: ClassVar[int] = 2
 
@@ -413,9 +413,9 @@ class MoralHighGroundMandate(InstantMandate):
     card_kind: ClassVar[str] = "moral_high_ground"
     title: ClassVar[str] = "Moral High Ground"
     description: ClassVar[str] = (
-        f"If you bid {MoralHighGroundDefs.PLAYER_MIN_BID} or more while your "
-        f"opponent bids {MoralHighGroundDefs.OPPONENT_MAX_BID} in the same "
-        f"round, gain {MoralHighGroundDefs.REWARD_GDP} GDP and "
+        f"If you bid {MoralHighGroundDefs.PLAYER_MAX_BID} or less while your "
+        f"opponent bids {MoralHighGroundDefs.OPPONENT_MIN_BID} or more in the "
+        f"same round, gain {MoralHighGroundDefs.REWARD_GDP} GDP and "
         f"{MoralHighGroundDefs.REWARD_INF} influence."
     )
 
@@ -440,21 +440,21 @@ class MoralHighGroundMandate(InstantMandate):
             )
         )
 
-        player_bid_high = any(
+        player_bid_zero = any(
             isinstance(e, BiddingEvent)
             and e.done_by_player(player_name)
-            and e.bid >= MoralHighGroundDefs.PLAYER_MIN_BID
+            and e.bid <= MoralHighGroundDefs.PLAYER_MAX_BID
             for e in events_in_phase
         )
 
-        opponent_bid_zero = any(
+        opponent_bid_high = any(
             isinstance(e, BiddingEvent)
             and e.done_by_player(opponent_name)
-            and e.bid <= MoralHighGroundDefs.OPPONENT_MAX_BID
+            and e.bid >= MoralHighGroundDefs.OPPONENT_MIN_BID
             for e in events_in_phase
         )
 
-        return player_bid_high and opponent_bid_zero
+        return player_bid_zero and opponent_bid_high
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
