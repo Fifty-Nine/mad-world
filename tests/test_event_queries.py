@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from collections.abc import Sequence
 from typing import Any, overload
 
@@ -51,6 +52,23 @@ def sample_events() -> Sequence[GameEvent]:
         make_bidding_event(2, GamePhase.BIDDING, 15),
         make_system_event(3, GamePhase.ROUND_EVENTS, "4"),
     ]
+
+
+@pytest.fixture
+def extended_events(sample_events: Sequence[GameEvent]) -> Sequence[GameEvent]:
+    return list(
+        itertools.chain.from_iterable(
+            [
+                sample_events,
+                (
+                    x.model_copy(
+                        update={"current_round": (x.current_round or 0) + 3}
+                    )
+                    for x in sample_events
+                ),
+            ]
+        )
+    )
 
 
 def test_empty_events() -> None:
@@ -214,4 +232,51 @@ def test_bool_operator(sample_events: Sequence[GameEvent]) -> None:
     assert not query
 
     query = query.in_recent_phase()
+    assert not query
+
+
+@pytest.mark.xfail(reason="in_recent_phase does not compose correctly.")
+def test_nonoverlapping_recent_phase(
+    sample_events: Sequence[GameEvent],
+) -> None:
+    query = EventLogQuery(sample_events).in_recent_phase().in_round(1)
+    assert not query
+
+
+def test_nonoverlapping_round_filters(
+    sample_events: Sequence[GameEvent],
+) -> None:
+    query = EventLogQuery(sample_events).in_round(1).in_round(3)
+    assert not query
+
+
+def test_nonoverlapping_rounds_filters(
+    extended_events: Sequence[GameEvent],
+) -> None:
+    query = EventLogQuery(extended_events).in_rounds(1, 3).in_rounds(4, 6)
+    assert not query
+
+
+def test_reversed_rounds_filter(sample_events: Sequence[GameEvent]) -> None:
+    query = EventLogQuery(sample_events).in_rounds(3, 1)
+    assert not query
+
+
+def test_trivial_predicate(extended_events: Sequence[GameEvent]) -> None:
+    query = EventLogQuery(list(extended_events)).filter(lambda _: False)
+    assert not query
+
+    query = EventLogQuery(list(extended_events)).filter(lambda _: True)
+    assert list(query) == list(extended_events)
+
+
+def test_reverse_null_filters(extended_events: Sequence[GameEvent]) -> None:
+    query = (
+        EventLogQuery(list(extended_events)).filter(lambda _: False).reverse()
+    )
+    assert not query
+
+    query = (
+        EventLogQuery(list(extended_events)).reverse().filter(lambda _: False)
+    )
     assert not query
