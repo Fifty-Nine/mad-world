@@ -706,3 +706,11 @@ def test_my_strategy(test_player: Any) -> None:
 
     strategy_text_compressed = test_player.my_strategy(for_compression=True)
     assert "original grand strategy" in strategy_text_compressed
+
+
+@pytest.mark.asyncio
+async def test_used_channels(test_player: Any, basic_game: GameState) -> None:
+    basic_game.rules.max_channels_per_game = 0
+    assert "You have used your quota" in test_player.format_channel_prompt(
+        basic_game
+    )

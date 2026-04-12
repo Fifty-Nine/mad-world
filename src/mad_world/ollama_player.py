@@ -1224,10 +1224,33 @@ class OllamaPlayer(GamePlayer):
             {"role": "user", "content": prompt + (schema or "")},
         )
 
+    def format_channel_prompt(self, game: GameState) -> str:
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
+        if channels_left == 0:
+            return (
+                "You have used your quota of initiated channels for this game, "
+                "but you may still accept requests from your opponent if you "
+                "so choose."
+            )
+
+        return (
+            "You also must indicate your preference for opening a direct "
+            "back-and-forth communication channel. You have are limited in "
+            "the number of channels you can open. Your current quota is: "
+            f"{channels_left} channels. Only successfully opened channels "
+            "that you have requested (not accepted) are counted against "
+            "your quota. Mutual requests are counted against both players' "
+            "quotas.\n"
+        )
+
     @override
     async def chat(
         self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
+        class ChatResponse(ActionResponse):
+            action: ChatAction
+
         channels_opened = game.players[self.name].channels_opened
         channels_left = game.rules.max_channels_per_game - channels_opened
         prompt = (
@@ -1241,16 +1264,19 @@ class OllamaPlayer(GamePlayer):
         )
         if last_message is None:
             prompt += (
-                "\nYou initiated this channel, so it is up to you to send the "
+                " You initiated this channel, so it is up to you to send the "
                 "first message in the conversation."
             )
         else:
-            prompt += f"\nYour opponent's last message was:\n> {last_message}"
+            prompt += (
+                " Your opponent's last message was:\n"
+                + wrap_text(last_message, indent="> ")
+                + "\n\n"
+            )
 
-        self.add_prompt(prompt, game.current_phase, None)
-
-        class ChatResponse(ActionResponse):
-            action: ChatAction
+        self.add_prompt(
+            prompt, game.current_phase, ChatResponse.prompt_schema()
+        )
 
         result = await self.retry_action(ChatResponse, game)
         if result is None:
@@ -1263,8 +1289,6 @@ class OllamaPlayer(GamePlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = self.format_game_state(game)
-        channels_opened = game.players[self.name].channels_opened
-        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             "You may now provide your initial message to your opponent. "
             "Each turn you will be allowed to send one message, as will your "
@@ -1274,10 +1298,8 @@ class OllamaPlayer(GamePlayer):
             "to inquiries, issue threats, etc. Remember to explicitly "
             "identify yourself by your chosen name and title in your first "
             "message.\n"
-            "You also must indicate your preference for opening a direct "
-            "back-and-forth communication channel. You have "
-            f"{channels_left} channels left to participate in this game.\n"
         )
+        prompt += self.format_channel_prompt(game)
         self.add_prompt(
             prompt,
             GamePhase.OPENING,
@@ -1302,17 +1324,13 @@ class OllamaPlayer(GamePlayer):
             if game.current_phase == GamePhase.BIDDING_MESSAGING
             else "OPERATIONS"
         )
-        channels_opened = game.players[self.name].channels_opened
-        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             f"You may now provide a message to your opponent. They will see "
             f"this message BEFORE they commit to their actions in the upcoming "
             f"{target_phase} phase. Use this channel to conduct diplomacy, "
             f"respond to inquiries, issue threats, etc.\n"
-            f"You also must indicate your preference for opening a direct "
-            f"back-and-forth communication channel. You have {channels_left} "
-            f"channels left to participate in this game.\n"
         )
+        prompt += self.format_channel_prompt(game)
         self.add_prompt(
             prompt,
             game.current_phase,
@@ -1337,18 +1355,14 @@ class OllamaPlayer(GamePlayer):
         if crisis.additional_prompt:
             prompt += f"{crisis.additional_prompt}\n\n"
 
-        channels_opened = game.players[self.name].channels_opened
-        channels_left = game.rules.max_channels_per_game - channels_opened
         prompt += (
             "You are currently in the Crisis Messaging Phase. "
             "You may now provide a single message to your opponent. "
             "They will see this message BEFORE they commit to their action "
             "in the upcoming Crisis Resolution phase. Use this channel to "
             "conduct diplomacy, threaten, or deceive your opponent.\n"
-            "You also must indicate your preference for opening a direct "
-            "back-and-forth communication channel. You have "
-            f"{channels_left} channels left to participate in this game.\n"
         )
+        prompt += self.format_channel_prompt(game)
 
         self.add_prompt(
             prompt,

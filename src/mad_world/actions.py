@@ -77,9 +77,9 @@ class InvalidOperationError(InvalidActionError):
 class InvalidChannelRequestError(InvalidActionError):
     def __init__(self, *, limit: int) -> None:
         super().__init__(
-            f"INVALID CHANNEL PREFERENCE: You have already opened "
-            f"or participated in {limit} channels this game and cannot "
-            f"request any more."
+            f"INVALID CHANNEL PREFERENCE: You have already successfully "
+            f"requested {limit} channels this game and cannot "
+            "request any more."
         )
 
 
