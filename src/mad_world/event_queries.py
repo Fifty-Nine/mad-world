@@ -153,9 +153,6 @@ class EventLogQuery[T: GameEvent]:
                     it,
                 )
 
-        if start_r is not None or end_r is not None:
-            it = (e for e in it if e.current_round is not None)
-
         if start_r is not None:
             it = (
                 e
