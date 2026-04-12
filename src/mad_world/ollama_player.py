@@ -524,8 +524,8 @@ class OllamaPlayer(GamePlayer):
     async def elaborate_persona(self) -> None:
         """Expands a trivial persona into a detailed system prompt and summary.
 
-        Uses the LLM to generate a GrandStrategy aligned with the
-        trivial persona.
+        Uses the LLM to generate character descriptions and instructions
+        aligned with the trivial persona.
         """
         # If the user already provided an elaborated persona, we don't
         # ask the model to elaborate.
@@ -1264,7 +1264,7 @@ class OllamaPlayer(GamePlayer):
     async def chat(
         self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
-        """Handles back-and-forth channel communication with the opponent."""
+        """Generates a single message for an active communication channel."""
 
         class ChatResponse(ActionResponse):
             action: ChatAction
