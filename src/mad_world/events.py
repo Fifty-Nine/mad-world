@@ -51,6 +51,7 @@ class EventKind(StrEnum):
     BIDDING = "bidding"
     OPERATION_CONDUCTED = "operation_conducted"
     CRISIS_RESOLUTION = "crisis_resolution"
+    MANDATE_FULFILLED = "mandate_fulfilled"
 
 
 class BaseGameEvent(BaseModel):
@@ -144,6 +145,13 @@ class CrisisResolutionEvent(BaseActionEvent):
     )
 
 
+class MandateFulfilledEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.MANDATE_FULFILLED] = Field(
+        default=EventKind.MANDATE_FULFILLED
+    )
+    mandate_title: str
+
+
 class MessageEvent(BaseGameEvent):
     event_kind: Literal[EventKind.MESSAGE] = Field(default=EventKind.MESSAGE)
     actor: PlayerActor
@@ -160,6 +168,7 @@ GameEvent = Annotated[
     | MessageEvent
     | BiddingEvent
     | OperationConductedEvent
-    | CrisisResolutionEvent,
+    | CrisisResolutionEvent
+    | MandateFulfilledEvent,
     Field(discriminator="event_kind"),
 ]

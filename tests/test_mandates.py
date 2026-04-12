@@ -11,9 +11,9 @@ from mad_world.enums import GamePhase
 from mad_world.events import (
     BiddingEvent,
     GameEvent,
+    MandateFulfilledEvent,
     OperationConductedEvent,
     PlayerActor,
-    SystemEvent,
 )
 from mad_world.mandates import (
     AccelerationistMandate,
@@ -49,7 +49,13 @@ def test_check_endgame_mandates() -> None:
         def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
             with contextlib.suppress(NotImplementedError):
                 BaseMandate.reward(self, game, player_name)
-            return [SystemEvent(description="test")]
+            return [
+                MandateFulfilledEvent(
+                    actor=PlayerActor(name=player_name),
+                    mandate_title=self.title,
+                    description="test",
+                )
+            ]
 
     m2 = MockEndgameMandate()
     game.players["Alpha"].mandates.append(m2)
@@ -521,6 +527,6 @@ def test_military_industrial_complex_mandate() -> None:
     events = mandate.reward(game, "Alpha")
     assert len(events) == 1
     event = events[0]
-    assert isinstance(event, SystemEvent)
+    assert isinstance(event, MandateFulfilledEvent)
     assert event.gdp_delta == {"Alpha": 10}
     assert event.influence_delta == {"Alpha": 2}
