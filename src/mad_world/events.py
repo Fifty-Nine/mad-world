@@ -52,6 +52,7 @@ class EventKind(StrEnum):
     OPERATION_CONDUCTED = "operation_conducted"
     CRISIS_RESOLUTION = "crisis_resolution"
     MANDATE_FULFILLED = "mandate_fulfilled"
+    CHANNEL_OPENED = "channel_opened"
 
 
 class BaseGameEvent(BaseModel):
@@ -97,6 +98,10 @@ class BaseGameEvent(BaseModel):
             "Shift the given number of blame cubes from the event "
             "actor to another."
         ),
+    )
+    channels_opened: dict[str, int] = Field(
+        default_factory=dict,
+        description="The change to per-player channel quotas.",
     )
 
     def done_by_player(self, name: str) -> bool:
@@ -165,6 +170,19 @@ class MessageEvent(BaseGameEvent):
         return self.actor.name == name
 
 
+class ChannelOpenedEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.CHANNEL_OPENED] = Field(
+        default=EventKind.CHANNEL_OPENED
+    )
+    actor: SystemActor = Field(default_factory=SystemActor)
+    initiator: PlayerActor | None = Field(
+        description=(
+            "The player that requested the channel, "
+            "or None if both players requested it."
+        )
+    )
+
+
 GameEvent = Annotated[
     SystemEvent
     | StateEvent
@@ -173,6 +191,7 @@ GameEvent = Annotated[
     | BiddingEvent
     | OperationConductedEvent
     | CrisisResolutionEvent
-    | MandateFulfilledEvent,
+    | MandateFulfilledEvent
+    | ChannelOpenedEvent,
     Field(discriminator="event_kind"),
 ]

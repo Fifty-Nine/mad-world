@@ -48,6 +48,7 @@ from mad_world.enums import GameOverReason, GamePhase, OpenChannelPreference
 from mad_world.events import (
     ActionEvent,
     ActorKind,
+    ChannelOpenedEvent,
     OperationConductedEvent,
     PlayerActor,
     SystemActor,
@@ -191,13 +192,10 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
 
     assert basic_game.players["Alpha"].channels_opened == 1
-    assert basic_game.players["Omega"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 0
 
     events = basic_game.event_log
-    assert any(
-        "A direct communication channel has been opened." in e.description
-        for e in events
-    )
+    assert any(isinstance(e, ChannelOpenedEvent) for e in events)
 
 
 @pytest.mark.asyncio
@@ -221,6 +219,7 @@ async def test_resolve_chat_channel_double_request(
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
 
     assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 1
 
 
 @pytest.mark.asyncio
@@ -243,7 +242,8 @@ async def test_resolve_chat_channel_omega_request(
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
 
-    assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Alpha"].channels_opened == 0
+    assert basic_game.players["Omega"].channels_opened == 1
 
 
 @pytest.mark.asyncio
@@ -267,6 +267,7 @@ async def test_resolve_chat_channel_max_messages(
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
 
     assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 0
 
     events = basic_game.event_log
     assert any(

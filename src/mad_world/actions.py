@@ -111,6 +111,15 @@ class MessagingAction(BaseAction):
         ):
             raise InvalidChannelRequestError(limit=limit)
 
+    def requests_channel(self) -> bool:
+        return self.channel_preference == OpenChannelPreference.REQUEST
+
+    def accepts_channel(self) -> bool:
+        return self.channel_preference in (
+            OpenChannelPreference.REQUEST,
+            OpenChannelPreference.ACCEPT,
+        )
+
 
 class ChatAction(BaseAction):
     message: str = Field(

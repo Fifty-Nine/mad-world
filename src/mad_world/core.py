@@ -27,12 +27,13 @@ from mad_world.actions import (
 from mad_world.crises import BaseCrisis, create_crisis_deck
 from mad_world.decks import Deck
 from mad_world.effects import BaseEffect
-from mad_world.enums import GameOverReason, GamePhase, OpenChannelPreference
+from mad_world.enums import GameOverReason, GamePhase
 from mad_world.event_cards import BaseEventCard, create_event_deck
 from mad_world.events import (
     ActionEvent,
     BaseGameEvent,
     BiddingEvent,
+    ChannelOpenedEvent,
     CrisisResolutionEvent,
     GameEvent,
     MandateFulfilledEvent,
@@ -316,6 +317,7 @@ class GameState(BaseModel):
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
             player.influence = max(0, player.influence)
+            player.channels_opened += event.channels_opened.get(player_name, 0)
 
         for effect in event.new_effects:
             effect.start_round = self.current_round
@@ -792,31 +794,32 @@ async def resolve_chat_channel(
     alpha_msg: MessagingAction,
     omega_msg: MessagingAction,
 ) -> None:
-    alpha_pref = alpha_msg.channel_preference
-    omega_pref = omega_msg.channel_preference
+    initiator: PlayerActor | None = None
+    alpha_name, omega_name = new_game.player_names
 
-    channel_open = False
-    if (
-        alpha_pref == OpenChannelPreference.REQUEST
-        and omega_pref
-        in (OpenChannelPreference.ACCEPT, OpenChannelPreference.REQUEST)
-    ) or (
-        omega_pref == OpenChannelPreference.REQUEST
-        and alpha_pref
-        in (OpenChannelPreference.ACCEPT, OpenChannelPreference.REQUEST)
-    ):
-        channel_open = True
-
-    if not channel_open:
+    if alpha_msg.requests_channel() and omega_msg.requests_channel():
+        initiator = None
+    elif alpha_msg.requests_channel() and omega_msg.accepts_channel():
+        initiator = PlayerActor(name=alpha_name)
+    elif omega_msg.requests_channel() and alpha_msg.accepts_channel():
+        initiator = PlayerActor(name=omega_name)
+    else:
         return
 
-    alpha_name, omega_name = new_game.player_names
-    new_game.players[alpha_name].channels_opened += 1
-    new_game.players[omega_name].channels_opened += 1
+    initiator_desc = f" by {initiator.name}" if initiator is not None else ""
 
     new_game.apply_event(
-        SystemEvent(
-            description="A direct communication channel has been opened.",
+        ChannelOpenedEvent(
+            description=(
+                "A direct communication channel has been opened"
+                f"{initiator_desc}."
+            ),
+            initiator=initiator,
+            channels_opened={
+                p: 1
+                for p in new_game.player_names
+                if initiator is None or initiator.name == p
+            },
         )
     )
 
@@ -826,15 +829,13 @@ async def resolve_chat_channel(
         omega_name: max_messages,
     }
 
-    if (
-        alpha_pref == OpenChannelPreference.REQUEST
-        and omega_pref == OpenChannelPreference.REQUEST
-    ):
-        first_player_idx = new_game.rng.choice([0, 1])
-    elif alpha_pref == OpenChannelPreference.REQUEST:
-        first_player_idx = 0
-    else:
-        first_player_idx = 1
+    first_player_idx = (
+        new_game.rng.choice([0, 1])
+        if initiator is None
+        else 0
+        if initiator.name == alpha_name
+        else 1
+    )
 
     current_idx = first_player_idx
     while messages_left[alpha_name] > 0 and messages_left[omega_name] > 0:
@@ -1102,14 +1103,15 @@ def format_results(
     return result
 
 
-BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 ActionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 BiddingEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+ChannelOpenedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 OperationConductedEvent.model_rebuild(
     _types_namespace={"BaseEffect": BaseEffect}
 )
-MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
