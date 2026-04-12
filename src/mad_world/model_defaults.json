@@ -3,7 +3,7 @@
     "context_size": 131072
   },
   "gemma4:26b": {
-    "context_size": 32768,
+    "context_size": 131072,
     "repeat_penalty": 1.3
   },
   "gemma4:e4b": {
