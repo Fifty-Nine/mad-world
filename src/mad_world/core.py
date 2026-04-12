@@ -34,6 +34,7 @@ from mad_world.events import (
     BiddingEvent,
     CrisisResolutionEvent,
     GameEvent,
+    MandateFulfilledEvent,
     MessageEvent,
     OperationConductedEvent,
     OptActor,
@@ -1007,4 +1008,5 @@ BiddingEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 OperationConductedEvent.model_rebuild(
     _types_namespace={"BaseEffect": BaseEffect}
 )
+MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})

@@ -11,9 +11,9 @@ from mad_world.decks import Deck
 from mad_world.enums import GamePhase
 from mad_world.events import (
     BiddingEvent,
+    MandateFulfilledEvent,
     OperationConductedEvent,
     PlayerActor,
-    SystemEvent,
 )
 
 if TYPE_CHECKING:
@@ -84,7 +84,9 @@ class SleepingGiantMandate(EndgameMandate):
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Gaining {SleepingGiantDefs.REWARD_GDP} GDP."
@@ -115,7 +117,9 @@ class AccelerationistMandate(EndgameMandate):
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Gaining {AccelerationistDefs.REWARD_GDP} GDP."
@@ -150,7 +154,9 @@ class PacifistUtopiaMandate(EndgameMandate):
         player_gdp = game.players[player_name].gdp
         bonus = int(player_gdp * PacifistUtopiaDefs.GDP_MULTIPLIER)
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Gaining {bonus} GDP."
@@ -190,7 +196,9 @@ class WarProfiteerMandate(EndgameMandate):
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         opponent_name = next(p for p in game.players if p != player_name)
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Stealing {WarProfiteerDefs.STEAL_AMOUNT} GDP from "
@@ -245,7 +253,9 @@ class PopularJingoismMandate(InstantMandate):
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Gaining {PopularJingoismDefs.REWARD_GDP} GDP."
@@ -310,7 +320,9 @@ class SpaceRaceMandate(InstantMandate):
         opponent_name = next(p for p in game.players if p != player_name)
         opponent_inf = game.players[opponent_name].influence
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Gaining {SpaceRaceDefs.REWARD_GDP} GDP and reducing "
@@ -372,7 +384,9 @@ class CounterIntelligenceMandate(InstantMandate):
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         opponent_name = next(p for p in game.players if p != player_name)
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Reversing {CounterIntelligenceDefs.TARGET_OP}."
@@ -404,7 +418,9 @@ class CoolerHeadsMandate(InstantMandate):
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Crisis averted! Clock {CoolerHeadsDefs.CLOCK_EFFECT}, "
@@ -491,7 +507,9 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Profiting from asymmetric conflict: "
