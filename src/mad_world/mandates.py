@@ -420,45 +420,38 @@ class MoralHighGroundMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
-        opponent_name = next(p for p in game.players if p != player_name)
-
-        if game.current_phase != GamePhase.OPERATIONS_MESSAGING:
+        if game.last_phase != GamePhase.BIDDING:
             return False
 
-        def _correct_phase(e: GameEvent) -> bool:
-            return (
-                e.current_phase == GamePhase.BIDDING
-                and e.current_round == game.current_round
-            )
+        opponent_name = next(p for p in game.players if p != player_name)
 
-        events_in_phase = list(
-            takewhile(
-                _correct_phase,
-                dropwhile(
-                    lambda e: not _correct_phase(e), reversed(game.event_log)
-                ),
-            )
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.BIDDING)
         )
 
         player_bid_zero = any(
             isinstance(e, BiddingEvent)
             and e.done_by_player(player_name)
             and e.bid <= MoralHighGroundDefs.PLAYER_MAX_BID
-            for e in events_in_phase
+            for e in events
         )
 
         opponent_bid_high = any(
             isinstance(e, BiddingEvent)
             and e.done_by_player(opponent_name)
             and e.bid >= MoralHighGroundDefs.OPPONENT_MIN_BID
-            for e in events_in_phase
+            for e in events
         )
 
         return player_bid_zero and opponent_bid_high
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [
-            SystemEvent(
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
                 description=(
                     f"{player_name} fulfilled '{self.title}' mandate! "
                     f"Capitalizing on international goodwill: "

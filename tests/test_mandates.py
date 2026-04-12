@@ -464,8 +464,8 @@ def test_moral_high_ground_mandate() -> None:
     # Not met by default
     assert mandate.is_met(game, "Alpha") is False
 
-    game.current_phase = GamePhase.OPERATIONS_MESSAGING
-    game.current_round = 1
+    game.last_phase = GamePhase.BIDDING
+    game.last_round = 1
 
     # Still not met
     assert mandate.is_met(game, "Alpha") is False
@@ -497,7 +497,7 @@ def test_moral_high_ground_mandate() -> None:
     events = mandate.reward(game, "Alpha")
     assert len(events) == 1
     sys_event = events[0]
-    assert isinstance(sys_event, SystemEvent)
+    assert isinstance(sys_event, MandateFulfilledEvent)
     assert sys_event.gdp_delta == {"Alpha": 10}
     assert sys_event.influence_delta == {"Alpha": 2}
 
