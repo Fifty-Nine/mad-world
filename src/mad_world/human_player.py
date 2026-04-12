@@ -99,8 +99,7 @@ class HumanPlayer(GamePlayer):
                 return result
 
     def _validate_action(self, action: BaseAction, game: GameState) -> None:
-        if hasattr(action, "validate_semantics"):
-            action.validate_semantics(game, self.name)  # type: ignore[attr-defined]
+        action.validate_semantics(game, self.name)
 
     async def _get_action[T: BaseAction](
         self, game: GameState, action_class: type[T]
