@@ -58,7 +58,7 @@ class GamePlayer(ABC):
 
     @abstractmethod
     async def chat(
-        self, game: GameState, remaining_messages: int
+        self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
         """Get the player's response in an active back-and-forth channel."""
 

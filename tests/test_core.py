@@ -173,7 +173,10 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
 
     class TestAlphaPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(
                 message=f"Alpha chat {remaining_messages}", end_channel=False
@@ -181,7 +184,10 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
 
     class TestOmegaPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(message="Omega done", end_channel=True)
 
@@ -211,7 +217,10 @@ async def test_resolve_chat_channel_double_request(
 
     class TestPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=True)
 
@@ -235,7 +244,10 @@ async def test_resolve_chat_channel_omega_request(
 
     class TestPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=True)
 
@@ -259,7 +271,10 @@ async def test_resolve_chat_channel_max_messages(
 
     class TestPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(message="test", end_channel=False)
 
@@ -288,7 +303,10 @@ async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
 
     class TestPlayer(UnimplementedPlayer):
         async def chat(
-            self, game: GameState, remaining_messages: int
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(message="Never called", end_channel=True)
 

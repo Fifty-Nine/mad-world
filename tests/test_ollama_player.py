@@ -525,13 +525,17 @@ async def test_chat(test_player: Any, basic_game: GameState) -> None:
     mock_response.action = ChatAction(message="test", end_channel=False)
     test_player.retry_action.return_value = mock_response
 
-    action = await test_player.chat(basic_game, remaining_messages=5)
+    action = await test_player.chat(
+        basic_game, remaining_messages=5, last_message=None
+    )
 
     assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
     test_player.retry_action.return_value = None
-    action = await test_player.chat(basic_game, remaining_messages=5)
+    action = await test_player.chat(
+        basic_game, remaining_messages=5, last_message="some nonsense"
+    )
     assert isinstance(action, ChatAction)
     assert action.end_channel is True
 

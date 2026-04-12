@@ -116,7 +116,7 @@ class HumanPlayer(GamePlayer):
 
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int
+        self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
         print("\n" + "=" * 40)
         print(

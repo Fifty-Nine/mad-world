@@ -824,12 +824,7 @@ async def resolve_chat_channel(
     )
 
     max_messages = 10
-    messages_left = {
-        alpha_name: max_messages,
-        omega_name: max_messages,
-    }
-
-    first_player_idx = (
+    sender_idx = (
         new_game.rng.choice([0, 1])
         if initiator is None
         else 0
@@ -837,29 +832,25 @@ async def resolve_chat_channel(
         else 1
     )
 
-    current_idx = first_player_idx
-    while messages_left[alpha_name] > 0 and messages_left[omega_name] > 0:
-        current_player = players[current_idx]
-        opponent_player = players[1 - current_idx]
-        remaining = messages_left[current_player.name]
+    sender = players[sender_idx]
+    receiver = players[1 - sender_idx]
+    last_message: str | None = None
 
-        chat_action = await current_player.chat(new_game, remaining)
-        new_game.log_message(
-            current_player.name, opponent_player.name, chat_action
-        )
+    for i in range(max_messages * 2):
+        remaining = (max_messages * 2 + 1 - i) // 2
+        chat_action = await sender.chat(new_game, remaining, last_message)
+        new_game.log_message(sender.name, receiver.name, chat_action)
+        last_message = chat_action.message
 
         if chat_action.end_channel:
             new_game.apply_event(
                 SystemEvent(
-                    description=(
-                        f"{current_player.name} terminated the channel."
-                    )
+                    description=(f"{sender.name} terminated the channel.")
                 )
             )
             break
 
-        messages_left[current_player.name] -= 1
-        current_idx = 1 - current_idx
+        sender, receiver = receiver, sender
 
     else:
         new_game.apply_event(

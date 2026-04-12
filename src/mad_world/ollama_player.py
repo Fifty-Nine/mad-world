@@ -1226,7 +1226,7 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int
+        self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
         channels_opened = game.players[self.name].channels_opened
         channels_left = game.rules.max_channels_per_game - channels_opened
@@ -1239,6 +1239,14 @@ class OllamaPlayer(GamePlayer):
             "with this message and what information you want to convey "
             "or extract from your opponent."
         )
+        if last_message is None:
+            prompt += (
+                "\nYou initiated this channel, so it is up to you to send the "
+                "first message in the conversation."
+            )
+        else:
+            prompt += f"\nYour opponent's last message was:\n> {last_message}"
+
         self.add_prompt(prompt, game.current_phase, None)
 
         class ChatResponse(ActionResponse):
