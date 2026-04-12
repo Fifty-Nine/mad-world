@@ -104,13 +104,13 @@ class EventLogQuery[T: GameEvent]:
 
     def _create_iterator(self) -> Iterable[T]:
         if self._recent_phase_only:
-            return self._iter_recent_phase()
-
-        it: Iterable[T] = (
-            reversed(self._base_events)
-            if self._is_reversed
-            else iter(self._base_events)
-        )
+            it = self._iter_recent_phase()
+        else:
+            it = (
+                reversed(self._base_events)
+                if self._is_reversed
+                else iter(self._base_events)
+            )
 
         if self._round_bounds:
             it = self._apply_round_bounds(it)

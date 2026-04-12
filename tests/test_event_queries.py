@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, overload
 
 import pytest
@@ -235,7 +235,6 @@ def test_bool_operator(sample_events: Sequence[GameEvent]) -> None:
     assert not query
 
 
-@pytest.mark.xfail(reason="in_recent_phase does not compose correctly.")
 def test_nonoverlapping_recent_phase(
     sample_events: Sequence[GameEvent],
 ) -> None:
@@ -280,3 +279,39 @@ def test_reverse_null_filters(extended_events: Sequence[GameEvent]) -> None:
         EventLogQuery(list(extended_events)).reverse().filter(lambda _: False)
     )
     assert not query
+
+
+FILTER_OPS: list[
+    Callable[[EventLogQuery[GameEvent]], EventLogQuery[GameEvent]]
+] = [
+    lambda q: q.in_recent_phase(),
+    lambda q: q.in_round(1),
+    lambda q: q.in_rounds(1, 2),
+    lambda q: q.in_phase(GamePhase.BIDDING),
+    lambda q: q.reverse(),
+    lambda q: q.filter(lambda e: "bid" in e.description),
+    lambda q: q.of_type(BiddingEvent),  # type: ignore[arg-type]
+]
+
+
+@pytest.mark.parametrize("op_idx1", range(len(FILTER_OPS)))
+@pytest.mark.parametrize("op_idx2", range(len(FILTER_OPS)))
+def test_filter_commutativity(
+    extended_events: Sequence[GameEvent], op_idx1: int, op_idx2: int
+) -> None:
+    if op_idx1 >= op_idx2:
+        return
+
+    op1 = FILTER_OPS[op_idx1]
+    op2 = FILTER_OPS[op_idx2]
+
+    query = EventLogQuery(extended_events)
+
+    res1 = list(op1(op2(query)))
+    res2 = list(op2(op1(query)))
+
+    # Known non-commutative pairings (e.g. `in_phase` and `filter`)
+    if {op_idx1, op_idx2} in [{3, 5}, {3, 6}]:
+        pytest.xfail("in_phase + filter/of_type fails strict equality")
+
+    assert res1 == res2
