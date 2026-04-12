@@ -26,6 +26,7 @@ from pydantic import (
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
@@ -1223,6 +1224,70 @@ class OllamaPlayer(GamePlayer):
             {"role": "user", "content": prompt + (schema or "")},
         )
 
+    def format_channel_prompt(self, game: GameState) -> str:
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
+        if channels_left == 0:
+            return (
+                "You have used your quota of initiated channels for this game, "
+                "but you may still accept requests from your opponent if you "
+                "so choose."
+            )
+
+        return (
+            "You also must indicate your preference for opening a direct "
+            "back-and-forth communication channel. You have are limited in "
+            "the number of channels you can open. Your current quota is: "
+            f"{channels_left} channels. Only successfully opened channels "
+            "that you have requested (not accepted) are counted against "
+            "your quota. Mutual requests are counted against both players' "
+            "quotas.\n"
+        )
+
+    @override
+    async def chat(
+        self, game: GameState, remaining_messages: int, last_message: str | None
+    ) -> ChatAction:
+        class ChatResponse(ActionResponse):
+            action: ChatAction
+
+        channels_opened = game.players[self.name].channels_opened
+        channels_left = game.rules.max_channels_per_game - channels_opened
+        prompt = (
+            "You are currently in a direct communication channel with your "
+            "opponent. You can go back and forth up to 10 times. "
+            f"You have {remaining_messages} messages left to send in this "
+            f"channel.\nYou have {channels_left} total channels left you "
+            "can request this game. Think about what you want to achieve "
+            "with this message and what information you want to convey "
+            "or extract from your opponent."
+        )
+        if last_message is None:
+            prompt += (
+                " You initiated this channel, so your opponent is waiting for "
+                "you to send the first message. We suggest you begin with a "
+                "simple greeting and identify the reason you have requested "
+                "the channel.\n"
+            )
+        else:
+            prompt += (
+                " Your opponent's last message was:\n"
+                + wrap_text(last_message, indent="> ")
+                + "\n\n"
+            )
+
+        self.add_prompt(
+            prompt, game.current_phase, ChatResponse.prompt_schema()
+        )
+
+        result = await self.retry_action(ChatResponse, game)
+        if result is None:
+            return ChatAction(
+                message="[CONNECTION LOST]",
+                end_channel=True,
+            )
+        return result.action
+
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         prompt = self.format_game_state(game)
@@ -1236,6 +1301,7 @@ class OllamaPlayer(GamePlayer):
             "identify yourself by your chosen name and title in your first "
             "message.\n"
         )
+        prompt += self.format_channel_prompt(game)
         self.add_prompt(
             prompt,
             GamePhase.OPENING,
@@ -1266,6 +1332,7 @@ class OllamaPlayer(GamePlayer):
             f"{target_phase} phase. Use this channel to conduct diplomacy, "
             f"respond to inquiries, issue threats, etc.\n"
         )
+        prompt += self.format_channel_prompt(game)
         self.add_prompt(
             prompt,
             game.current_phase,
@@ -1297,6 +1364,7 @@ class OllamaPlayer(GamePlayer):
             "in the upcoming Crisis Resolution phase. Use this channel to "
             "conduct diplomacy, threaten, or deceive your opponent.\n"
         )
+        prompt += self.format_channel_prompt(game)
 
         self.add_prompt(
             prompt,

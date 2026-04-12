@@ -14,10 +14,11 @@ from pydantic import Field
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
 )
 from mad_world.crises import GenericCrisis, StandoffCrisis
-from mad_world.enums import StandoffPosture
+from mad_world.enums import OpenChannelPreference, StandoffPosture
 from mad_world.human_player import HumanPlayer
 
 if TYPE_CHECKING:
@@ -42,23 +43,68 @@ def mock_human_input(
 
 
 @pytest.mark.asyncio
+async def test_human_player_chat(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+
+    with mock_human_input(player, side_effect=["Hello World", "true"]):
+        action = await player.chat(
+            basic_game, remaining_messages=5, last_message=None
+        )
+
+    assert isinstance(action, ChatAction)
+    assert action.message == "Hello World"
+    assert action.end_channel is True
+
+
+@pytest.mark.asyncio
+async def test_human_player_chat_retry(basic_game: GameState) -> None:
+    player = HumanPlayer("Alpha")
+
+    with mock_human_input(
+        player, side_effect=["too long" * 100, "false", "Hello World", "true"]
+    ):
+        action = await player.chat(
+            basic_game, remaining_messages=5, last_message=None
+        )
+
+    assert isinstance(action, ChatAction)
+    assert action.message == "Hello World"
+    assert action.end_channel is True
+
+
+@pytest.mark.asyncio
 async def test_human_player_initial_message(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 
-    with mock_human_input(player, return_value="Hello World"):
+    with mock_human_input(player, side_effect=["Hello World", "request"]):
         action = await player.initial_message(basic_game)
 
     assert action.message_to_opponent == "Hello World"
+    assert action.channel_preference == OpenChannelPreference.REQUEST
+
+
+@pytest.mark.asyncio
+async def test_human_player_initial_message_reject(
+    basic_game: GameState,
+) -> None:
+    player = HumanPlayer("Alpha")
+
+    with mock_human_input(player, side_effect=["Hello World", "reject"]):
+        action = await player.initial_message(basic_game)
+
+    assert action.message_to_opponent == "Hello World"
+    assert action.channel_preference == OpenChannelPreference.REJECT
 
 
 @pytest.mark.asyncio
 async def test_human_player_message(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 
-    with mock_human_input(player, return_value="  I am here  "):
+    with mock_human_input(player, side_effect=["  I am here  ", "reject"]):
         action = await player.message(basic_game)
 
     assert action.message_to_opponent == "I am here"
+    assert action.channel_preference == OpenChannelPreference.REJECT
 
     with mock_human_input(player, return_value=""):
         action = await player.message(basic_game)
@@ -213,15 +259,19 @@ async def test_human_player_crisis_message(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
     crisis = StandoffCrisis()
 
-    with mock_human_input(player, return_value="A message to my opponent"):
+    with mock_human_input(
+        player, side_effect=["A message to my opponent", "accept"]
+    ):
         action = await player.crisis_message(basic_game, crisis)
 
     assert action.message_to_opponent == "A message to my opponent"
+    assert action.channel_preference == OpenChannelPreference.ACCEPT
 
-    with mock_human_input(player, return_value=""):
+    with mock_human_input(player, side_effect=["", "reject"]):
         action = await player.crisis_message(basic_game, crisis)
 
     assert action.message_to_opponent is None
+    assert action.channel_preference == OpenChannelPreference.REJECT
 
 
 @pytest.mark.asyncio
@@ -238,11 +288,13 @@ async def test_human_player_completer_leak(basic_game: GameState) -> None:
         for call in mock_prompt.call_args_list:
             assert isinstance(call.kwargs.get("completer"), WordCompleter)
 
-    with mock_human_input(player, side_effect=["My message"]) as mock_prompt:
+    with mock_human_input(
+        player, side_effect=["My message", "reject"]
+    ) as mock_prompt:
         await player.message(basic_game)
 
-        assert mock_prompt.call_count == 1
-        last_call_kwargs = mock_prompt.call_args.kwargs
+        assert mock_prompt.call_count == 2
+        last_call_kwargs = mock_prompt.call_args_list[0].kwargs
         assert isinstance(last_call_kwargs.get("completer"), DummyCompleter)
 
 

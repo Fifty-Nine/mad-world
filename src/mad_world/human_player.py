@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     InvalidActionError,
     MessagingAction,
@@ -97,27 +98,44 @@ class HumanPlayer(GamePlayer):
             if result is not None:
                 return result
 
+    def _validate_action(self, action: BaseAction, game: GameState) -> None:
+        action.validate_semantics(game, self.name)
+
+    async def _get_action[T: BaseAction](
+        self, game: GameState, action_class: type[T]
+    ) -> T:
+        while True:
+            try:
+                action = await self._prompt_action_fields(action_class)
+                self._validate_action(action, game)
+            except (ValidationError, InvalidActionError) as e:
+                print(f"Invalid input: {e}")
+                print("Please try again.")
+            else:
+                return action
+
+    @override
+    async def chat(
+        self, game: GameState, remaining_messages: int, last_message: str | None
+    ) -> ChatAction:
+        print("\n" + "=" * 40)
+        print(
+            "Direct back-and-forth communication channel. You have "
+            f"{remaining_messages} messages left."
+        )
+        return await self._get_action(game, ChatAction)
+
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         print(game.describe_state())
         print(f"\n[{self.name}] Initial Message Phase")
-        return await self.retry_prompt(
-            game,
-            "Enter your initial message to your opponent: ",
-            lambda m: InitialMessageAction(message_to_opponent=m),
-        )
+        return await self._get_action(game, InitialMessageAction)
 
     @override
     async def message(self, game: GameState) -> MessagingAction:
         print(f"\n{game.describe_state()}")
         print(f"\n[{self.name}] Messaging Phase")
-        return await self.retry_prompt(
-            game,
-            "Enter a message to your opponent (or press Enter to skip): ",
-            lambda m: MessagingAction(
-                message_to_opponent=m.strip() or None,
-            ),
-        )
+        return await self._get_action(game, MessagingAction)
 
     @override
     async def bid(self, game: GameState) -> BiddingAction:
@@ -211,7 +229,7 @@ class HumanPlayer(GamePlayer):
 
         return user_input.strip() or None
 
-    async def _prompt_crisis_field(
+    async def _prompt_action_field(
         self, field_name: str, field_info: FieldInfo
     ) -> Any:
         prompt_text = f"Enter value for '{field_name}'"
@@ -224,16 +242,16 @@ class HumanPlayer(GamePlayer):
 
         return await self._prompt_standard_field(prompt_text)
 
-    async def _prompt_crisis_action(
-        self, action_class: type[BaseAction]
-    ) -> dict[str, Any]:
+    async def _prompt_action_fields[T: BaseAction](
+        self, action_class: type[T]
+    ) -> T:
         field_values: dict[str, Any] = {}
         for field_name, field_info in action_class.model_fields.items():
             if (
-                val := await self._prompt_crisis_field(field_name, field_info)
+                val := await self._prompt_action_field(field_name, field_info)
             ) is not None:
                 field_values[field_name] = val
-        return field_values
+        return action_class(**field_values)
 
     @override
     async def crisis_message(
@@ -247,13 +265,7 @@ class HumanPlayer(GamePlayer):
         print(f"Mechanics: {crisis.mechanics}")
 
         print(f"\n[{self.name}] Crisis Messaging Phase")
-        return await self.retry_prompt(
-            game,
-            "Enter a message to your opponent (or press Enter to skip): ",
-            lambda m: MessagingAction(
-                message_to_opponent=m.strip() or None,
-            ),
-        )
+        return await self._get_action(game, MessagingAction)
 
     @override
     async def crisis[T: BaseAction](
@@ -265,10 +277,8 @@ class HumanPlayer(GamePlayer):
         print(f"\n[{self.name}] Crisis Phase: {crisis.title}")
 
         while True:
-            field_values = await self._prompt_crisis_action(crisis.action_type)
-
             try:
-                action = crisis.action_type.model_validate(field_values)
+                action = await self._prompt_action_fields(crisis.action_type)
                 action.validate_semantics(game, self.name)
             except (ValidationError, InvalidActionError) as e:
                 print(f"Invalid input: {e}")

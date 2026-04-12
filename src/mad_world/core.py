@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from mad_world.actions import (
     BiddingAction,
+    ChatAction,
     InsufficientInfluenceError,
     InvalidActionError,
     InvalidOperationError,
@@ -32,6 +33,7 @@ from mad_world.events import (
     ActionEvent,
     BaseGameEvent,
     BiddingEvent,
+    ChannelOpenedEvent,
     CrisisResolutionEvent,
     GameEvent,
     MandateFulfilledEvent,
@@ -84,6 +86,13 @@ class PlayerState(BaseModel):
     completed_mandates: list[BaseMandate] = Field(
         default_factory=list,
         description="The mandates completed and revealed by the player.",
+    )
+    channels_opened: int = Field(
+        default=0,
+        description=(
+            "The number of direct communication channels this player "
+            "has successfully requested."
+        ),
     )
 
 
@@ -310,6 +319,7 @@ class GameState(BaseModel):
             player.gdp += event.gdp_delta.get(player_name, 0)
             player.influence += event.influence_delta.get(player_name, 0)
             player.influence = max(0, player.influence)
+            player.channels_opened += event.channels_opened.get(player_name, 0)
 
         for effect in event.new_effects:
             effect.start_round = self.current_round
@@ -330,9 +340,15 @@ class GameState(BaseModel):
         self,
         self_player: str,
         opponent_player: str,
-        action: MessagingAction,
+        action: MessagingAction | ChatAction,
     ) -> None:
-        if action.message_to_opponent is None:
+        message = (
+            action.message_to_opponent
+            if isinstance(action, MessagingAction)
+            else action.message
+        )
+
+        if message is None:
             return
 
         self.apply_event(
@@ -342,11 +358,13 @@ class GameState(BaseModel):
                     f"{self_player} sent a message to "
                     f"{opponent_player}:\n"
                     + wrap_text(
-                        action.message_to_opponent,
+                        message,
                         width=80,
                         indent="  ",
                     )
                 ),
+                message=message,
+                channel_message=isinstance(action, ChatAction),
             ),
         )
 
@@ -772,6 +790,81 @@ async def resolve_operations(
     return new_game
 
 
+async def resolve_chat_channel(
+    new_game: GameState,
+    players: list[GamePlayer],
+    alpha_msg: MessagingAction,
+    omega_msg: MessagingAction,
+) -> None:
+    initiator: PlayerActor | None = None
+    alpha_name, omega_name = new_game.player_names
+
+    if alpha_msg.requests_channel() and omega_msg.requests_channel():
+        initiator = None
+    elif alpha_msg.requests_channel() and omega_msg.accepts_channel():
+        initiator = PlayerActor(name=alpha_name)
+    elif omega_msg.requests_channel() and alpha_msg.accepts_channel():
+        initiator = PlayerActor(name=omega_name)
+    else:
+        return
+
+    initiator_desc = f" by {initiator.name}" if initiator is not None else ""
+
+    new_game.apply_event(
+        ChannelOpenedEvent(
+            description=(
+                "A direct communication channel has been opened"
+                f"{initiator_desc}."
+            ),
+            initiator=initiator,
+            channels_opened={
+                p: 1
+                for p in new_game.player_names
+                if initiator is None or initiator.name == p
+            },
+        )
+    )
+
+    max_messages = 10
+    sender_idx = (
+        new_game.rng.choice([0, 1])
+        if initiator is None
+        else 0
+        if initiator.name == alpha_name
+        else 1
+    )
+
+    sender = players[sender_idx]
+    receiver = players[1 - sender_idx]
+    last_message: str | None = None
+
+    for i in range(max_messages * 2):
+        remaining = (max_messages * 2 + 1 - i) // 2
+        chat_action = await sender.chat(new_game, remaining, last_message)
+        new_game.log_message(sender.name, receiver.name, chat_action)
+        last_message = chat_action.message
+
+        if chat_action.end_channel:
+            new_game.apply_event(
+                SystemEvent(
+                    description=(f"{sender.name} terminated the channel.")
+                )
+            )
+            break
+
+        sender, receiver = receiver, sender
+
+    else:
+        new_game.apply_event(
+            SystemEvent(
+                description=(
+                    "The communication channel was closed after "
+                    "reaching the limit."
+                ),
+            )
+        )
+
+
 async def resolve_messaging(
     game: GameState,
     players: list[GamePlayer],
@@ -794,6 +887,8 @@ async def resolve_messaging(
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
 
+    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
+
     new_game.advance_phase()
 
     return new_game
@@ -814,6 +909,8 @@ async def resolve_opening(
 
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
+
+    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
 
     new_game.advance_phase()
 
@@ -999,14 +1096,15 @@ def format_results(
     return result
 
 
-BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 ActionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+BaseGameEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 BiddingEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+ChannelOpenedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 OperationConductedEvent.model_rebuild(
     _types_namespace={"BaseEffect": BaseEffect}
 )
-MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
-CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+StateEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+SystemEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})

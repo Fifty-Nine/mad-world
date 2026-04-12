@@ -9,14 +9,22 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.unimplemented_player import UnimplementedPlayer
+
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from mad_world.players import GamePlayer
+
 
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InvalidActionError,
     InvalidBiddingActionError,
+    InvalidChannelRequestError,
+    MessagingAction,
     OperationsAction,
 )
 from mad_world.core import (
@@ -25,6 +33,7 @@ from mad_world.core import (
     game_loop,
     get_bid_impact,
     iterate_game,
+    resolve_chat_channel,
     resolve_operation,
     resolve_operations,
     resolve_round_events,
@@ -35,10 +44,11 @@ from mad_world.crises import (
     DoomsdayAsteroidDefs,
     InternationalSanctionsCrisis,
 )
-from mad_world.enums import GameOverReason, GamePhase
+from mad_world.enums import GameOverReason, GamePhase, OpenChannelPreference
 from mad_world.events import (
     ActionEvent,
     ActorKind,
+    ChannelOpenedEvent,
     OperationConductedEvent,
     PlayerActor,
     SystemActor,
@@ -53,9 +63,6 @@ from mad_world.trivial_players import (
     ParetoEfficientPlayer,
     Saboteur,
 )
-
-if TYPE_CHECKING:
-    from mad_world.players import GamePlayer
 
 
 @dataclass
@@ -151,6 +158,171 @@ def test_validate_operation_insufficient_influence(
     basic_game.players["Alpha"].influence = 2
     with pytest.raises(InvalidActionError, match="INSUFFICIENT INFLUENCE"):
         basic_game.validate_operation("domestic-investment", "Alpha")
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel(basic_game: GameState) -> None:
+    alpha_msg = MessagingAction(
+        message_to_opponent="Let's talk",
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+    omega_msg = MessagingAction(
+        message_to_opponent="Sure",
+        channel_preference=OpenChannelPreference.ACCEPT,
+    )
+
+    class TestAlphaPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(
+                message=f"Alpha chat {remaining_messages}", end_channel=False
+            )
+
+    class TestOmegaPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="Omega done", end_channel=True)
+
+    players: list[GamePlayer] = [
+        TestAlphaPlayer("Alpha"),
+        TestOmegaPlayer("Omega"),
+    ]
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 0
+
+    events = basic_game.event_log
+    assert any(isinstance(e, ChannelOpenedEvent) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel_double_request(
+    basic_game: GameState,
+) -> None:
+    alpha_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+    omega_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+
+    class TestPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="test", end_channel=True)
+
+    players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel_omega_request(
+    basic_game: GameState,
+) -> None:
+    alpha_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.ACCEPT,
+    )
+    omega_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+
+    class TestPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="test", end_channel=True)
+
+    players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    assert basic_game.players["Alpha"].channels_opened == 0
+    assert basic_game.players["Omega"].channels_opened == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel_max_messages(
+    basic_game: GameState,
+) -> None:
+    alpha_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+    omega_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.ACCEPT,
+    )
+
+    class TestPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="test", end_channel=False)
+
+    players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    assert basic_game.players["Alpha"].channels_opened == 1
+    assert basic_game.players["Omega"].channels_opened == 0
+
+    events = basic_game.event_log
+    assert any(
+        "The communication channel was closed after reaching the limit."
+        in e.description
+        for e in events
+    )
+
+
+@pytest.mark.asyncio
+async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
+    alpha_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REQUEST,
+    )
+    omega_msg = MessagingAction(
+        channel_preference=OpenChannelPreference.REJECT,
+    )
+
+    class TestPlayer(UnimplementedPlayer):
+        async def chat(
+            self,
+            game: GameState,
+            remaining_messages: int,
+            last_message: str | None,
+        ) -> ChatAction:
+            return ChatAction(message="Never called", end_channel=True)
+
+    players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
+    await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
+
+    assert basic_game.players["Alpha"].channels_opened == 0
+
+
+def test_messaging_action_validate_semantics_invalid_channel_request(
+    basic_game: GameState,
+) -> None:
+    basic_game.rules.max_channels_per_game = 0
+    action = MessagingAction(channel_preference=OpenChannelPreference.REQUEST)
+    with pytest.raises(InvalidChannelRequestError):
+        action.validate_semantics(basic_game, "Alpha")
 
 
 @pytest.mark.parametrize("bid", [0, 1, 3, 5, 10])

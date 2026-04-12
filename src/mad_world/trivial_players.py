@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, override
 from mad_world.actions import (
     BaseAction,
     BiddingAction,
+    ChatAction,
     InitialMessageAction,
     MessagingAction,
     OperationsAction,
@@ -40,6 +41,12 @@ class TrivialPlayer(GamePlayer):
         return crisis.get_default_action(
             self.name, game, aggressive=self.aggressive
         )
+
+    @override
+    async def chat(
+        self, game: GameState, remaining_messages: int, last_message: str | None
+    ) -> ChatAction:
+        return ChatAction(message="[CONNECTION LOST]", end_channel=True)
 
 
 def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:
@@ -288,6 +295,17 @@ class ParetoEfficientPlayer(TrivialPlayer):
                 game.rules.max_clock_state,
                 game.allowed_bids,
             )
+        )
+
+    @override
+    async def chat(
+        self, game: GameState, remaining_messages: int, last_message: str | None
+    ) -> ChatAction:
+        return ChatAction(
+            message=(
+                "[STATUS] Optimal algorithms indicate chatter is inefficient."
+            ),
+            end_channel=True,
         )
 
     def _new_budget(
