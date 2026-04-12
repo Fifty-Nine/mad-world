@@ -112,8 +112,9 @@ class StateEvent(BaseGameEvent):
     actor: SystemActor = Field(default_factory=SystemActor)
 
 
-class ActionEvent(BaseGameEvent):
-    event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
+class BaseActionEvent(BaseGameEvent):
+    """Intermediate base class for events initiated by a player actor."""
+
     actor: PlayerActor
 
     @override
@@ -121,20 +122,24 @@ class ActionEvent(BaseGameEvent):
         return self.actor.name == name
 
 
-class BiddingEvent(ActionEvent):
-    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)  # type: ignore[assignment]
+class ActionEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.ACTION] = Field(default=EventKind.ACTION)
+
+
+class BiddingEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.BIDDING] = Field(default=EventKind.BIDDING)
     bid: int
 
 
-class OperationConductedEvent(ActionEvent):
-    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(  # type: ignore[assignment]
+class OperationConductedEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.OPERATION_CONDUCTED] = Field(
         default=EventKind.OPERATION_CONDUCTED
     )
     operation: str
 
 
-class CrisisResolutionEvent(ActionEvent):
-    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(  # type: ignore[assignment]
+class CrisisResolutionEvent(BaseActionEvent):
+    event_kind: Literal[EventKind.CRISIS_RESOLUTION] = Field(
         default=EventKind.CRISIS_RESOLUTION
     )
 
