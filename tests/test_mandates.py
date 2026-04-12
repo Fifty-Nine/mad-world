@@ -241,7 +241,9 @@ def test_popular_jingoism_mandate() -> None:
     game.event_log.append(
         ActionEvent(
             actor=PlayerActor(name="Omega"),
-            description="Omega conducted proxy-subversion.",
+            description=(
+                "Omega has successfully conducted aproxy-subversion operation."
+            ),
             current_round=6,  # future round (continue test)
             current_phase=GamePhase.OPERATIONS,
         )
@@ -273,7 +275,10 @@ def test_space_race_mandate() -> None:
         game.event_log.append(
             ActionEvent(
                 actor=PlayerActor(name="Alpha"),
-                description="Alpha conducted domestic-investment.",
+                description=(
+                    "Alpha has successfully conducted a "
+                    "domestic-investment operation."
+                ),
                 current_round=1,
                 current_phase=GamePhase.OPERATIONS,
             )
@@ -286,7 +291,10 @@ def test_space_race_mandate() -> None:
         0,
         ActionEvent(
             actor=PlayerActor(name="Alpha"),
-            description="Alpha conducted domestic-investment.",
+            description=(
+                "Alpha has successfully conducted a "
+                "domestic-investment operation."
+            ),
             current_round=0,
             current_phase=GamePhase.OPERATIONS,
         ),
@@ -301,7 +309,10 @@ def test_space_race_mandate() -> None:
     game.event_log.append(
         ActionEvent(
             actor=PlayerActor(name="Alpha"),
-            description="Alpha conducted domestic-investment.",
+            description=(
+                "Alpha has successfully conducted a "
+                "domestic-investment operation."
+            ),
             current_round=0,  # earlier round triggers early break
             current_phase=GamePhase.OPERATIONS,
         )
@@ -312,7 +323,10 @@ def test_space_race_mandate() -> None:
     game.event_log.append(
         ActionEvent(
             actor=PlayerActor(name="Alpha"),
-            description="Alpha conducted domestic-investment.",
+            description=(
+                "Alpha has successfully conducted a "
+                "domestic-investment operation."
+            ),
             current_round=2,  # different round
             current_phase=GamePhase.OPERATIONS,
         )
@@ -338,7 +352,9 @@ def test_counter_intelligence_mandate() -> None:
     game.event_log.append(
         ActionEvent(
             actor=PlayerActor(name="Omega"),
-            description="Omega conducted proxy-subversion.",
+            description=(
+                "Omega has successfully conducted a proxy-subversion operation."
+            ),
             current_round=1,
             current_phase=GamePhase.OPERATIONS,
         )
@@ -358,7 +374,9 @@ def test_counter_intelligence_mandate() -> None:
         0,
         ActionEvent(
             actor=PlayerActor(name="Omega"),
-            description="Omega conducted proxy-subversion.",
+            description=(
+                "Omega has successfully conducted a proxy-subversionoperation."
+            ),
             current_round=4,  # different round early break
             current_phase=GamePhase.OPERATIONS,
         ),
@@ -405,7 +423,10 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.extend(
         [
             ActionEvent(
-                description="Alpha conducted conventional-offensive",
+                description=(
+                    "Alpha has successfully conducted "
+                    "a conventional-offensive operation"
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
@@ -419,7 +440,9 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.extend(
         [
             ActionEvent(
-                description="Omega conducted stand-down",
+                description=(
+                    "Omega has successfully conducted a stand-down operation"
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
@@ -458,13 +481,18 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.extend(
         [
             ActionEvent(
-                description="Omega conducted conventional-offensive",
+                description=(
+                    "Omega has successfully conducted a conventional-offensive "
+                    "operation "
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Omega"),
             ),
             ActionEvent(
-                description="Alpha conducted stand-down",
+                description=(
+                    "Alpha has successfully conducted a stand-down operation."
+                ),
                 current_phase=GamePhase.OPERATIONS,
                 current_round=1,
                 actor=PlayerActor(name="Alpha"),
