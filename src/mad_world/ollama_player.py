@@ -1264,8 +1264,10 @@ class OllamaPlayer(GamePlayer):
         )
         if last_message is None:
             prompt += (
-                " You initiated this channel, so it is up to you to send the "
-                "first message in the conversation."
+                " You initiated this channel, so your opponent is waiting for "
+                "you to send the first message. We suggest you begin with a "
+                "simple greeting and identify the reason you have requested "
+                "the channel.\n"
             )
         else:
             prompt += (

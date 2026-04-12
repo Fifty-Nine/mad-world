@@ -89,8 +89,10 @@ class PlayerState(BaseModel):
     )
     channels_opened: int = Field(
         default=0,
-        description="The number of direct communication channels this player "
-        "has opened or participated in this game.",
+        description=(
+            "The number of direct communication channels this player "
+            "has successfully requested."
+        ),
     )
 
 
