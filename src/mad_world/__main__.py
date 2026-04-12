@@ -52,6 +52,7 @@ async def prompt_bool_once(
     *,
     default_val: bool,
 ) -> bool | str:
+    """Prompts the user for a boolean value."""
     suffix = " [Y/n]> " if default_val else " [y/N]> "
     try:
         answer = await asyncio.wait_for(
@@ -95,6 +96,7 @@ def get_player(
     log_dir: Path,
     logger: logging.Logger,
 ) -> GamePlayer:
+    """Instantiates a player from a name/URI."""
     if config.kind == PlayerKind.HUMAN:
         return HumanPlayer(config.name)
 
@@ -274,6 +276,7 @@ async def amain(
     logger: logging.Logger,
     log_dir: Path,
 ) -> None:
+    """Main async entrypoint."""
 
     logger.info(
         "Game starting\nPlayer 1: %s\nPlayer 2: %s",

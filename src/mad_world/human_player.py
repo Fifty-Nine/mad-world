@@ -150,6 +150,7 @@ class HumanPlayer(GamePlayer):
 
     @override
     async def operations(self, game: GameState) -> OperationsAction:
+        """Prompts the user to select operations to conduct."""
         print(f"\n{game.describe_state()}")
         print(f"\n[{self.name}] Operations Phase")
         print("Available Operations:")

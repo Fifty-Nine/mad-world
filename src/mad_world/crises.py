@@ -101,8 +101,7 @@ class GenericCrisis[T: BaseAction](BaseCrisis):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> T:
-        """Returns a 'cautious' or 'aggressive' default action for this crisis
-        depending on the value of the aggressive flag."""
+        """Returns a fallback action for the player."""
         ...
 
     async def run(
@@ -167,6 +166,7 @@ class StandoffCrisis(GenericCrisis[StandoffAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> StandoffAction:
+        """Returns a fallback action for the player."""
         return StandoffAction(
             posture=StandoffPosture.STAND_FIRM
             if aggressive
@@ -353,6 +353,7 @@ class BlameGameCrisis(GenericCrisis[BlameGameAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> BlameGameAction:
+        """Returns a fallback action for the player."""
         return BlameGameAction(
             posture=(
                 BlameGamePosture.DEFLECT
@@ -502,6 +503,7 @@ class NuclearMeltdownCrisis(GenericCrisis[NuclearMeltdownAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> NuclearMeltdownAction:
+        """Returns a fallback action for the player."""
         max_bid = game.players[player].gdp
 
         # Aggressive players bid less, diplomatic players bid more
@@ -643,6 +645,7 @@ class DoomsdayAsteroidCrisis(GenericCrisis[DoomsdayAsteroidAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> DoomsdayAsteroidAction:
+        """Returns a fallback action for the player."""
         half_bid = DoomsdayAsteroidDefs.GDP_THRESHOLD // 2
         max_bid = game.players[player].gdp
 
@@ -794,6 +797,7 @@ class ProxyWarCrisis(GenericCrisis[ProxyWarAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> ProxyWarAction:
+        """Returns a fallback action for the player."""
         max_bid = game.players[player].influence
         bid = min(max_bid, 3) if aggressive else min(max_bid, 7)
         return ProxyWarAction(investment=bid)
@@ -938,6 +942,7 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
     def get_default_action(
         self, player: str, game: GameState, *, aggressive: bool
     ) -> RogueProliferationAction:
+        """Returns a fallback action for the player."""
         max_bid = game.players[player].influence
         half_bid = RogueProliferationDefs.INF_THRESHOLD // 2
         bid = (

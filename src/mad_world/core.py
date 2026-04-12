@@ -199,6 +199,10 @@ class GameState(BaseModel):
         log_dir: Path | None = None,
         **kwargs: Any,
     ) -> Self:
+        """Creates a new game state from the provided rules and players.
+
+        Initializes the deck, states, and initial mandates.
+        """
         rng = random.Random(rules.seed)
         result = cls(
             rng=rng,
@@ -306,6 +310,11 @@ class GameState(BaseModel):
         self.escalate(SystemActor(), -self.rules.max_clock_state)
 
     def apply_event(self, event: GameEvent) -> None:
+        """Applies a GameEvent to the state.
+
+        Updates resources, doomsday clock, tracks effects, and handles
+        blame shifts.
+        """
         self.escalate(event.actor, event.clock_delta)
 
         if event.shift_blame is not None:
@@ -344,6 +353,10 @@ class GameState(BaseModel):
         opponent_player: str,
         action: MessagingAction | ChatAction,
     ) -> None:
+        """Records a messaging action between players.
+
+        Logs the action into the game event log as a MessageEvent.
+        """
         message = (
             action.message_to_opponent
             if isinstance(action, MessagingAction)
@@ -378,6 +391,10 @@ class GameState(BaseModel):
         )
 
     def describe_state(self) -> str:
+        """Returns a bannerized string describing the current state.
+
+        Includes the current round, phase, doomsday clock, and player statuses.
+        """
         tracker = escalation_bar(self.escalation_track, defrag=True)
         result = (
             bannerize(
@@ -417,6 +434,11 @@ class GameState(BaseModel):
         return True
 
     def advance_phase(self) -> None:
+        """Advances the game phase.
+
+        Evaluates post-crisis states, mandate completions, and expires
+        ongoing effects.
+        """
         self.last_round = self.current_round
         self.last_phase = self.current_phase
         match self.last_phase:
@@ -576,6 +598,10 @@ class GameState(BaseModel):
 def get_bid_impact(
     game: GameState, player_name: str, bid: int
 ) -> tuple[int, int, str]:
+    """Calculates and validates a bid's impact.
+
+    Determines the influence cost and clock impact of a player's bid.
+    """
     action = BiddingAction(bid=bid)
 
     try:
@@ -699,6 +725,10 @@ def resolve_operation(
     opponent_name: str,
     operation_name: str,
 ) -> GameEvent:
+    """Validates and executes a single operation.
+
+    Returns the corresponding ActionEvent for the log.
+    """
     try:
         game.validate_operation(operation_name, player_name)
     except InvalidActionError as e:
@@ -756,6 +786,10 @@ async def resolve_operations(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
+    """Asynchronously prompts both players for operations.
+
+    Resolves the operations in alternating turns.
+    """
 
     alpha_name, omega_name = game.player_names
     alpha_action, omega_action = await asyncio.gather(
@@ -801,6 +835,10 @@ async def resolve_chat_channel(
     alpha_msg: MessagingAction,
     omega_msg: MessagingAction,
 ) -> None:
+    """Handles requests for a direct chat channel.
+
+    Processes mutual or unilateral requests during the messaging phase.
+    """
     initiator: PlayerActor | None = None
     alpha_name, omega_name = new_game.player_names
 
@@ -898,6 +936,10 @@ async def resolve_messaging(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
+    """Asynchronously prompts players for messaging actions.
+
+    Also sets up chat channels if requested by the players.
+    """
     alpha_name, omega_name = game.player_names
 
     async def callback(player: GamePlayer) -> MessagingAction:
@@ -927,6 +969,10 @@ async def resolve_opening(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
+    """Asynchronously handles the initial opening messages.
+
+    Processes messages from players at the start of the game.
+    """
 
     alpha_name, omega_name = game.player_names
     alpha_msg, omega_msg = await asyncio.gather(
@@ -1006,6 +1052,7 @@ def _apply_aggressor_tax(new_game: GameState) -> None:
 async def resolve_crisis(
     game: GameState, players: list[GamePlayer]
 ) -> GameState:
+    """Asynchronously prompts players to resolve a global crisis."""
 
     new_game = copy.deepcopy(game)
     next_crisis, new_game.pending_crisis = new_game.pending_crisis, None
@@ -1025,6 +1072,10 @@ async def resolve_crisis(
 
 
 async def iterate_game(game: GameState, players: list[GamePlayer]) -> GameState:
+    """Advances the main game loop.
+
+    Executes the logic for the current phase.
+    """
     if game.current_phase.is_messaging():
         return await resolve_messaging(game, players)
 
@@ -1069,6 +1120,10 @@ async def game_loop(
     players: list[GamePlayer],
     log_dir: Path | None = None,
 ) -> tuple[str | None, GameOverReason, GameState]:
+    """Continuously executes the game phases.
+
+    Runs until a game over condition is reached.
+    """
     game = GameState.new_game(
         players=[p.name for p in players], rules=rules, log_dir=log_dir
     )
@@ -1107,6 +1162,10 @@ def format_results(
     reason: GameOverReason,
     game: GameState,
 ) -> str:
+    """Generates a text summary of the final game state.
+
+    Includes the winner and game over reason.
+    """
     result = (
         "==== GAME OVER ====\n"
         f"Final round: {game.current_round}\n"
