@@ -30,29 +30,11 @@ class EventStream[T: GameEvent]:
 
     def take_while(self, predicate: Callable[[T], bool]) -> EventStream[T]:
         """Yield events as long as the predicate is true, then stop."""
-
-        def _generator() -> Iterator[T]:
-            for e in self._stream:
-                if predicate(e):
-                    yield e
-                else:
-                    break
-
-        return EventStream(_generator())
+        return EventStream(itertools.takewhile(predicate, self._stream))
 
     def drop_while(self, predicate: Callable[[T], bool]) -> EventStream[T]:
         """Drop events as long as the predicate is true, then yield the rest."""
-
-        def _generator() -> Iterator[T]:
-            iterator = iter(self._stream)
-            for e in iterator:
-                if not predicate(e):
-                    yield e
-                    break
-            for e in iterator:
-                yield e
-
-        return EventStream(_generator())
+        return EventStream(itertools.dropwhile(predicate, self._stream))
 
     def in_round(self, round_num: int) -> EventStream[T]:
         """Filter events strictly by round."""
@@ -69,23 +51,18 @@ class EventStream[T: GameEvent]:
 
         def _generator() -> Iterator[T]:
             iterator = iter(self._stream)
-            try:
-                first_event = next(iterator)
-            except StopIteration:
+            first_event = next(iterator, None)
+            if first_event is None:
                 return
 
             yield first_event
-            target_round = first_event.current_round
-            target_phase = first_event.current_phase
-
-            for e in iterator:
-                if (
-                    e.current_round == target_round
-                    and e.current_phase == target_phase
-                ):
-                    yield e
-                else:
-                    break
+            yield from itertools.takewhile(
+                lambda e: (
+                    e.current_round == first_event.current_round
+                    and e.current_phase == first_event.current_phase
+                ),
+                iterator,
+            )
 
         return EventStream(_generator())
 
