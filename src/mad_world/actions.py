@@ -112,15 +112,18 @@ class MessagingAction(BaseAction):
             raise InvalidChannelRequestError(limit=limit)
 
     def requests_channel(self) -> bool:
+        """Returns True if the message is requesting a channel."""
         return self.channel_preference == OpenChannelPreference.REQUEST
 
     def accepts_channel(self) -> bool:
+        """Returns True if the message accepts a channel."""
         return self.channel_preference in (
             OpenChannelPreference.REQUEST,
             OpenChannelPreference.ACCEPT,
         )
 
     def rejects_channel(self) -> bool:
+        """Returns True if the message rejects a channel."""
         return self.channel_preference == OpenChannelPreference.REJECT
 
 

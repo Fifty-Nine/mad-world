@@ -443,6 +443,8 @@ class CrisisResponse[T: BaseAction](ActionResponse):
 def create_persona_schema(
     persona_seed_val: str,
 ) -> type[ElaboratedPersonaResponse]:
+    """Creates a strictly ordered Pydantic model for elaborate_persona."""
+
     class BadPersonaSeedError(ValueError):
         def __init__(self, value: str) -> None:
             super().__init__(
@@ -520,6 +522,11 @@ class OllamaPlayer(GamePlayer):
         pass
 
     async def elaborate_persona(self) -> None:
+        """Expands a trivial persona into a detailed system prompt and summary.
+
+        Uses the LLM to generate character descriptions and instructions
+        aligned with the trivial persona.
+        """
         # If the user already provided an elaborated persona, we don't
         # ask the model to elaborate.
         if self.persona is None or not is_trivial_persona(self.persona):
@@ -763,6 +770,7 @@ class OllamaPlayer(GamePlayer):
         allowed_operations: dict[str, OperationDefinition],
         indent: str = "",
     ) -> str:
+        """Formats the allowed operations for the player into a string list."""
         ops = (
             op
             for op in allowed_operations.values()
@@ -804,6 +812,7 @@ class OllamaPlayer(GamePlayer):
         )
 
     def format_game_state(self, game: GameState) -> str:
+        """Generates a comprehensive text summary of the current game state."""
         result = (
             f"Round {game.current_round} of {game.rules.round_count}\n"
             f"Phase: {game.current_phase.name}\n"
@@ -828,6 +837,7 @@ class OllamaPlayer(GamePlayer):
         return result
 
     def doomsday_warning(self, game: GameState) -> str:
+        """Generates a warning if the doomsday clock is near midnight."""
         risky, deadly = game.rules.get_doomsday_bids(game.doomsday_clock)
 
         if len(risky) == 0 and len(deadly) == 0:
@@ -1103,6 +1113,7 @@ class OllamaPlayer(GamePlayer):
             await self._compress_context(game)
 
     def game_ending_warning(self, game: GameState) -> str:
+        """Generates a warning if the game is about to end."""
         if game.current_round < (game.rules.round_count - 2):
             return ""
 
@@ -1128,6 +1139,7 @@ class OllamaPlayer(GamePlayer):
         return result
 
     def first_strike_warning(self, game: GameState) -> str:
+        """Generates a warning regarding consequences of a first strike."""
         diff = (
             game.players[self.name].gdp - game.players[self.opponent_name].gdp
         )
@@ -1156,6 +1168,7 @@ class OllamaPlayer(GamePlayer):
         return result
 
     def format_ongoing_effects(self, game: GameState) -> str:
+        """Formats any active ongoing effects into a readable string."""
         if not game.active_effects:
             return ""
 
@@ -1175,6 +1188,7 @@ class OllamaPlayer(GamePlayer):
         return result
 
     def my_strategy(self, *, for_compression: bool = False) -> str:
+        """Returns the player's grand strategy summary."""
         if self.grand_strategy is None:
             return ""
 
@@ -1207,6 +1221,7 @@ class OllamaPlayer(GamePlayer):
         phase: GamePhase,
         schema: str | None = None,
     ) -> None:
+        """Helper to append a user message to the active chat history."""
         if schema is not None:
             prompt += (
                 "You should output strictly valid JSON matching this JSON "
@@ -1225,6 +1240,7 @@ class OllamaPlayer(GamePlayer):
         )
 
     def format_channel_prompt(self, game: GameState) -> str:
+        """Formats the prompt explaining the rules of the chat channel."""
         channels_opened = game.players[self.name].channels_opened
         channels_left = game.rules.max_channels_per_game - channels_opened
         if channels_left == 0:
@@ -1248,6 +1264,8 @@ class OllamaPlayer(GamePlayer):
     async def chat(
         self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
+        """Generates a single message for an active communication channel."""
+
         class ChatResponse(ActionResponse):
             action: ChatAction
 
@@ -1290,6 +1308,7 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
+        """Generates the player's initial opening message for the game."""
         prompt = self.format_game_state(game)
         prompt += (
             "You may now provide your initial message to your opponent. "
@@ -1316,6 +1335,7 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def message(self, game: GameState) -> MessagingAction:
+        """Generates a pre-phase message directed at the opponent."""
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -1347,6 +1367,7 @@ class OllamaPlayer(GamePlayer):
         game: GameState,
         crisis: BaseCrisis,
     ) -> MessagingAction:
+        """Generates a message addressing a pending global crisis."""
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
 
@@ -1376,6 +1397,7 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def bid(self, game: GameState) -> BiddingAction:
+        """Prompts the player to submit a bid during the bidding phase."""
         prompt = self.format_game_state(game)
         pbid = pareto_optimal_bid(
             game.doomsday_clock,
@@ -1405,6 +1427,7 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def operations(self, game: GameState) -> OperationsAction:
+        """Prompts the player to select operations to conduct."""
         prompt = self.format_game_state(game)
         prompt += self.my_strategy()
         prompt += self.game_ending_warning(game)
@@ -1471,6 +1494,7 @@ class OllamaPlayer(GamePlayer):
         winner: str | None,
         reason: GameOverReason,
     ) -> None:
+        """Handles post-game logic, optionally logging the final state."""
         prompt = format_results(winner, reason, game)
         prompt += self.format_event_log(game.recent_events())
 

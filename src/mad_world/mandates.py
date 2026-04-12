@@ -70,6 +70,7 @@ class SleepingGiantMandate(EndgameMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         player_gdp = game.players[player_name].gdp
         opponent_name = next(p for p in game.players if p != player_name)
         opponent_gdp = game.players[opponent_name].gdp
@@ -82,6 +83,7 @@ class SleepingGiantMandate(EndgameMandate):
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         return [
             MandateFulfilledEvent(
                 actor=PlayerActor(name=player_name),
@@ -110,11 +112,13 @@ class AccelerationistMandate(EndgameMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         return game.doomsday_clock == (
             game.rules.max_clock_state - AccelerationistDefs.CLOCK_BUFFER
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         return [
             MandateFulfilledEvent(
                 actor=PlayerActor(name=player_name),
@@ -144,12 +148,14 @@ class PacifistUtopiaMandate(EndgameMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         debt = game.escalation_track.count(PlayerActor(name=player_name))
         return debt < (
             PacifistUtopiaDefs.MAX_CLOCK_PERCENTAGE * game.rules.max_clock_state
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         player_gdp = game.players[player_name].gdp
         bonus = int(player_gdp * PacifistUtopiaDefs.GDP_MULTIPLIER)
         return [
@@ -182,6 +188,7 @@ class WarProfiteerMandate(EndgameMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         opponent_name = next(p for p in game.players if p != player_name)
         if (
             game.players[player_name].gdp <= WarProfiteerDefs.GDP_THRESHOLD
@@ -193,6 +200,7 @@ class WarProfiteerMandate(EndgameMandate):
         return ratio >= WarProfiteerDefs.CLOCK_RATIO
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         opponent_name = next(p for p in game.players if p != player_name)
         return [
             MandateFulfilledEvent(
@@ -228,6 +236,7 @@ class PopularJingoismMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         if game.last_phase != GamePhase.BIDDING:
             return False
 
@@ -249,6 +258,7 @@ class PopularJingoismMandate(InstantMandate):
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         return [
             MandateFulfilledEvent(
                 actor=PlayerActor(name=player_name),
@@ -279,6 +289,7 @@ class SpaceRaceMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         if game.last_phase != GamePhase.OPERATIONS:
             return False
 
@@ -300,6 +311,7 @@ class SpaceRaceMandate(InstantMandate):
         return count >= SpaceRaceDefs.REQUIRED_OPS
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         opponent_name = next(p for p in game.players if p != player_name)
         opponent_inf = game.players[opponent_name].influence
         return [
@@ -332,6 +344,7 @@ class CounterIntelligenceMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         if game.last_phase != GamePhase.OPERATIONS:
             return False
 
@@ -352,6 +365,7 @@ class CounterIntelligenceMandate(InstantMandate):
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         opponent_name = next(p for p in game.players if p != player_name)
         return [
             MandateFulfilledEvent(
@@ -384,9 +398,11 @@ class CoolerHeadsMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         return game.doomsday_clock >= game.rules.max_clock_state
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         return [
             MandateFulfilledEvent(
                 actor=PlayerActor(name=player_name),
@@ -498,6 +514,7 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
     )
 
     def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
         if game.last_phase != GamePhase.OPERATIONS:
             return False
 
@@ -526,6 +543,7 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
         return player_conducted_op and opponent_conducted_op
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
         return [
             MandateFulfilledEvent(
                 actor=PlayerActor(name=player_name),

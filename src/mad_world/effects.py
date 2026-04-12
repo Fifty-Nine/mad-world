@@ -41,9 +41,11 @@ class BaseEffect(BaseCard, ABC):
     def modify_operations(
         self, ops: dict[str, OperationDefinition]
     ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
         return ops
 
     def modify_bids(self, bids: list[int]) -> list[int]:
+        """Filters or modifies the list of valid bids."""
         assert bids, f"Effect {self.title} removed all possible bids!"
         return bids
 
@@ -84,6 +86,7 @@ class NoZeroBidsEffect(BaseEffect):
 
     @override
     def modify_bids(self, bids: list[int]) -> list[int]:
+        """Filters or modifies the list of valid bids."""
         return super().modify_bids([b for b in bids if b != 0])
 
 
@@ -103,6 +106,7 @@ class NoDomesticInvestmentEffect(BaseEffect):
     def modify_operations(
         self, ops: dict[str, OperationDefinition]
     ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
         # Return a copy without 'domestic-investment'
         return {k: v for k, v in ops.items() if k != "domestic-investment"}
 
@@ -121,6 +125,7 @@ class ArmsControlEffect(BaseEffect):
 
     @override
     def modify_bids(self, bids: list[int]) -> list[int]:
+        """Filters or modifies the list of valid bids."""
         return super().modify_bids([b for b in bids if b <= 3])
 
 
@@ -145,4 +150,5 @@ class UNPeacekeepingEffect(BaseEffect):
     def modify_operations(
         self, ops: dict[str, OperationDefinition]
     ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
         return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
