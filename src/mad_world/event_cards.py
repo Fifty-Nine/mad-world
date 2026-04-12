@@ -73,7 +73,7 @@ class BasePlayerEffectCard(BaseEventCard):
 
     def player_name(self, game: GameState) -> str:
         """Get the name of the affected player."""
-        return game.player_names()[self.player_idx]
+        return game.player_names[self.player_idx]
 
     @override
     def mechanics(self, game: GameState) -> str:
@@ -193,7 +193,7 @@ class InfluenceBothEvent(BaseEventCard):
         )
 
     def run(self, game: GameState) -> list[GameEvent]:
-        p1, p2 = game.player_names()
+        p1, p2 = game.player_names
         return self.create_event(
             game, influence_delta={p1: self.amount, p2: self.amount}
         )

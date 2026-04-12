@@ -223,6 +223,7 @@ class GameState(BaseModel):
 
         return result
 
+    @property
     def player_names(self) -> tuple[str, str]:
         assert len(self.players) == 2
         return cast("tuple[str, str]", tuple(self.players))
@@ -582,7 +583,7 @@ async def resolve_bidding(
 ) -> GameState:
     """Resolve the bidding phase of the game."""
 
-    alpha_name, omega_name = game.player_names()
+    alpha_name, omega_name = game.player_names
     alpha_actor, omega_actor = (
         PlayerActor(name=alpha_name),
         PlayerActor(name=omega_name),
@@ -732,7 +733,7 @@ async def resolve_operations(
     players: list[GamePlayer],
 ) -> GameState:
 
-    alpha_name, omega_name = game.player_names()
+    alpha_name, omega_name = game.player_names
     alpha_action, omega_action = await asyncio.gather(
         players[0].operations(game),
         players[1].operations(game),
@@ -774,7 +775,7 @@ async def resolve_messaging(
     game: GameState,
     players: list[GamePlayer],
 ) -> GameState:
-    alpha_name, omega_name = game.player_names()
+    alpha_name, omega_name = game.player_names
 
     async def callback(player: GamePlayer) -> MessagingAction:
         if game.current_phase.is_crisis():
@@ -802,7 +803,7 @@ async def resolve_opening(
     players: list[GamePlayer],
 ) -> GameState:
 
-    alpha_name, omega_name = game.player_names()
+    alpha_name, omega_name = game.player_names
     alpha_msg, omega_msg = await asyncio.gather(
         players[0].initial_message(game),
         players[1].initial_message(game),
@@ -838,7 +839,7 @@ def _apply_aggressor_tax(new_game: GameState) -> None:
     if new_game.doomsday_clock < new_game.rules.aggressor_tax_clock_threshold:
         return
 
-    alpha_name, omega_name = new_game.player_names()
+    alpha_name, omega_name = new_game.player_names
     alpha_debt = new_game.escalation_debt(alpha_name)
     omega_debt = new_game.escalation_debt(omega_name)
 

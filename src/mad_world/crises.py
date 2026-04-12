@@ -274,7 +274,7 @@ class InternationalSanctionsCrisis(BaseCrisis):
             ),
             clock_delta=SANCTIONS_TIE_CLOCK_EFFECT,
             gdp_delta=dict.fromkeys(
-                game.player_names(), SANCTIONS_TIE_GDP_EFFECT
+                game.player_names, SANCTIONS_TIE_GDP_EFFECT
             ),
         )
 
@@ -297,7 +297,7 @@ class InternationalSanctionsCrisis(BaseCrisis):
     async def run(
         self, game: GameState, players: list[GamePlayer]
     ) -> list[GameEvent]:
-        player1, player2 = game.player_names()
+        player1, player2 = game.player_names
         debt1 = game.escalation_debt(player1)
         debt2 = game.escalation_debt(player2)
 
@@ -512,7 +512,7 @@ class NuclearMeltdownCrisis(GenericCrisis[NuclearMeltdownAction]):
     def resolve(
         self, game: GameState, actions: dict[str, NuclearMeltdownAction]
     ) -> list[GameEvent]:
-        player1, player2 = game.player_names()
+        player1, player2 = game.player_names
         p1_amount, p2_amount = (
             actions[player1].investment,
             actions[player2].investment,
