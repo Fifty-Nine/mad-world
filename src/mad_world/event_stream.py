@@ -97,6 +97,11 @@ class EventStream[T: BaseGameEvent]:
 
         return EventStream(_generator())
 
+    def since_last[U: BaseGameEvent](
+        self, event_type: type[U]
+    ) -> EventStream[T]:
+        return self.take_while(lambda e: not isinstance(e.event, event_type))
+
     def between_rounds(self, start: int, end: int) -> EventStream[T]:
         """Yield events that occurred between 'start' and 'end' rounds,
         inclusive. This works whether the stream is reversed or not."""
@@ -129,6 +134,10 @@ class EventStream[T: BaseGameEvent]:
 
     def slice(self, *args: Any, **kwargs: Any) -> EventStream[T]:
         return EventStream(itertools.islice(self._stream, *args, **kwargs))
+
+    def count(self) -> int:
+        """Consume the stream and return the number of elements it contained."""
+        return sum(1 for _ in self)
 
     @overload
     def head(self) -> LoggedEvent[T]: ...
