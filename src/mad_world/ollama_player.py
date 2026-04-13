@@ -1310,7 +1310,7 @@ class OllamaPlayer(GamePlayer):
         result = await self.retry_action(ChatResponse, game)
         if result is None:
             return ChatAction(
-                message="[CONNECTION LOST]",
+                chat_message="[CONNECTION LOST]",
                 end_channel=True,
             )
         return result.action
@@ -1336,7 +1336,7 @@ class OllamaPlayer(GamePlayer):
         )
         result = await self.retry_action(InitialMessageResponse, game)
         if result is None:
-            return InitialMessageAction()
+            return InitialMessageAction(opening_statement="<static>")
 
         self.grand_strategy = result.grand_strategy
         return result.action

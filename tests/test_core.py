@@ -182,7 +182,8 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             last_message: str | None,
         ) -> ChatAction:
             return ChatAction(
-                message=f"Alpha chat {remaining_messages}", end_channel=False
+                chat_message=f"Alpha chat {remaining_messages}",
+                end_channel=False,
             )
 
     class TestOmegaPlayer(UnimplementedPlayer):
@@ -192,7 +193,7 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="Omega done", end_channel=True)
+            return ChatAction(chat_message="Omega done", end_channel=True)
 
     players: list[GamePlayer] = [
         TestAlphaPlayer("Alpha"),
@@ -223,7 +224,7 @@ async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
 
@@ -268,7 +269,7 @@ async def test_resolve_chat_channel_double_request(
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -295,7 +296,7 @@ async def test_resolve_chat_channel_omega_request(
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -322,7 +323,7 @@ async def test_resolve_chat_channel_max_messages(
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=False)
+            return ChatAction(chat_message="test", end_channel=False)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -354,7 +355,7 @@ async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
             remaining_messages: int,
             last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="Never called", end_channel=True)
+            return ChatAction(chat_message="Never called", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)

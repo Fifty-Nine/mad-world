@@ -50,7 +50,7 @@ class TrivialPlayer(GamePlayer):
     async def chat(
         self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
-        return ChatAction(message="[CONNECTION LOST]", end_channel=True)
+        return ChatAction(chat_message="[CONNECTION LOST]", end_channel=True)
 
 
 def get_trivial_player(kind: str, name: str) -> TrivialPlayer | None:
@@ -306,7 +306,7 @@ class ParetoEfficientPlayer(TrivialPlayer):
         self, game: GameState, remaining_messages: int, last_message: str | None
     ) -> ChatAction:
         return ChatAction(
-            message=(
+            chat_message=(
                 "[STATUS] Optimal algorithms indicate chatter is inefficient."
             ),
             end_channel=True,

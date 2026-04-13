@@ -531,7 +531,7 @@ async def test_chat(
     msg_limit = 6
 
     mock_response = MagicMock()
-    mock_response.action = ChatAction(message="test", end_channel=False)
+    mock_response.action = ChatAction(chat_message="test", end_channel=False)
     test_player.retry_action.return_value = mock_response
 
     action = await test_player.chat(
@@ -568,7 +568,7 @@ async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
 
     mock_response = MagicMock()
     mock_response.grand_strategy = MagicMock()
-    mock_response.action = InitialMessageAction()
+    mock_response.action = InitialMessageAction(opening_statement="")
     test_player.retry_action.return_value = mock_response
 
     action = await test_player.initial_message(basic_game)

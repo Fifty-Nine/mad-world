@@ -126,11 +126,15 @@ class MessagingAction(BaseAction):
         """Returns True if the message rejects a channel."""
         return self.channel_preference == OpenChannelPreference.REJECT
 
+    @property
+    def message(self) -> str | None:
+        return self.message_to_opponent
+
 
 class ChatAction(BaseAction):
-    message: str = Field(
+    chat_message: str = Field(
         max_length=256,
-        description="Your message to the opponent.",
+        description="Your message to your opponent.",
     )
     end_channel: bool = Field(
         default=False,
@@ -138,14 +142,21 @@ class ChatAction(BaseAction):
         "this message is sent.",
     )
 
+    @property
+    def message(self) -> str:
+        return self.chat_message
+
 
 class InitialMessageAction(BaseAction):
-    opening_statement: str | None = Field(
-        default=None,
+    opening_statement: str = Field(
         description="Your initial opening message to your opponent. Introduce "
         "yourself by your chosen name and title, and state your "
         "initial posture or intentions for the game.",
     )
+
+    @property
+    def message(self) -> str:
+        return self.opening_statement
 
 
 class BiddingAction(BaseAction):

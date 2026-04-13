@@ -362,14 +362,7 @@ class GameState(BaseModel):
 
         Logs the action into the game event log as a MessageEvent.
         """
-        if isinstance(action, InitialMessageAction):
-            message = action.opening_statement
-        elif isinstance(action, MessagingAction):
-            message = action.message_to_opponent
-        else:
-            message = action.message
-
-        if message is None:
+        if action.message is None:
             return
 
         self.apply_event(
@@ -379,12 +372,12 @@ class GameState(BaseModel):
                     f"{self_player} sent a message to "
                     f"{opponent_player}:\n"
                     + wrap_text(
-                        message,
+                        action.message,
                         width=80,
                         indent="  ",
                     )
                 ),
-                message=message,
+                message=action.message,
                 channel_message=isinstance(action, ChatAction),
             ),
         )
