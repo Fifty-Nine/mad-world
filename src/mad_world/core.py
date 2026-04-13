@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from mad_world.actions import (
     BiddingAction,
     ChatAction,
+    InitialMessageAction,
     InsufficientInfluenceError,
     InvalidActionError,
     InvalidOperationError,
@@ -355,17 +356,18 @@ class GameState(BaseModel):
         self,
         self_player: str,
         opponent_player: str,
-        action: MessagingAction | ChatAction,
+        action: MessagingAction | ChatAction | InitialMessageAction,
     ) -> None:
         """Records a messaging action between players.
 
         Logs the action into the game event log as a MessageEvent.
         """
-        message = (
-            action.message_to_opponent
-            if isinstance(action, MessagingAction)
-            else action.message
-        )
+        if isinstance(action, InitialMessageAction):
+            message = action.opening_statement
+        elif isinstance(action, MessagingAction):
+            message = action.message_to_opponent
+        else:
+            message = action.message
 
         if message is None:
             return
@@ -985,8 +987,6 @@ async def resolve_opening(
 
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
-
-    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
 
     new_game.advance_phase()
 

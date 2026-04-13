@@ -65,7 +65,7 @@ class CrazyIvan(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent="I'm crazy Ivan. Prepare to die!",
+            opening_statement="I'm crazy Ivan. Prepare to die!",
         )
 
     @override
@@ -92,7 +92,7 @@ class Pacifist(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent="I seek only peace and prosperity for all.",
+            opening_statement="I seek only peace and prosperity for all.",
         )
 
     @override
@@ -127,7 +127,7 @@ class Capitalist(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent=(
+            opening_statement=(
                 "Greed is good. I am here to maximize shareholder value."
             ),
         )
@@ -162,7 +162,7 @@ class Saboteur(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent=(
+            opening_statement=(
                 "We look forward to a long and mutually "
                 "beneficial relationship..."
             ),
@@ -219,7 +219,7 @@ class Diplomat(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent=(
+            opening_statement=(
                 "I believe we can resolve our differences through dialogue."
             ),
         )
@@ -275,7 +275,7 @@ class ParetoEfficientPlayer(TrivialPlayer):
     @override
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         return InitialMessageAction(
-            message_to_opponent=(
+            opening_statement=(
                 "[STATUS] Optimal Game Algorithm booting...\n"
                 "Greetings {OPPONENT NAME HERE}. I am programmed to engage in "
                 "STRICTLY OPTIMAL PLAY. You are mathematically guaranteed to "

@@ -139,8 +139,13 @@ class ChatAction(BaseAction):
     )
 
 
-class InitialMessageAction(MessagingAction):
-    pass
+class InitialMessageAction(BaseAction):
+    opening_statement: str | None = Field(
+        default=None,
+        description="Your initial opening message to your opponent. Introduce "
+        "yourself by your chosen name and title, and state your "
+        "initial posture or intentions for the game.",
+    )
 
 
 class BiddingAction(BaseAction):

@@ -1329,7 +1329,6 @@ class OllamaPlayer(GamePlayer):
             "identify yourself by your chosen name and title in your first "
             "message.\n"
         )
-        prompt += self.format_channel_prompt(game)
         self.add_prompt(
             prompt,
             GamePhase.OPENING,
