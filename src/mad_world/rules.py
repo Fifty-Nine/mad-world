@@ -265,6 +265,13 @@ class GameRules(BaseModel):
         description="The maximum number of direct back-and-forth channels "
         "a player can request or participate in during a single game.",
     )
+    max_messages_per_channel: int = Field(
+        default=10,
+        description=(
+            "The maximum number of messages a single participant is permitted "
+            "to send in an open messaging channel."
+        ),
+    )
 
     def get_doomsday_bids(
         self,

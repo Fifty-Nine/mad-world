@@ -893,7 +893,7 @@ async def resolve_chat_channel(
         )
     )
 
-    max_messages = 10
+    max_messages = new_game.rules.max_messages_per_channel
     sender_idx = (
         new_game.rng.choice([0, 1])
         if initiator is None

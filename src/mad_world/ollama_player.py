@@ -1273,9 +1273,10 @@ class OllamaPlayer(GamePlayer):
 
         channels_opened = game.players[self.name].channels_opened
         channels_left = game.rules.max_channels_per_game - channels_opened
+        msg_limit = game.rules.max_messages_per_channel
         prompt = (
             "You are currently in a direct communication channel with your "
-            "opponent. You can go back and forth up to 10 times. "
+            f"opponent. You can go back and forth up to {msg_limit} times. "
             f"You have {remaining_messages} messages left to send in this "
             f"channel.\nYou have {channels_left} total channels left you "
             "can request this game. Think about what you want to achieve "
