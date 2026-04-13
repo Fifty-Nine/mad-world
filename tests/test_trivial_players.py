@@ -30,7 +30,7 @@ from mad_world.trivial_players import (
 async def test_trivial_player_chat() -> None:
     player = CrazyIvan("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
-    action = await player.chat(game_state, 5, last_message=None)
+    action = await player.chat(game_state, 5)
     assert action.message
     assert action.end_channel is True
 
@@ -39,7 +39,7 @@ async def test_trivial_player_chat() -> None:
 async def test_pareto_efficient_player_chat() -> None:
     player = ParetoEfficientPlayer("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
-    action = await player.chat(game_state, 5, last_message=None)
+    action = await player.chat(game_state, 5)
     assert action.message
     assert action.end_channel is True
 

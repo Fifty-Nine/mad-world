@@ -899,13 +899,11 @@ async def resolve_chat_channel(
 
     sender = players[sender_idx]
     receiver = players[1 - sender_idx]
-    last_message: str | None = None
 
     for i in range(max_messages * 2):
         remaining = (max_messages * 2 + 1 - i) // 2
-        chat_action = await sender.chat(new_game, remaining, last_message)
+        chat_action = await sender.chat(new_game, remaining)
         new_game.log_message(sender.name, receiver.name, chat_action)
-        last_message = chat_action.message
 
         if chat_action.end_channel:
             new_game.apply_event(

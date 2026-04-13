@@ -179,7 +179,6 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(
                 chat_message=f"Alpha chat {remaining_messages}",
@@ -191,7 +190,6 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="Omega done", end_channel=True)
 
@@ -222,7 +220,6 @@ async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="test", end_channel=True)
 
@@ -267,7 +264,6 @@ async def test_resolve_chat_channel_double_request(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="test", end_channel=True)
 
@@ -294,7 +290,6 @@ async def test_resolve_chat_channel_omega_request(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="test", end_channel=True)
 
@@ -321,7 +316,6 @@ async def test_resolve_chat_channel_max_messages(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="test", end_channel=False)
 
@@ -353,7 +347,6 @@ async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(chat_message="Never called", end_channel=True)
 

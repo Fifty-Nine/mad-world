@@ -48,7 +48,7 @@ class TrivialPlayer(GamePlayer):
 
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int, last_message: str | None
+        self, game: GameState, remaining_messages: int
     ) -> ChatAction:
         return ChatAction(chat_message="[CONNECTION LOST]", end_channel=True)
 
@@ -303,7 +303,7 @@ class ParetoEfficientPlayer(TrivialPlayer):
 
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int, last_message: str | None
+        self, game: GameState, remaining_messages: int
     ) -> ChatAction:
         return ChatAction(
             chat_message=(

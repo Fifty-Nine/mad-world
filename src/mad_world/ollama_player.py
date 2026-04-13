@@ -39,6 +39,7 @@ from mad_world.core import (
 )
 from mad_world.crises import BaseCrisis, StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
+from mad_world.events import ChannelOpenedEvent, MessageEvent
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -1262,9 +1263,54 @@ class OllamaPlayer(GamePlayer):
             "quotas.\n"
         )
 
+    @staticmethod
+    def _format_message_for_prompt(e: MessageEvent) -> str:
+        return f"{e.actor.name}:\n{wrap_text(e.message or '', indent='> ')}\n"
+
+    def _channel_opened_by_me(self, game: GameState) -> bool:
+        return (
+            game.query_event_log()
+            .since_last(ChannelOpenedEvent)
+            .of_type(MessageEvent)
+            .filter(lambda e: e.event.channel_message)
+        ).count() % 2 == 0
+
+    def _format_pre_channel_prompt(self, game: GameState) -> str:
+        """Prompt the model for the first (or second, if receiving) message
+        in an opened channel."""
+        prompt = (
+            " Both you and your opponent just sent your pre-phase "
+            "broadcast messages:\n"
+        )
+
+        prompt += wrap_text(
+            "\n".join(
+                self._format_message_for_prompt(e)
+                for e in (
+                    game.query_event_log()
+                    .of_type(MessageEvent)
+                    .filter(lambda e: not e.event.channel_message)
+                    .slice(2)
+                    .unwrap()
+                )
+            ),
+            indent="  ",
+        )
+
+        if self._channel_opened_by_me(game):
+            prompt += (
+                "Now that the direct "
+                "channel is open, you have the floor to send the first "
+                "message in this back-and-forth channel. We suggest you "
+                "reply to their broadcast message or state the reason you "
+                "requested the channel.\n"
+            )
+
+        return prompt
+
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int, last_message: str | None
+        self, game: GameState, remaining_messages: int
     ) -> ChatAction:
         """Generates a single message for an active communication channel."""
 
@@ -1275,9 +1321,6 @@ class OllamaPlayer(GamePlayer):
         channels_left = game.rules.max_channels_per_game - channels_opened
         prompt = ""
         msg_limit = game.rules.max_messages_per_channel
-        if remaining_messages == msg_limit:
-            prompt += self.format_game_state(game)
-
         prompt += (
             "You are currently in a direct communication channel with your "
             f"opponent. You can go back and forth up to {msg_limit} times. "
@@ -1287,21 +1330,17 @@ class OllamaPlayer(GamePlayer):
             "with this message and what information you want to convey "
             "or extract from your opponent."
         )
-        if last_message is None:
-            prompt += (
-                " Both you and your opponent just sent your pre-phase "
-                "broadcast messages (see recent events). Now that the direct "
-                "channel is open, you have the floor to send the first "
-                "message in this back-and-forth channel. We suggest you "
-                "reply to their broadcast message or state the reason you "
-                "requested the channel.\n"
-            )
-        else:
-            prompt += (
-                " Your opponent's last message was:\n"
-                + wrap_text(last_message, indent="> ")
-                + "\n\n"
-            )
+        if remaining_messages == msg_limit:
+            prompt += self._format_pre_channel_prompt(game)
+
+        if (
+            last_message := game.query_event_log()
+            .since_last(ChannelOpenedEvent)
+            .of_type(MessageEvent)
+            .filter(lambda e: e.event.channel_message)
+            .head(default=None)
+        ):
+            prompt += self._format_message_for_prompt(last_message.event)
 
         self.add_prompt(
             prompt, game.current_phase, ChatResponse.prompt_schema()

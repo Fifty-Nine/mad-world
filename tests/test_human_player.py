@@ -47,9 +47,7 @@ async def test_human_player_chat(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 
     with mock_human_input(player, side_effect=["Hello World", "true"]):
-        action = await player.chat(
-            basic_game, remaining_messages=5, last_message=None
-        )
+        action = await player.chat(basic_game, remaining_messages=5)
 
     assert isinstance(action, ChatAction)
     assert action.message == "Hello World"
@@ -63,9 +61,7 @@ async def test_human_player_chat_retry(basic_game: GameState) -> None:
     with mock_human_input(
         player, side_effect=["too long" * 100, "false", "Hello World", "true"]
     ):
-        action = await player.chat(
-            basic_game, remaining_messages=5, last_message=None
-        )
+        action = await player.chat(basic_game, remaining_messages=5)
 
     assert isinstance(action, ChatAction)
     assert action.message == "Hello World"

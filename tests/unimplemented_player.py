@@ -27,7 +27,7 @@ class UnimplementedPlayer(GamePlayer):
 
     @override
     async def chat(
-        self, game: GameState, remaining_messages: int, last_message: str | None
+        self, game: GameState, remaining_messages: int
     ) -> ChatAction:
         raise NotImplementedError
 
