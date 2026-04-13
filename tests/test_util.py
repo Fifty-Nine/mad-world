@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -134,6 +134,13 @@ def test_pareto_optimal_bid(
     bid: int,
 ) -> None:
     assert pareto_optimal_bid(clock, max_clock, allowed_bids) == bid
+
+
+@patch("mad_world.util.escalation_budget")
+def test_pareto_optimal_bid_edge(eb_mock: MagicMock) -> None:
+    eb_mock.return_value = 5
+
+    assert pareto_optimal_bid(0, 0, [-1, 0, 4, 5]) == 5
 
 
 def test_get_class_name() -> None:

@@ -120,7 +120,7 @@ def pareto_optimal_bid(
     budget = escalation_budget(clock, max_clock)
 
     return max(
-        (bid for bid in allowed_bids if bid < budget),
+        (bid for bid in allowed_bids if bid <= budget),
         default=0,
     )
 
