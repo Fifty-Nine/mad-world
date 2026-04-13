@@ -62,6 +62,7 @@ if TYPE_CHECKING:
 
     from mad_world.players import GamePlayer
 
+from mad_world.hooks import GameLoopCallback, GameLoopHook, run_callbacks
 
 CLOCK_WARNING_THRESHOLD = 0.8
 
@@ -1111,6 +1112,7 @@ async def game_loop(
     rules: GameRules,
     players: list[GamePlayer],
     log_dir: Path | None = None,
+    callbacks: list[GameLoopCallback] | None = None,
 ) -> tuple[str | None, GameOverReason, GameState]:
     """Continuously executes the game phases.
 
@@ -1119,16 +1121,21 @@ async def game_loop(
     game = GameState.new_game(
         players=[p.name for p in players], rules=rules, log_dir=log_dir
     )
+    callbacks = callbacks or []
 
     await asyncio.gather(*(p.start_game(game) for p in players))
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
             await game.autosave()
+
+            game = await run_callbacks(callbacks, game, GameLoopHook.POST_PHASE)
         except WorldDestroyed:
+            game = await run_callbacks(
+                callbacks, game, GameLoopHook.PRE_DESTROY_WORLD
+            )
             game = destroy_world(game)
             break
-
     game.check_endgame_mandates()
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")

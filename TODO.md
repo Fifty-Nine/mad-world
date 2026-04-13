@@ -6,3 +6,4 @@
 - Make OperationDefinitions serializable and load them from a file.
 - Use ConfigDict(frozen=true) in most pydantic models.
 - Use ConfigDict(frozen=true) in GameState (requires a big refactor)
+- Create a fluent interface/DSL for defining and manipulating game loop callbacks (similar to EventStream).
