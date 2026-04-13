@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from itertools import chain
-from typing import TYPE_CHECKING, Any, ClassVar, Self, override
+from typing import TYPE_CHECKING, Any, ClassVar, override
 
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field
 
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
@@ -29,10 +29,15 @@ if TYPE_CHECKING:
 class BaseEventCard(BaseCard):
     """Base class for all event deck cards."""
 
-    title: str = Field(description="The title of the event.")
-    description: str = Field(
-        description="The narrative description of the event.",
-    )
+    model_config = ConfigDict(frozen=True)
+
+    @property
+    @abstractmethod
+    def title(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def description(self) -> str: ...
 
     @abstractmethod
     def mechanics(self, game: GameState) -> str: ...
@@ -112,16 +117,19 @@ class BaseOngoingEffectEvent(BaseEventCard):
 class ClockChangeEvent(BaseEventCard):
     card_kind: ClassVar[str] = "clock_change"
 
-    title: str = "Tides of Tension"
-    description: str = ""
     amount: int = 1
 
-    @model_validator(mode="after")
-    def update_description(self) -> Self:
-        self.description = (
+    @property
+    @override
+    def title(self) -> str:
+        return "Tides of Tension"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
             f"Global tensions have {risen_or_fallen(self.amount)} inexplicably."
         )
-        return self
 
     @override
     def mechanics(self, game: GameState) -> str:
@@ -137,16 +145,19 @@ class ClockChangeEvent(BaseEventCard):
 class InfluenceChangeEvent(BasePlayerEffectCard):
     card_kind: ClassVar[str] = "diplo_event"
 
-    title: str = ""
-    description: str = ""
     amount: int = 3
 
-    @model_validator(mode="after")
-    def update_descriptions(self) -> Self:
+    @property
+    @override
+    def title(self) -> str:
         kind = "breakthrough" if self.amount >= 0 else "blunder"
-        self.title = f"Diplomatic {kind.capitalize()}"
-        self.description = f"A player experiences a diplomatic {kind}"
-        return self
+        return f"Diplomatic {kind.capitalize()}"
+
+    @property
+    @override
+    def description(self) -> str:
+        kind = "breakthrough" if self.amount >= 0 else "blunder"
+        return f"A player experiences a diplomatic {kind}"
 
     @override
     def effect_units(self) -> str:
@@ -159,16 +170,19 @@ class InfluenceChangeEvent(BasePlayerEffectCard):
 
 class GDPEvent(BasePlayerEffectCard):
     card_kind: ClassVar[str] = "economic_event"
-    title: str = ""
-    description: str = ""
     amount: int = 4
 
-    @model_validator(mode="after")
-    def update_descriptions(self) -> Self:
+    @property
+    @override
+    def title(self) -> str:
         kind = "boom" if self.amount >= 0 else "recession"
-        self.title = f"Economic {kind.capitalize()}"
-        self.description = f"A player experiences an economic {kind}"
-        return self
+        return f"Economic {kind.capitalize()}"
+
+    @property
+    @override
+    def description(self) -> str:
+        kind = "boom" if self.amount >= 0 else "recession"
+        return f"A player experiences an economic {kind}"
 
     @override
     def effect_units(self) -> str:
@@ -182,9 +196,17 @@ class GDPEvent(BasePlayerEffectCard):
 class InfluenceBothEvent(BaseEventCard):
     card_kind: ClassVar[str] = "influence_both"
 
-    title: str = "Global Summit"
-    description: str = "A global summit grants influence to both players."
     amount: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Global Summit"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "A global summit grants influence to both players."
 
     @override
     def mechanics(self, game: GameState) -> str:
@@ -202,9 +224,17 @@ class InfluenceBothEvent(BaseEventCard):
 class BanZeroBidsEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "ban_zero_bids"
 
-    title: str = "Breakdown in Communications"
-    description: str = "De-escalation becomes impossible as talks break down."
     duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Breakdown in Communications"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "De-escalation becomes impossible as talks break down."
 
     @override
     def effect_type(self) -> type[NoZeroBidsEffect]:
@@ -214,9 +244,17 @@ class BanZeroBidsEvent(BaseOngoingEffectEvent):
 class BanDomesticInvestmentEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "ban_domestic_investment"
 
-    title: str = "Global Market Crash"
-    description: str = "A sudden market crash halts domestic investments."
     duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Global Market Crash"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "A sudden market crash halts domestic investments."
 
     @override
     def effect_type(self) -> type[NoDomesticInvestmentEffect]:
@@ -226,11 +264,17 @@ class BanDomesticInvestmentEvent(BaseOngoingEffectEvent):
 class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "arms_control_treaty"
 
-    title: str = "Arms Control Treaty"
-    description: str = (
-        "International pressure forces a temporary limit on escalation."
-    )
     duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Arms Control Treaty"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "International pressure forces a temporary limit on escalation."
 
     @override
     def effect_type(self) -> type[ArmsControlEffect]:
@@ -240,12 +284,20 @@ class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
 class UNPeacekeepingEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "un_peacekeeping_event"
 
-    title: str = "UN Peacekeeping Mission"
-    description: str = (
-        "The UN has successfully deployed peacekeeping forces to global "
-        "hotspots, making armed conflicts impossible."
-    )
     duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "UN Peacekeeping Mission"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "The UN has successfully deployed peacekeeping forces to global "
+            "hotspots, making armed conflicts impossible."
+        )
 
     @override
     def effect_type(self) -> type[UNPeacekeepingEffect]:
