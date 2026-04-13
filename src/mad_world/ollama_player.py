@@ -1273,8 +1273,12 @@ class OllamaPlayer(GamePlayer):
 
         channels_opened = game.players[self.name].channels_opened
         channels_left = game.rules.max_channels_per_game - channels_opened
+        prompt = ""
         msg_limit = game.rules.max_messages_per_channel
-        prompt = (
+        if remaining_messages == msg_limit:
+            prompt += self.format_game_state(game)
+
+        prompt += (
             "You are currently in a direct communication channel with your "
             f"opponent. You can go back and forth up to {msg_limit} times. "
             f"You have {remaining_messages} messages left to send in this "
@@ -1285,10 +1289,12 @@ class OllamaPlayer(GamePlayer):
         )
         if last_message is None:
             prompt += (
-                " You initiated this channel, so your opponent is waiting for "
-                "you to send the first message. We suggest you begin with a "
-                "simple greeting and identify the reason you have requested "
-                "the channel.\n"
+                " Both you and your opponent just sent your pre-phase "
+                "broadcast messages (see recent events). Now that the direct "
+                "channel is open, you have the floor to send the first "
+                "message in this back-and-forth channel. We suggest you "
+                "reply to their broadcast message or state the reason you "
+                "requested the channel.\n"
             )
         else:
             prompt += (

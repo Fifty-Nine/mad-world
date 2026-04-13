@@ -522,7 +522,10 @@ def test_format_ongoing_effects_with_effects(
 
 
 @pytest.mark.asyncio
-async def test_chat(test_player: Any, basic_game: GameState) -> None:
+@patch.object(OllamaPlayer, "format_game_state")
+async def test_chat(
+    format_mock: AsyncMock, test_player: Any, basic_game: GameState
+) -> None:
     test_player.retry_action = AsyncMock()
     basic_game.rules.max_messages_per_channel = 6
     msg_limit = 6
@@ -534,10 +537,20 @@ async def test_chat(test_player: Any, basic_game: GameState) -> None:
     action = await test_player.chat(
         basic_game, remaining_messages=msg_limit - 1, last_message=None
     )
+    assert not format_mock.called
 
     assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
+    action = await test_player.chat(
+        basic_game, remaining_messages=msg_limit, last_message=None
+    )
+
+    assert test_player.retry_action.call_count == 2
+    assert action == mock_response.action
+    assert format_mock.call_count == 1
+
+    format_mock.reset_mock()
     test_player.retry_action.return_value = None
     action = await test_player.chat(
         basic_game,
@@ -546,6 +559,7 @@ async def test_chat(test_player: Any, basic_game: GameState) -> None:
     )
     assert isinstance(action, ChatAction)
     assert action.end_channel is True
+    assert not format_mock.called
 
 
 @pytest.mark.asyncio
