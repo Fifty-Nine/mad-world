@@ -6,6 +6,7 @@ import pytest
 
 from mad_world.core import GameState
 from mad_world.crises import (
+    BilateralDisarmamentCrisis,
     DoomsdayAsteroidCrisis,
     NuclearMeltdownCrisis,
     RogueProliferationCrisis,
@@ -501,3 +502,20 @@ async def test_pareto_rogue_proliferation_crisis_message(
     action = await player.crisis_message(game, crisis)
     assert action.message_to_opponent is not None
     assert "minimal survival bid of 6" in action.message_to_opponent
+
+
+@pytest.mark.asyncio
+async def test_pareto_bilateral_disarmament_crisis_action(
+    stable_rules: GameRules,
+) -> None:
+    player = ParetoEfficientPlayer("Alpha")
+    game = GameState.new_game(players=["Alpha", "Omega"], rules=stable_rules)
+    crisis = BilateralDisarmamentCrisis()
+
+    game.players["Alpha"].influence = 10
+
+    # ParetoPlayer does not explicitly handle BilateralDisarmamentCrisis,
+    # so it falls back to super().crisis which uses get_default_action
+    # with aggressive=True
+    action = await player.crisis(game, crisis)
+    assert action.investment == 0

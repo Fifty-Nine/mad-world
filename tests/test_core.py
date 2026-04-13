@@ -40,6 +40,7 @@ from mad_world.core import (
 )
 from mad_world.crises import (
     SANCTIONS_TIE_GDP_EFFECT,
+    BilateralDisarmamentCrisis,
     DoomsdayAsteroidCrisis,
     DoomsdayAsteroidDefs,
     InternationalSanctionsCrisis,
@@ -686,7 +687,7 @@ async def test_doomsday_asteroid_integration(
     # unilateral-drawdown costs 6.
     # Drawdowns reduce clock by 9 each.
     # Round ends after operations.
-    _, reason, game = await game_loop(
+    _, _reason, game = await game_loop(
         stable_rules,
         [Diplomat("Alpha"), Diplomat("Omega")],
     )
@@ -699,7 +700,7 @@ async def test_doomsday_asteroid_integration(
         DoomsdayAsteroidDefs.WINNER_GDP // 2
     )
 
-    assert reason == GameOverReason.STALEMATE
+    assert _reason == GameOverReason.STALEMATE
 
 
 def test_crisis_trigger_logging() -> None:
@@ -995,3 +996,33 @@ async def test_resolve_round_events_aggressor_tax(
         e for e in events if "Aggressor Tax applied" in e.event.description
     ]
     assert len(tax_events) == 2
+
+
+@pytest.mark.asyncio
+async def test_bilateral_disarmament_integration(
+    stable_rules: GameRules,
+) -> None:
+    """Test a BilateralDisarmamentCrisis through the full game loop."""
+    stable_rules.initial_clock_state = 48
+    stable_rules.max_clock_state = 50
+    stable_rules.round_count = 1
+    stable_rules.initial_crisis_deck = [BilateralDisarmamentCrisis()]
+    stable_rules.aggressor_tax_clock_threshold = 100
+    stable_rules.initial_mandate_deck = []
+
+    _, _reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+    )
+
+    events = list(game.event_log)
+    descriptions = [
+        e.event.description
+        for e in events
+        if getattr(e.event, "description", None)
+    ]
+    has_event = any(
+        "true bilateral disarmament" in d or "meaningful concessions" in d
+        for d in descriptions
+    )
+    assert has_event, f"No resolution event found. Descriptions: {descriptions}"
