@@ -117,13 +117,10 @@ def pareto_optimal_bid(
     the highest allowed bid within the escalation budget. Because bid values are
     constrained, the optimal bid may be significantly smaller than the
     actual pareto-optimal escalation budget."""
+    budget = escalation_budget(clock, max_clock)
 
     return max(
-        (
-            bid
-            for bid in allowed_bids
-            if bid < escalation_budget(clock, max_clock)
-        ),
+        (bid for bid in allowed_bids if bid < budget),
         default=0,
     )
 
