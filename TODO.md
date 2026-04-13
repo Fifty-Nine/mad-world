@@ -2,9 +2,7 @@
 - **Add coop win condition**
 - Improve first strike mechanic?
 - Add a TUI interface.
-- Clean up sloppy event filtering in mandates.py - see feedback on #69
 - Remove mypy after we have more experience with ty
 - Make OperationDefinitions serializable and load them from a file.
-- Implement a performant and elegant event log filtering API
 - Use ConfigDict(frozen=true) in most pydantic models.
 - Use ConfigDict(frozen=true) in GameState (requires a big refactor)
