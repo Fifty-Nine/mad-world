@@ -7,11 +7,12 @@ from typing import overload
 import pytest
 
 from mad_world.enums import GamePhase
-from mad_world.event_stream import EventStream
+from mad_world.event_stream import EmptyStreamError, EventStream
 from mad_world.events import (
     BiddingEvent,
     GameEvent,
     LoggedEvent,
+    OperationConductedEvent,
     PlayerActor,
     SystemActor,
     SystemEvent,
@@ -275,4 +276,46 @@ def test_take_rounds(extended_events: Sequence[LoggedEvent[GameEvent]]) -> None:
 
     query = EventStream[GameEvent]([]).between_rounds(1, 3)
     assert not query
+    assert list(query) == []
+
+
+def test_head(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    query = EventStream(sample_events)
+    # Successive calls to head() consume elements
+    assert query.head() == sample_events[0]
+    assert query.head() == sample_events[1]
+
+    # Empty stream without default raises EmptyStreamError
+    query = EventStream[GameEvent]([])
+    with pytest.raises(EmptyStreamError):
+        query.head()
+
+    # Empty stream with default returns the default
+    assert query.head(default="foobar") == "foobar"
+    assert query.head(default=None) is None
+
+    my_object = object()
+    assert query.head(default=my_object) is my_object
+
+    # Filtering down to empty stream also raises
+    query = EventStream(sample_events).of_type(OperationConductedEvent)
+    with pytest.raises(EmptyStreamError):
+        query.head()
+
+
+def test_slice(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    # Test slice with stop only
+    query = EventStream(sample_events).slice(3)
+    assert list(query) == list(sample_events[:3])
+
+    # Test slice with start and stop
+    query = EventStream(sample_events).slice(2, 5)
+    assert list(query) == list(sample_events[2:5])
+
+    # Test slice with start, stop, and step
+    query = EventStream(sample_events).slice(1, 6, 2)
+    assert list(query) == list(sample_events[1:6:2])
+
+    # Test that slicing an empty stream returns an empty stream
+    query = EventStream[GameEvent]([]).slice(5)
     assert list(query) == []
