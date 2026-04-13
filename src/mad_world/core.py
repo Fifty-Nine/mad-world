@@ -274,47 +274,50 @@ class GameState(BaseModel):
                 operation=operation_name,
             )
 
+    def _do_escalate(
+        self, actor: SystemActor | PlayerActor, amount: int
+    ) -> None:
+        none_indices = [
+            i for i, t in enumerate(self.escalation_track) if t is None
+        ]
+        for i in none_indices[:amount]:
+            self.escalation_track[i] = actor
+
+    def _do_deescalate(
+        self, actor: SystemActor | PlayerActor, amount: int
+    ) -> None:
+        to_remove = abs(amount)
+        is_system = actor.is_system()
+
+        target_indices = [
+            i
+            for i in range(len(self.escalation_track) - 1, -1, -1)
+            if self.escalation_track[i] is not None
+            and (is_system or self.escalation_track[i] == actor)
+        ]
+
+        removed = len(target_indices[:to_remove])
+        for i in target_indices[:to_remove]:
+            self.escalation_track[i] = None
+
+        if removed < to_remove:
+            self._remove_any_cubes_from_end(to_remove - removed)
+
+    def _remove_any_cubes_from_end(self, to_remove: int) -> None:
+        any_indices = [
+            i
+            for i in range(len(self.escalation_track) - 1, -1, -1)
+            if self.escalation_track[i] is not None
+        ]
+        for i in any_indices[:to_remove]:
+            self.escalation_track[i] = None
+
     def escalate(self, actor: SystemActor | PlayerActor, amount: int) -> None:
         """Escalate the doomsday clock by adding cubes to the track."""
-        if amount == 0:
-            return
-
-        track = self.escalation_track
-        track_len = len(track)
-
         if amount > 0:
-            # Escalate: find first `amount` None slots and fill them
-            added = 0
-            for i in range(track_len):
-                if track[i] is None:
-                    track[i] = actor
-                    added += 1
-                    if added == amount:
-                        break
-        else:
-            # De-escalate: amount is negative
-            to_remove = abs(amount)
-            removed = 0
-
-            # First pass: remove from the end, matching actor (or any if system)
-            is_system = actor.is_system()
-            for i in range(track_len - 1, -1, -1):
-                track_actor = track[i]
-                if track_actor is not None and (is_system or track_actor == actor):
-                    track[i] = None
-                    removed += 1
-                    if removed == to_remove:
-                        break
-
-            # Second pass: if we still need to remove more, remove any remaining cubes from the end
-            if removed < to_remove:
-                for i in range(track_len - 1, -1, -1):
-                    if track[i] is None:
-                        continue
-                    track[i] = None
-                    removed += 1
-                    if removed == to_remove:
-                        break
+            self._do_escalate(actor, amount)
+        elif amount < 0:
+            self._do_deescalate(actor, amount)
 
     def reset_escalation(self) -> None:
         self.escalate(SystemActor(), -self.rules.max_clock_state)
