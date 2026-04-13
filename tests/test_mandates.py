@@ -496,8 +496,8 @@ def test_detente_mandate() -> None:
                 ),
             ),
             LoggedEvent(
-                phase=GamePhase.BIDDING,
                 round=1,
+                phase=GamePhase.BIDDING,
                 event=BiddingEvent(
                     description="Omega bid 0",
                     actor=PlayerActor(name="Omega"),
@@ -524,8 +524,8 @@ def test_detente_mandate() -> None:
     game.event_log.extend(
         [
             LoggedEvent(
-                phase=GamePhase.BIDDING,
                 round=1,
+                phase=GamePhase.BIDDING,
                 event=BiddingEvent(
                     description="Alpha bid 0",
                     actor=PlayerActor(name="Alpha"),
@@ -533,8 +533,8 @@ def test_detente_mandate() -> None:
                 ),
             ),
             LoggedEvent(
-                phase=GamePhase.BIDDING,
                 round=1,
+                phase=GamePhase.BIDDING,
                 event=BiddingEvent(
                     description="Omega bid 1",
                     actor=PlayerActor(name="Omega"),
