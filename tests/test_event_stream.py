@@ -10,6 +10,7 @@ from mad_world.enums import GamePhase
 from mad_world.event_stream import EventStream
 from mad_world.events import (
     BiddingEvent,
+    GameEvent,
     LoggedEvent,
     PlayerActor,
     SystemActor,
@@ -19,7 +20,7 @@ from mad_world.events import (
 
 def make_system_event(
     round_num: int, phase: GamePhase, desc: str = "sys"
-) -> LoggedEvent:
+) -> LoggedEvent[GameEvent]:
     return LoggedEvent(
         round=round_num,
         phase=phase,
@@ -32,7 +33,7 @@ def make_system_event(
 
 def make_bidding_event(
     round_num: int, phase: GamePhase, bid: int
-) -> LoggedEvent:
+) -> LoggedEvent[GameEvent]:
     return LoggedEvent(
         round=round_num,
         phase=phase,
@@ -45,7 +46,7 @@ def make_bidding_event(
 
 
 @pytest.fixture
-def sample_events() -> Sequence[LoggedEvent]:
+def sample_events() -> Sequence[LoggedEvent[GameEvent]]:
     return [
         make_system_event(1, GamePhase.OPENING, "1"),
         make_system_event(1, GamePhase.ROUND_EVENTS, "2"),
@@ -59,8 +60,8 @@ def sample_events() -> Sequence[LoggedEvent]:
 
 @pytest.fixture
 def extended_events(
-    sample_events: Sequence[LoggedEvent],
-) -> Sequence[LoggedEvent]:
+    sample_events: Sequence[LoggedEvent[GameEvent]],
+) -> Sequence[LoggedEvent[GameEvent]]:
     return list(
         itertools.chain.from_iterable(
             [
@@ -75,16 +76,20 @@ def extended_events(
 
 
 def test_empty_events() -> None:
-    query = EventStream([])
+    query = EventStream[GameEvent]([])
     assert not query
 
 
-def test_basic_iteration(sample_events: Sequence[LoggedEvent]) -> None:
+def test_basic_iteration(
+    sample_events: Sequence[LoggedEvent[GameEvent]],
+) -> None:
     query = EventStream(sample_events)
     assert list(query) == list(sample_events)
 
 
-def test_filter_predicate(sample_events: Sequence[LoggedEvent]) -> None:
+def test_filter_predicate(
+    sample_events: Sequence[LoggedEvent[GameEvent]],
+) -> None:
     query = EventStream(sample_events).filter(
         lambda e: "bid" in e.event.description
     )
@@ -93,9 +98,9 @@ def test_filter_predicate(sample_events: Sequence[LoggedEvent]) -> None:
     assert all(isinstance(e.event, BiddingEvent) for e in result)
 
 
-def test_of_type(sample_events: Sequence[LoggedEvent]) -> None:
+def test_of_type(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(sample_events).of_type(BiddingEvent)
-    result = list(query)
+    result = list(query.unwrap())
     assert len(result) == 3
     assert all(isinstance(e, BiddingEvent) for e in result)
 
@@ -104,14 +109,14 @@ def test_of_type(sample_events: Sequence[LoggedEvent]) -> None:
     assert first_bid.bid in (5, 10, 15)
 
 
-def test_in_phase(sample_events: Sequence[LoggedEvent]) -> None:
+def test_in_phase(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(sample_events).in_phase(GamePhase.BIDDING)
     result = list(query)
     assert len(result) == 3
     assert all(e.phase == GamePhase.BIDDING for e in result)
 
 
-def test_in_round(sample_events: Sequence[LoggedEvent]) -> None:
+def test_in_round(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(sample_events).in_round(2)
     result = list(query)
     assert len(result) == 3
@@ -120,21 +125,23 @@ def test_in_round(sample_events: Sequence[LoggedEvent]) -> None:
     assert all(e.round == 2 for e in result)
 
 
-def test_take_while(sample_events: Sequence[LoggedEvent]) -> None:
+def test_take_while(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(sample_events).take_while(lambda e: e.round < 2)
     result = list(query)
     assert len(result) == 3  # 1, 1, 1
     assert all(e.round < 2 for e in result)
 
 
-def test_drop_while(sample_events: Sequence[LoggedEvent]) -> None:
+def test_drop_while(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(sample_events).drop_while(lambda e: e.round < 2)
     result = list(query)
     assert len(result) == 4  # 2, 2, 2, 3
     assert all(e.round >= 2 for e in result)
 
 
-def test_take_latest_phase_block(sample_events: Sequence[LoggedEvent]) -> None:
+def test_take_latest_phase_block(
+    sample_events: Sequence[LoggedEvent[GameEvent]],
+) -> None:
     # Modify sample to have a nice block at the end
     events = list(sample_events)
     events.append(make_system_event(3, GamePhase.ROUND_EVENTS, "5"))
@@ -151,17 +158,19 @@ def test_take_latest_phase_block(sample_events: Sequence[LoggedEvent]) -> None:
 
 def test_lazy_evaluation() -> None:
     # A sequence that crashes if iterated
-    class CrashingSequence(Sequence[LoggedEvent]):
+    class CrashingSequence(Sequence[LoggedEvent[GameEvent]]):
         def __init__(self) -> None:
             self.length = 5
 
         @overload
-        def __getitem__(self, index: int) -> LoggedEvent: ...
+        def __getitem__(self, index: int) -> LoggedEvent[GameEvent]: ...
         @overload
-        def __getitem__(self, index: slice) -> Sequence[LoggedEvent]: ...
+        def __getitem__(
+            self, index: slice
+        ) -> Sequence[LoggedEvent[GameEvent]]: ...
         def __getitem__(
             self, index: int | slice
-        ) -> LoggedEvent | Sequence[LoggedEvent]:
+        ) -> LoggedEvent[GameEvent] | Sequence[LoggedEvent[GameEvent]]:
             raise ValueError("Iterated!")
 
         def __len__(self) -> int:
@@ -178,7 +187,7 @@ def test_lazy_evaluation() -> None:
         list(q2)
 
 
-def test_bool_operator(sample_events: Sequence[LoggedEvent]) -> None:
+def test_bool_operator(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     # Ensure checking bool does not consume elements
     query = EventStream(sample_events)
     assert query
@@ -192,14 +201,16 @@ def test_bool_operator(sample_events: Sequence[LoggedEvent]) -> None:
     query = query.in_round(1)
     assert query
 
-    query = EventStream([])
+    query = EventStream[GameEvent]([])
     assert not query
 
     query = query.take_latest_phase_block()
     assert not query
 
 
-def test_trivial_predicate(extended_events: Sequence[LoggedEvent]) -> None:
+def test_trivial_predicate(
+    extended_events: Sequence[LoggedEvent[GameEvent]],
+) -> None:
     query = EventStream(list(extended_events)).filter(lambda _: False)
     assert not query
 
@@ -207,7 +218,9 @@ def test_trivial_predicate(extended_events: Sequence[LoggedEvent]) -> None:
     assert list(query) == list(extended_events)
 
 
-def test_composability(extended_events: Sequence[LoggedEvent]) -> None:
+def test_composability(
+    extended_events: Sequence[LoggedEvent[GameEvent]],
+) -> None:
     query = (
         EventStream(extended_events)
         .drop_while(lambda e: e.round < 2)
@@ -215,18 +228,18 @@ def test_composability(extended_events: Sequence[LoggedEvent]) -> None:
         .filter(lambda e: e.phase == GamePhase.BIDDING)
         .of_type(BiddingEvent)
     )
-    result = list(query)
+    result = list(query.unwrap())
     assert len(result) == 3
     assert all(isinstance(e, BiddingEvent) for e in result)
 
 
 def test_take_latest_phase_block_empty() -> None:
-    query = EventStream([]).take_latest_phase_block()
+    query = EventStream[GameEvent]([]).take_latest_phase_block()
     assert not query
     assert list(query) == []
 
 
-def test_take_rounds(extended_events: Sequence[LoggedEvent]) -> None:
+def test_take_rounds(extended_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     query = EventStream(extended_events).between_rounds(2, 4)
     assert query
 
@@ -260,6 +273,6 @@ def test_take_rounds(extended_events: Sequence[LoggedEvent]) -> None:
         EventStream(reversed(extended_events)).in_round(1)
     )
 
-    query = EventStream([]).between_rounds(1, 3)
+    query = EventStream[GameEvent]([]).between_rounds(1, 3)
     assert not query
     assert list(query) == []
