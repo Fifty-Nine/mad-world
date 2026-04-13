@@ -38,6 +38,7 @@ from mad_world.events import (
     ChannelRejectedEvent,
     CrisisResolutionEvent,
     GameEvent,
+    LoggedEvent,
     MandateFulfilledEvent,
     MessageEvent,
     OperationConductedEvent,
@@ -154,7 +155,7 @@ class GameState(BaseModel):
         description="The previously resolved game phase.",
     )
     rules: GameRules = Field(description="The rules governing this game.")
-    event_log: list[GameEvent] = Field(
+    event_log: list[LoggedEvent] = Field(
         default_factory=list,
         description="A chronological log of all events that "
         "have occurred in the game.",
@@ -336,10 +337,13 @@ class GameState(BaseModel):
             effect.start_round = self.current_round
             self.active_effects.append(effect)
 
-        event.current_round = self.current_round
-        event.current_phase = self.current_phase
+        logged = LoggedEvent(
+            round=self.current_round,
+            phase=self.current_phase,
+            event=event,
+        )
 
-        self.event_log.append(event)
+        self.event_log.append(logged)
         logging.getLogger("mad_world").info(event.description)
 
         if not event.world_ending:
@@ -534,14 +538,11 @@ class GameState(BaseModel):
 
         self.active_effects = new_effects
 
-    def recent_events(self) -> list[GameEvent]:
-        result: list[GameEvent] = []
+    def recent_events(self) -> list[LoggedEvent]:
+        result: list[LoggedEvent] = []
 
         for e in reversed(self.event_log):
-            if (
-                e.current_phase == self.last_phase
-                and e.current_round == self.last_round
-            ):
+            if e.phase == self.last_phase and e.round == self.last_round:
                 result.insert(0, e)
 
             elif result:
@@ -591,7 +592,7 @@ class GameState(BaseModel):
 
         return (None, GameOverReason.STALEMATE)
 
-    def query_event_log(self) -> EventStream[GameEvent]:
+    def query_event_log(self) -> EventStream:
         return EventStream(reversed(self.event_log))
 
 

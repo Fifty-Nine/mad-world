@@ -21,7 +21,7 @@ from mad_world.config import LLMParams, LLMPlayerConfig
 from mad_world.core import GameState, PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
-from mad_world.events import ActionEvent, PlayerActor
+from mad_world.events import ActionEvent, LoggedEvent, PlayerActor
 from mad_world.mandates import PacifistUtopiaMandate
 from mad_world.ollama_player import (
     ActionResponse,
@@ -455,10 +455,14 @@ def test_escalation_debt(test_player: Any, basic_game: GameState) -> None:
 
     for _ in range(10):
         basic_game.event_log.append(
-            ActionEvent(
-                actor=PlayerActor(name="Alpha"),
-                description="Alpha bid high",
-                clock_delta=1,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=ActionEvent(
+                    actor=PlayerActor(name="Alpha"),
+                    description="Alpha bid high",
+                    clock_delta=1,
+                ),
             )
         )
         basic_game.escalation_track.append(PlayerActor(name="Alpha"))

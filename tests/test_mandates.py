@@ -11,6 +11,7 @@ from mad_world.enums import GamePhase
 from mad_world.events import (
     BiddingEvent,
     GameEvent,
+    LoggedEvent,
     MandateFulfilledEvent,
     OperationConductedEvent,
     PlayerActor,
@@ -170,42 +171,44 @@ def test_popular_jingoism_mandate() -> None:
     game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
 
     # Wrong round
-    game.current_round = 4
-    game.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game.last_round = 4
     game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
 
     # Right round, wrong phase
-    game.current_round = 5
-    game.current_phase = GamePhase.OPERATIONS
+    game.last_round = 5
     game.last_phase = GamePhase.OPERATIONS_MESSAGING
     assert mandate.is_met(game, "Alpha") is False
 
     # Right round and phase, no matching event
-    game.current_phase = GamePhase.OPERATIONS_MESSAGING
+    game.last_round = 5
     game.last_phase = GamePhase.BIDDING
     assert mandate.is_met(game, "Alpha") is False
 
     # Add matching event
     game.event_log.append(
-        BiddingEvent(
-            actor=PlayerActor(name="Alpha"),
-            description="Alpha bid 5 for influence.",
-            current_round=5,
-            current_phase=GamePhase.BIDDING,
-            bid=5,
+        LoggedEvent(
+            round=5,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                actor=PlayerActor(name="Alpha"),
+                description="Alpha bid 5 for influence.",
+                bid=5,
+            ),
         )
     )
     assert mandate.is_met(game, "Alpha") is True
 
     # Check logic if opponent bid
     game.event_log.append(
-        BiddingEvent(
-            actor=PlayerActor(name="Omega"),
-            description="Omega bid 5 for influence.",
-            current_round=5,
-            current_phase=GamePhase.BIDDING,
-            bid=5,
+        LoggedEvent(
+            round=5,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                actor=PlayerActor(name="Omega"),
+                description="Omega bid 5 for influence.",
+                bid=5,
+            ),
         )
     )
     assert mandate.is_met(game, "Omega") is True
@@ -216,22 +219,26 @@ def test_popular_jingoism_mandate() -> None:
     # Check loop breaking on older rounds
     game.event_log.insert(
         0,
-        BiddingEvent(
-            actor=PlayerActor(name="Alpha"),
-            description="Alpha bid 5 for influence.",
-            current_round=4,
-            current_phase=GamePhase.BIDDING,
-            bid=5,
+        LoggedEvent(
+            round=4,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                actor=PlayerActor(name="Alpha"),
+                description="Alpha bid 5 for influence.",
+                bid=5,
+            ),
         ),
     )
     game.event_log.insert(
         0,
-        BiddingEvent(
-            actor=PlayerActor(name="Alpha"),
-            description="Alpha bid 5 for influence.",
-            current_round=5,
-            current_phase=GamePhase.BIDDING,
-            bid=5,
+        LoggedEvent(
+            round=3,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                actor=PlayerActor(name="Alpha"),
+                description="Alpha bid 5 for influence.",
+                bid=5,
+            ),
         ),
     )
     # Still matches the recent round 5 valid one
@@ -262,15 +269,17 @@ def test_space_race_mandate() -> None:
     game.last_round = 1
     for _ in range(5):
         game.event_log.append(
-            OperationConductedEvent(
-                actor=PlayerActor(name="Alpha"),
-                description=(
-                    "Alpha has successfully conducted a "
-                    "domestic-investment operation."
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    actor=PlayerActor(name="Alpha"),
+                    description=(
+                        "Alpha has successfully conducted a "
+                        "domestic-investment operation."
+                    ),
+                    operation="domestic-investment",
                 ),
-                current_round=1,
-                current_phase=GamePhase.OPERATIONS,
-                operation="domestic-investment",
             )
         )
 
@@ -302,14 +311,17 @@ def test_counter_intelligence_mandate() -> None:
 
     game.last_round = 1
     game.event_log.append(
-        OperationConductedEvent(
-            actor=PlayerActor(name="Omega"),
-            description=(
-                "Omega has successfully conducted a proxy-subversion operation."
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                actor=PlayerActor(name="Omega"),
+                description=(
+                    "Omega has successfully conducted a proxy-subversion "
+                    "operation."
+                ),
+                operation="proxy-subversion",
             ),
-            current_round=1,
-            current_phase=GamePhase.OPERATIONS,
-            operation="proxy-subversion",
         )
     )
 
@@ -363,15 +375,17 @@ def test_military_industrial_complex_mandate() -> None:
     # Simulate player doing the operation, but not opponent
     game.event_log.extend(
         [
-            OperationConductedEvent(
-                description=(
-                    "Alpha has successfully conducted "
-                    "a conventional-offensive operation"
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=(
+                        "Alpha has successfully conducted "
+                        "a conventional-offensive operation"
+                    ),
+                    actor=PlayerActor(name="Alpha"),
+                    operation="conventional-offensive",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                operation="conventional-offensive",
             )
         ]
     )
@@ -381,14 +395,14 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            OperationConductedEvent(
-                description=(
-                    "Omega has successfully conducted a stand-down operation"
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=("Omega conducted a stand-down operation"),
+                    actor=PlayerActor(name="Omega"),
+                    operation="stand-down",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                operation="stand-down",
             )
         ]
     )
@@ -398,24 +412,26 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            OperationConductedEvent(
-                description=(
-                    "Alpha has successfully conducted a "
-                    "conventional-offensive operation"
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=(
+                        "Alpha has successfully conducted a "
+                        "conventional-offensive operation"
+                    ),
+                    actor=PlayerActor(name="Alpha"),
+                    operation="conventional-offensive",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                operation="conventional-offensive",
             ),
-            OperationConductedEvent(
-                description=(
-                    "Omega has successfully conducted a stand-down operation"
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=("Omega conducted a stand-down operation"),
+                    actor=PlayerActor(name="Omega"),
+                    operation="stand-down",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                operation="stand-down",
             ),
         ]
     )
@@ -425,24 +441,23 @@ def test_military_industrial_complex_mandate() -> None:
     game.event_log.clear()
     game.event_log.extend(
         [
-            OperationConductedEvent(
-                description=(
-                    "Omega has successfully conducted a conventional-offensive "
-                    "operation "
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=("Omega conducted conventional-offensive"),
+                    actor=PlayerActor(name="Omega"),
+                    operation="conventional-offensive",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                operation="conventional-offensive",
             ),
-            OperationConductedEvent(
-                description=(
-                    "Alpha has successfully conducted a stand-down operation."
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description=("Alpha conducted a stand-down operation."),
+                    actor=PlayerActor(name="Alpha"),
+                    operation="stand-down",
                 ),
-                current_phase=GamePhase.OPERATIONS,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                operation="stand-down",
             ),
         ]
     )
@@ -473,19 +488,23 @@ def test_moral_high_ground_mandate() -> None:
     # Positive Case: Alpha bids 0, Omega bids 5
     game.event_log.extend(
         [
-            BiddingEvent(
-                description="Alpha bid 0",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                bid=0,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Alpha bid 0",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=0,
+                ),
             ),
-            BiddingEvent(
-                description="Omega bid 5",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                bid=5,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Omega bid 5",
+                    actor=PlayerActor(name="Omega"),
+                    bid=5,
+                ),
             ),
         ]
     )
@@ -507,19 +526,23 @@ def test_moral_high_ground_mandate() -> None:
     # Negative Case 1: Alpha bids 0, Omega bids 3 (less than 5)
     game.event_log.extend(
         [
-            BiddingEvent(
-                description="Alpha bid 0",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                bid=0,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Alpha bid 0",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=0,
+                ),
             ),
-            BiddingEvent(
-                description="Omega bid 3",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                bid=3,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Omega bid 3",
+                    actor=PlayerActor(name="Omega"),
+                    bid=3,
+                ),
             ),
         ]
     )
@@ -530,19 +553,23 @@ def test_moral_high_ground_mandate() -> None:
     # Negative Case 2: Alpha bids 1 (more than 0), Omega bids 5
     game.event_log.extend(
         [
-            BiddingEvent(
-                description="Alpha bid 1",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                bid=1,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Alpha bid 1",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=1,
+                ),
             ),
-            BiddingEvent(
-                description="Omega bid 5",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                bid=5,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Omega bid 5",
+                    actor=PlayerActor(name="Omega"),
+                    bid=5,
+                ),
             ),
         ]
     )
@@ -553,19 +580,23 @@ def test_moral_high_ground_mandate() -> None:
     # Negative Case 3: Both bid 0
     game.event_log.extend(
         [
-            BiddingEvent(
-                description="Alpha bid 0",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Alpha"),
-                bid=0,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Alpha bid 0",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=0,
+                ),
             ),
-            BiddingEvent(
-                description="Omega bid 0",
-                current_phase=GamePhase.BIDDING,
-                current_round=1,
-                actor=PlayerActor(name="Omega"),
-                bid=0,
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Omega bid 0",
+                    actor=PlayerActor(name="Omega"),
+                    bid=0,
+                ),
             ),
         ]
     )

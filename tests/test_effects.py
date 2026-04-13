@@ -181,4 +181,4 @@ def test_advance_phase_expiration_integration(basic_game: GameState) -> None:
     # The expiration event should have been logged
     log = basic_game.event_log
     # Check if the "has expired" event is there
-    assert any("has expired" in e.description for e in log)
+    assert any("has expired" in e.event.description for e in log)
