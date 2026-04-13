@@ -1030,7 +1030,145 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
         return result
 
 
+class BilateralDisarmamentAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to bid to dismantle "
+            "nuclear stockpiles. This must be less than or equal to your "
+            "current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class BilateralDisarmamentDefs:
+    WINNER_INF: ClassVar[int] = 5
+    LOSER_GDP: ClassVar[int] = -10
+
+
+class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
+    card_kind: ClassVar[Literal["bilateral-disarmament"]] = (
+        "bilateral-disarmament"
+    )
+
+    @property
+    def action_type(self) -> type[BilateralDisarmamentAction]:
+        return BilateralDisarmamentAction
+
+    title: ClassVar[str] = "Bilateral Disarmament"
+    description: ClassVar[str] = (
+        "Under immense international pressure, both superpowers have come to "
+        "the negotiating table to discuss mutual disarmament. The world "
+        "demands "
+        "a reduction in nuclear stockpiles to ease global tensions. "
+        "However, "
+        "every warhead dismantled is a concession of power. Will you risk "
+        "making unilateral concessions for the sake of peace, or will you "
+        "refuse to disarm, hoping your opponent backs down?"
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to expend towards "
+        "dismantling their nuclear stockpiles. Your bid will be subtracted "
+        "from your current Influence pool. The Doomsday Clock will recede by "
+        "an amount equal to the *minimum* of the two bids, representing the "
+        "fact that true disarmament can only proceed at the pace of the least "
+        "willing participant. The player who bids the *least* Influence "
+        "manages to preserve their geopolitical dominance while "
+        "appearing "
+        f"diplomatic, gaining a reward of "
+        f"{BilateralDisarmamentDefs.WINNER_INF} "
+        "Influence. The player who bids the *most* Influence is seen as making "
+        "weak unilateral concessions, suffering a penalty of "
+        f"{abs(BilateralDisarmamentDefs.LOSER_GDP)} GDP. If both players bid "
+        "the same amount, no one gains Influence or loses GDP."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> BilateralDisarmamentAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].influence
+        # Aggressive players bid 0, diplomatic players bid half their influence
+        bid = 0 if aggressive else max_bid // 2
+        return BilateralDisarmamentAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, BilateralDisarmamentAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        clock_impact = -min(p1_amount, p2_amount)
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=(
+                    f"{player1} spent {p1_amount} Influence on disarmament."
+                ),
+                influence_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=(
+                    f"{player2} spent {p2_amount} Influence on disarmament."
+                ),
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers engaged in true bilateral "
+                        "disarmament, "
+                        "reducing tensions equally without upsetting the "
+                        "global "
+                        "balance of power."
+                    ),
+                    clock_delta=clock_impact,
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount < p2_amount else player2
+        loser = player2 if winner == player1 else player1
+
+        result.append(
+            SystemEvent(
+                description=(
+                    f"{winner} refused to make meaningful concessions, forcing "
+                    f"{loser} to shoulder the burden of disarmament. "
+                    f"{loser} "
+                    "suffers a massive political embarrassment on the "
+                    "world stage."
+                ),
+                influence_delta={winner: BilateralDisarmamentDefs.WINNER_INF},
+                gdp_delta={loser: BilateralDisarmamentDefs.LOSER_GDP},
+                clock_delta=clock_impact,
+            )
+        )
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
+    *(BilateralDisarmamentCrisis() for _ in range(2)),
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),
     *(BlameGameCrisis() for _ in range(2)),
