@@ -21,6 +21,7 @@ from mad_world.mandates import (
     BaseMandate,
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
+    DetenteMandate,
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
@@ -68,7 +69,7 @@ def test_check_endgame_mandates() -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 10
+    assert len(deck) == 11
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -470,6 +471,83 @@ def test_military_industrial_complex_mandate() -> None:
     assert isinstance(event, MandateFulfilledEvent)
     assert event.gdp_delta == {"Alpha": 10}
     assert event.influence_delta == {"Alpha": 2}
+
+
+def test_detente_mandate() -> None:
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+    mandate = DetenteMandate()
+
+    # Not met by default
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.last_phase = GamePhase.BIDDING
+    game.last_round = 1
+
+    # Positive Case: Both bid 0
+    game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING,
+                event=BiddingEvent(
+                    description="Alpha bid 0",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=0,
+                ),
+            ),
+            LoggedEvent(
+                phase=GamePhase.BIDDING,
+                round=1,
+                event=BiddingEvent(
+                    description="Omega bid 0",
+                    actor=PlayerActor(name="Omega"),
+                    bid=0,
+                ),
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is True
+    assert mandate.is_met(game, "Omega") is True
+
+    # Verify reward logic
+    events = mandate.reward(game, "Alpha")
+    assert len(events) == 1
+    sys_event = events[0]
+    assert isinstance(sys_event, MandateFulfilledEvent)
+    assert sys_event.gdp_delta == {"Alpha": 5}
+    assert sys_event.influence_delta == {"Alpha": 3}
+
+    # Reset event log for negative cases
+    game.event_log = []
+
+    # Negative Case 1: Alpha bids 0, Omega bids 1
+    game.event_log.extend(
+        [
+            LoggedEvent(
+                phase=GamePhase.BIDDING,
+                round=1,
+                event=BiddingEvent(
+                    description="Alpha bid 0",
+                    actor=PlayerActor(name="Alpha"),
+                    bid=0,
+                ),
+            ),
+            LoggedEvent(
+                phase=GamePhase.BIDDING,
+                round=1,
+                event=BiddingEvent(
+                    description="Omega bid 1",
+                    actor=PlayerActor(name="Omega"),
+                    bid=1,
+                ),
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Check phase mismatch
+    game.last_phase = GamePhase.OPERATIONS
+    assert mandate.is_met(game, "Alpha") is False
 
 
 def test_moral_high_ground_mandate() -> None:
