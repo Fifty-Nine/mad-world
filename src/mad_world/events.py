@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal, override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from mad_world.enums import GamePhase
 
@@ -19,6 +19,8 @@ class ActorKind(Enum):
 
 
 class SystemActor(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     actor_kind: Literal[ActorKind.SYSTEM] = Field(default=ActorKind.SYSTEM)
 
     def is_system(self) -> bool:
@@ -29,6 +31,8 @@ class SystemActor(BaseModel):
 
 
 class PlayerActor(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     actor_kind: Literal[ActorKind.PLAYER] = Field(default=ActorKind.PLAYER)
     name: str
 
@@ -59,6 +63,8 @@ class EventKind(StrEnum):
 class BaseGameEvent(BaseModel):
     """Represents a discrete state change in the game."""
 
+    model_config = ConfigDict(frozen=True)
+
     description: str = Field(description="A brief description of the event.")
     clock_delta: int = Field(
         default=0,
@@ -78,14 +84,6 @@ class BaseGameEvent(BaseModel):
             "True if this event should be hidden from players during gameplay."
         ),
     )
-    current_round: int | None = Field(
-        default=None,
-        description=("The round in which this event occurred."),
-    )
-    current_phase: GamePhase | None = Field(
-        default=None,
-        description=("The phase in which this event occurred."),
-    )
     world_ending: bool = Field(
         default=False, description="True if this event ends the world."
     )
@@ -104,22 +102,6 @@ class BaseGameEvent(BaseModel):
         default_factory=dict,
         description="The change to per-player channel quotas.",
     )
-
-    @property
-    def round(self) -> int:
-        """Same as self.current_round, but asserts if current_round is unset.
-        This is the expected case, as events should always be written to the
-        game's event log before being inspected or queried."""
-        assert self.current_round is not None
-        return self.current_round
-
-    @property
-    def phase(self) -> GamePhase:
-        """Same as self.current_phase, but asserts if current_phase is unset.
-        This is the expected case, as events should always be written to the
-        game's event log before being inspected or queried."""
-        assert self.current_phase is not None
-        return self.current_phase
 
     def done_by_player(self, name: str) -> bool:
         return False
@@ -222,3 +204,13 @@ GameEvent = Annotated[
     | ChannelRejectedEvent,
     Field(discriminator="event_kind"),
 ]
+
+
+class LoggedEvent(BaseModel):
+    """A wrapper for a game event, recording when it occurred."""
+
+    model_config = ConfigDict(frozen=True)
+
+    round: int
+    phase: GamePhase
+    event: GameEvent

@@ -240,21 +240,16 @@ class PopularJingoismMandate(InstantMandate):
         if game.last_phase != GamePhase.BIDDING:
             return False
 
-        def _check_event(e: GameEvent) -> bool:
-            return (
-                isinstance(e, BiddingEvent)
-                and e.done_by_player(player_name)
-                and e.bid >= PopularJingoismDefs.MIN_BID
-            )
-
         return any(
-            _check_event(e)
+            e.done_by_player(player_name)
+            and e.bid >= PopularJingoismDefs.MIN_BID
             for e in game.query_event_log()
             .between_rounds(
                 min(PopularJingoismDefs.ALLOWED_ROUNDS),
                 max(PopularJingoismDefs.ALLOWED_ROUNDS),
             )
             .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
@@ -293,19 +288,14 @@ class SpaceRaceMandate(InstantMandate):
         if game.last_phase != GamePhase.OPERATIONS:
             return False
 
-        def _check_event(e: GameEvent) -> bool:
-            return (
-                isinstance(e, OperationConductedEvent)
-                and e.done_by_player(player_name)
-                and e.operation == SpaceRaceDefs.TARGET_OP
-            )
-
         count = sum(
             1
             for e in game.query_event_log()
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
-            if _check_event(e)
+            .of_type(OperationConductedEvent)
+            if e.done_by_player(player_name)
+            and e.operation == SpaceRaceDefs.TARGET_OP
         )
 
         return count >= SpaceRaceDefs.REQUIRED_OPS
@@ -350,18 +340,13 @@ class CounterIntelligenceMandate(InstantMandate):
 
         opponent_name = next(p for p in game.players if p != player_name)
 
-        def _check_event(e: GameEvent) -> bool:
-            return (
-                isinstance(e, OperationConductedEvent)
-                and e.done_by_player(opponent_name)
-                and e.operation == CounterIntelligenceDefs.TARGET_OP
-            )
-
         return any(
-            _check_event(e)
+            e.done_by_player(opponent_name)
+            and e.operation == CounterIntelligenceDefs.TARGET_OP
             for e in game.query_event_log()
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
+            .of_type(OperationConductedEvent)
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
@@ -445,18 +430,17 @@ class MoralHighGroundMandate(InstantMandate):
             game.query_event_log()
             .in_round(game.last_round)
             .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
         )
 
         player_bid_zero = any(
-            isinstance(e, BiddingEvent)
-            and e.done_by_player(player_name)
+            e.done_by_player(player_name)
             and e.bid <= MoralHighGroundDefs.PLAYER_MAX_BID
             for e in events
         )
 
         opponent_bid_high = any(
-            isinstance(e, BiddingEvent)
-            and e.done_by_player(opponent_name)
+            e.done_by_player(opponent_name)
             and e.bid >= MoralHighGroundDefs.OPPONENT_MIN_BID
             for e in events
         )
@@ -524,18 +508,17 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
             game.query_event_log()
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
+            .of_type(OperationConductedEvent)
         )
 
         player_conducted_op = any(
-            isinstance(e, OperationConductedEvent)
-            and e.done_by_player(player_name)
+            e.done_by_player(player_name)
             and e.operation == MilitaryIndustrialComplexDefs.PLAYER_OP
             for e in events
         )
 
         opponent_conducted_op = any(
-            isinstance(e, OperationConductedEvent)
-            and e.done_by_player(opponent_name)
+            e.done_by_player(opponent_name)
             and e.operation == MilitaryIndustrialComplexDefs.OPPONENT_OP
             for e in events
         )

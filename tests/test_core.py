@@ -50,6 +50,7 @@ from mad_world.events import (
     ActorKind,
     ChannelOpenedEvent,
     ChannelRejectedEvent,
+    LoggedEvent,
     OperationConductedEvent,
     PlayerActor,
     SystemActor,
@@ -202,7 +203,7 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
     assert basic_game.players["Omega"].channels_opened == 0
 
     events = basic_game.event_log
-    assert any(isinstance(e, ChannelOpenedEvent) for e in events)
+    assert any(isinstance(e.event, ChannelOpenedEvent) for e in events)
 
 
 @pytest.mark.asyncio
@@ -229,9 +230,9 @@ async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
 
     events = basic_game.event_log
-    assert any(isinstance(e, ChannelRejectedEvent) for e in events)
+    assert any(isinstance(e.event, ChannelRejectedEvent) for e in events)
     reject_event = next(
-        e for e in events if isinstance(e, ChannelRejectedEvent)
+        e.event for e in events if isinstance(e.event, ChannelRejectedEvent)
     )
     assert reject_event.initiator.name == "Alpha"
     assert reject_event.actor.name == "Omega"
@@ -239,7 +240,9 @@ async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
     # Omega requests, Alpha rejects
     await resolve_chat_channel(basic_game, players, omega_msg, alpha_msg)
     events = basic_game.event_log
-    reject_events = [e for e in events if isinstance(e, ChannelRejectedEvent)]
+    reject_events = [
+        e.event for e in events if isinstance(e.event, ChannelRejectedEvent)
+    ]
     assert len(reject_events) == 2
     reject_event2 = reject_events[-1]
     assert reject_event2.initiator.name == "Omega"
@@ -329,7 +332,7 @@ async def test_resolve_chat_channel_max_messages(
     events = basic_game.event_log
     assert any(
         "The communication channel was closed after reaching the limit."
-        in e.description
+        in e.event.description
         for e in events
     )
 
@@ -434,8 +437,6 @@ def test_game_event_defaults() -> None:
     assert event.gdp_delta == {}
     assert event.influence_delta == {}
     assert event.secret is False
-    assert event.current_round is None
-    assert event.current_phase is None
 
 
 def test_describe_state_critical_clock(basic_game: GameState) -> None:
@@ -478,38 +479,46 @@ def test_recent_events(basic_game: GameState) -> None:
 
     # Older event (should be skipped by break)
     basic_game.event_log.append(
-        SystemEvent(
-            description="old",
-            current_round=1,
-            current_phase=GamePhase.OPERATIONS,
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=SystemEvent(
+                description="old",
+            ),
         ),
     )
     # Target events
     basic_game.event_log.append(
-        SystemEvent(
-            description="target1",
-            current_round=2,
-            current_phase=GamePhase.BIDDING,
+        LoggedEvent(
+            round=2,
+            phase=GamePhase.BIDDING,
+            event=SystemEvent(
+                description="target1",
+            ),
         )
     )
     basic_game.event_log.append(
-        SystemEvent(
-            description="target2",
-            current_round=2,
-            current_phase=GamePhase.BIDDING,
+        LoggedEvent(
+            round=2,
+            phase=GamePhase.BIDDING,
+            event=SystemEvent(
+                description="target2",
+            ),
         )
     )
     # Newer events (should be skipped initially)
     basic_game.event_log.append(
-        SystemEvent(
-            description="new",
-            current_round=2,
-            current_phase=GamePhase.OPERATIONS,
+        LoggedEvent(
+            round=2,
+            phase=GamePhase.OPERATIONS,
+            event=SystemEvent(
+                description="new",
+            ),
         ),
     )
 
     recent = basic_game.recent_events()
-    assert [e.description for e in recent] == ["target1", "target2"]
+    assert [e.event.description for e in recent] == ["target1", "target2"]
 
 
 def test_base_action_validate_semantics(basic_game: GameState) -> None:
@@ -711,7 +720,7 @@ def test_crisis_trigger_logging() -> None:
 
     # Check the event in the log. advance_phase appends a state description
     # event at the end, so the crisis event should be second to last.
-    crisis_event = game.event_log[-2]
+    crisis_event = game.event_log[-2].event
 
     assert isinstance(crisis_event.actor, SystemActor)
     expected_description = (
@@ -721,7 +730,7 @@ def test_crisis_trigger_logging() -> None:
     assert crisis_event.description == expected_description
 
     # Also check the very last event is indeed the state description
-    last_event = game.event_log[-1]
+    last_event = game.event_log[-1].event
     assert "ROUND" in last_event.description
     assert "PHASE" in last_event.description
     assert last_event.secret is True
@@ -807,8 +816,8 @@ async def test_operations_negative_influence_resolution(
 
     events = new_game.event_log
     rejected_event = next(
-        e for e in reversed(events) if "rejected" in e.description
-    )
+        e for e in reversed(events) if "rejected" in e.event.description
+    ).event
 
     assert "Alpha" in rejected_event.description
     assert "domestic-investment" in rejected_event.description
@@ -948,7 +957,9 @@ async def test_resolve_round_events_aggressor_tax(
     basic_game.escalation_track = [SystemActor()] * 19
     new_game = await resolve_round_events(basic_game)
     events = new_game.recent_events()
-    assert not any("Aggressor Tax applied" in e.description for e in events)
+    assert not any(
+        "Aggressor Tax applied" in e.event.description for e in events
+    )
 
     # At threshold, alpha debt > omega debt: Alpha pays Inf
     basic_game.escalation_track = [SystemActor()] * 20
@@ -958,8 +969,8 @@ async def test_resolve_round_events_aggressor_tax(
     new_game = await resolve_round_events(basic_game)
     events = new_game.recent_events()
     tax_event = next(
-        e for e in events if "Aggressor Tax applied" in e.description
-    )
+        e for e in events if "Aggressor Tax applied" in e.event.description
+    ).event
     assert "Alpha" in tax_event.description
     assert tax_event.influence_delta["Alpha"] == -1
     assert tax_event.gdp_delta["Alpha"] == 0
@@ -969,8 +980,8 @@ async def test_resolve_round_events_aggressor_tax(
     new_game = await resolve_round_events(basic_game)
     events = new_game.recent_events()
     tax_event = next(
-        e for e in events if "Aggressor Tax applied" in e.description
-    )
+        e for e in events if "Aggressor Tax applied" in e.event.description
+    ).event
     assert tax_event.influence_delta["Alpha"] == 0
     assert tax_event.gdp_delta["Alpha"] == -2
 
@@ -980,5 +991,7 @@ async def test_resolve_round_events_aggressor_tax(
     basic_game.players["Omega"].influence = 5
     new_game = await resolve_round_events(basic_game)
     events = new_game.recent_events()
-    tax_events = [e for e in events if "Aggressor Tax applied" in e.description]
+    tax_events = [
+        e for e in events if "Aggressor Tax applied" in e.event.description
+    ]
     assert len(tax_events) == 2
