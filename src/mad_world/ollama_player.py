@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from mad_world.config import LLMPlayerConfig
     from mad_world.crises import GenericCrisis
     from mad_world.effects import BaseEffect
-    from mad_world.events import LoggedEvent
+    from mad_world.events import GameEvent, LoggedEvent
     from mad_world.rules import OperationDefinition
 
 
@@ -785,7 +785,7 @@ class OllamaPlayer(GamePlayer):
         )
 
     @staticmethod
-    def format_event_log(events: list[LoggedEvent]) -> str:
+    def format_event_log(events: list[LoggedEvent[GameEvent]]) -> str:
         result = "Recent Events:\n"
         result += textwrap.indent(
             "\n".join(

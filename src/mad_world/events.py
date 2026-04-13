@@ -206,11 +206,11 @@ GameEvent = Annotated[
 ]
 
 
-class LoggedEvent(BaseModel):
+class LoggedEvent[T: BaseGameEvent](BaseModel):
     """A wrapper for a game event, recording when it occurred."""
 
     model_config = ConfigDict(frozen=True)
 
     round: int
     phase: GamePhase
-    event: GameEvent
+    event: T

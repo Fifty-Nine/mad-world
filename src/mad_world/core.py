@@ -155,7 +155,7 @@ class GameState(BaseModel):
         description="The previously resolved game phase.",
     )
     rules: GameRules = Field(description="The rules governing this game.")
-    event_log: list[LoggedEvent] = Field(
+    event_log: list[LoggedEvent[GameEvent]] = Field(
         default_factory=list,
         description="A chronological log of all events that "
         "have occurred in the game.",
@@ -538,8 +538,8 @@ class GameState(BaseModel):
 
         self.active_effects = new_effects
 
-    def recent_events(self) -> list[LoggedEvent]:
-        result: list[LoggedEvent] = []
+    def recent_events(self) -> list[LoggedEvent[GameEvent]]:
+        result: list[LoggedEvent[GameEvent]] = []
 
         for e in reversed(self.event_log):
             if e.phase == self.last_phase and e.round == self.last_round:
@@ -592,7 +592,7 @@ class GameState(BaseModel):
 
         return (None, GameOverReason.STALEMATE)
 
-    def query_event_log(self) -> EventStream:
+    def query_event_log(self) -> EventStream[GameEvent]:
         return EventStream(reversed(self.event_log))
 
 

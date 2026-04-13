@@ -250,6 +250,7 @@ class PopularJingoismMandate(InstantMandate):
             )
             .in_phase(GamePhase.BIDDING)
             .of_type(BiddingEvent)
+            .unwrap()
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
@@ -294,6 +295,7 @@ class SpaceRaceMandate(InstantMandate):
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
             .of_type(OperationConductedEvent)
+            .unwrap()
             if e.done_by_player(player_name)
             and e.operation == SpaceRaceDefs.TARGET_OP
         )
@@ -347,6 +349,7 @@ class CounterIntelligenceMandate(InstantMandate):
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
             .of_type(OperationConductedEvent)
+            .unwrap()
         )
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
@@ -431,6 +434,7 @@ class MoralHighGroundMandate(InstantMandate):
             .in_round(game.last_round)
             .in_phase(GamePhase.BIDDING)
             .of_type(BiddingEvent)
+            .unwrap()
         )
 
         player_bid_zero = any(
@@ -489,6 +493,7 @@ class DetenteMandate(InstantMandate):
             .in_round(game.last_round)
             .in_phase(GamePhase.BIDDING)
             .of_type(BiddingEvent)
+            .unwrap()
         )
 
         player_bid_zero = any(
@@ -566,6 +571,7 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
             .of_type(OperationConductedEvent)
+            .unwrap()
         )
 
         player_conducted_op = any(
