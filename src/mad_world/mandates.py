@@ -464,6 +464,62 @@ class MoralHighGroundMandate(InstantMandate):
         ]
 
 
+class DetenteDefs:
+    BID_TARGET: ClassVar[int] = 0
+    REWARD_GDP: ClassVar[int] = 5
+    REWARD_INF: ClassVar[int] = 3
+
+
+class DetenteMandate(InstantMandate):
+    card_kind: ClassVar[str] = "detente"
+    title: ClassVar[str] = "Détente"
+    description: ClassVar[str] = (
+        f"If both players bid {DetenteDefs.BID_TARGET} in the same round, "
+        f"gain {DetenteDefs.REWARD_GDP} GDP and {DetenteDefs.REWARD_INF} "
+        f"influence for spearheading peace talks."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        if game.last_phase != GamePhase.BIDDING:
+            return False
+
+        opponent_name = next(p for p in game.players if p != player_name)
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
+        )
+
+        player_bid_zero = any(
+            e.done_by_player(player_name) and e.bid == DetenteDefs.BID_TARGET
+            for e in events
+        )
+
+        opponent_bid_zero = any(
+            e.done_by_player(opponent_name) and e.bid == DetenteDefs.BID_TARGET
+            for e in events
+        )
+
+        return player_bid_zero and opponent_bid_zero
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Spearheading peace talks yields: "
+                    f"+{DetenteDefs.REWARD_GDP} GDP, "
+                    f"+{DetenteDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: DetenteDefs.REWARD_GDP},
+                influence_delta={player_name: DetenteDefs.REWARD_INF},
+            )
+        ]
+
+
 def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
     cards: list[BaseMandate] = [
         SleepingGiantMandate(),
@@ -476,6 +532,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         CoolerHeadsMandate(),
         MilitaryIndustrialComplexMandate(),
         MoralHighGroundMandate(),
+        DetenteMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
