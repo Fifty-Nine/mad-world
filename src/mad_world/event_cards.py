@@ -17,6 +17,7 @@ from mad_world.effects import (
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
+    RFInterferenceEffect,
     SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
@@ -373,6 +374,29 @@ class UNPeacekeepingEvent(BaseOngoingEffectEvent):
         return UNPeacekeepingEffect
 
 
+class RFInterferenceEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "rf_interference_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "RF Interference"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "Significant RF interference intermittently garbles global "
+            "communications."
+        )
+
+    @override
+    def effect_type(self) -> type[RFInterferenceEffect]:
+        return RFInterferenceEffect
+
+
 default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ClockChangeEvent(amount=1), 3),
     (ClockChangeEvent(amount=-1), 3),
@@ -392,6 +416,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (SupplyChainShockEvent(), 3),
     (ProxyWarEscalationEvent(), 3),
     (UNPeacekeepingEvent(), 3),
+    (RFInterferenceEvent(), 2),
 )
 
 

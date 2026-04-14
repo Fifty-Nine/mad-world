@@ -34,6 +34,7 @@ from mad_world.events import (
     ChannelRejectedEvent,
     CrisisResolutionEvent,
     GameEvent,
+    GarbledMessageEvent,
     LoggedEvent,
     MandateFulfilledEvent,
     MessageEvent,
@@ -372,22 +373,46 @@ class GameState(BaseModel):
         if action.message is None:
             return
 
-        self.apply_event(
-            MessageEvent(
-                actor=PlayerActor(name=self_player),
-                description=(
-                    f"{self_player} sent a message to "
-                    f"{opponent_player}:\n"
-                    + wrap_text(
-                        action.message,
-                        width=80,
-                        indent="  ",
-                    )
+        original_message = action.message
+        final_message = original_message
+        for effect in self.active_effects:
+            final_message = effect.modify_message(final_message, self)
+
+        if final_message != original_message:
+            self.apply_event(
+                GarbledMessageEvent(
+                    actor=PlayerActor(name=self_player),
+                    description=(
+                        f"{self_player} sent a message to "
+                        f"{opponent_player}:\n"
+                        + wrap_text(
+                            final_message,
+                            width=80,
+                            indent="  ",
+                        )
+                    ),
+                    message=final_message,
+                    original_message=original_message,
+                    channel_message=isinstance(action, ChatAction),
+                )
+            )
+        else:
+            self.apply_event(
+                MessageEvent(
+                    actor=PlayerActor(name=self_player),
+                    description=(
+                        f"{self_player} sent a message to "
+                        f"{opponent_player}:\n"
+                        + wrap_text(
+                            final_message,
+                            width=80,
+                            indent="  ",
+                        )
+                    ),
+                    message=final_message,
+                    channel_message=isinstance(action, ChatAction),
                 ),
-                message=action.message,
-                channel_message=isinstance(action, ChatAction),
-            ),
-        )
+            )
 
     def clock_is_critical(self) -> bool:
         """Check if the clock has reached a "critical" state."""
@@ -1183,6 +1208,7 @@ ChannelOpenedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 ChannelRejectedEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 CrisisResolutionEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 MandateFulfilledEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
+GarbledMessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 MessageEvent.model_rebuild(_types_namespace={"BaseEffect": BaseEffect})
 OperationConductedEvent.model_rebuild(
     _types_namespace={"BaseEffect": BaseEffect}

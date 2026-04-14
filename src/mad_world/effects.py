@@ -49,6 +49,10 @@ class BaseEffect(BaseCard, ABC):
         assert bids, f"Effect {self.title} removed all possible bids!"
         return bids
 
+    def modify_message(self, message: str, game: GameState) -> str:
+        """Modifies a message sent between players."""
+        return message
+
     def on_expire(self, game: GameState) -> list[GameEvent]:
         return [
             SystemEvent(
@@ -225,3 +229,33 @@ class UNPeacekeepingEffect(BaseEffect):
     ) -> dict[str, OperationDefinition]:
         """Filters or modifies the available operations."""
         return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
+
+
+class RFInterferenceEffect(BaseEffect):
+    card_kind: ClassVar[str] = "rf_interference"
+
+    title: ClassVar[str] = "RF Interference"
+    description: ClassVar[str] = (
+        "Significant RF interference intermittently garbles global "
+        "communications."
+    )
+    mechanics: ClassVar[str] = (
+        "During communication phases, messages sent between players will "
+        "be partially garbled."
+    )
+
+    @override
+    def modify_message(self, message: str, game: GameState) -> str:
+        """Randomly garbles characters in the message."""
+        chars = list(message)
+        symbols = list("#@*?%!")
+        for i, c in enumerate(chars):
+            # Don't garble spaces or newlines to maintain some word structure
+            if c in (" ", "\n"):
+                continue
+
+            # 20% chance to garble a character
+            if game.rng.random() < 0.2:
+                chars[i] = game.rng.choice(symbols)
+
+        return "".join(chars)
