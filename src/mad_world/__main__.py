@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import anyio
-from jsonargparse import CLI
+from jsonargparse import ActionYesNo, ArgumentParser
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 
@@ -220,7 +220,17 @@ def run_game(
 
 
 def main() -> None:
-    CLI(run_game, prog="mad_world")  # type: ignore[no-untyped-call]
+    parser = ArgumentParser(prog="mad_world")
+    parser.add_function_arguments(run_game, skip={"single_step"})
+    parser.add_argument(
+        "--single_step",
+        action=ActionYesNo,
+        default=False,
+        help="Whether to pause before advancing each game phase.",
+    )
+    args = parser.parse_args()
+    instantiated_args = parser.instantiate_classes(args)
+    run_game(**instantiated_args.as_dict())
 
 
 def setup_logging(verbosity: str, log_dir: Path) -> logging.Logger:
