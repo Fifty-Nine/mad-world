@@ -41,8 +41,16 @@ class TrivialMandate(InstantMandate):
 
 class TrivialEvent(BaseEventCard):
     card_kind: ClassVar[str] = "trivial_event"
-    title: str = "Trivial Event"
-    description: str = "Nothing Happens!"
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Trivial Event"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "Nothing Happens!"
 
     @override
     def run(self, game: GameState) -> list[GameEvent]:
