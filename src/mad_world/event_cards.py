@@ -285,8 +285,16 @@ class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
 class SupplyChainShockEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "supply_chain_shock_event"
 
-    title: str = "Supply Chain Shock"
-    description: str = "Global logistics networks are severely disrupted."
+    @property
+    @override
+    def title(self) -> str:
+        return "Supply Chain Shock"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "Global logistics networks are severely disrupted."
+
     duration: int = 2
 
     @override
