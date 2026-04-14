@@ -1285,13 +1285,17 @@ class OllamaPlayer(GamePlayer):
 
         prompt += wrap_text(
             "\n".join(
-                self._format_message_for_prompt(e)
-                for e in (
-                    game.query_event_log()
-                    .of_type(MessageEvent)
-                    .filter(lambda e: not e.event.channel_message)
-                    .slice(2)
-                    .unwrap()
+                reversed(
+                    [
+                        self._format_message_for_prompt(e)
+                        for e in (
+                            game.query_event_log()
+                            .of_type(MessageEvent)
+                            .filter(lambda e: not e.event.channel_message)
+                            .slice(2)
+                            .unwrap()
+                        )
+                    ]
                 )
             ),
             indent="  ",
