@@ -39,6 +39,17 @@ from mad_world.trivial_players import CrazyIvan
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from mad_world.core import GameState
+    from mad_world.hooks import GameLoopCallback
+
+
+async def execute_callbacks(
+    callbacks: list[GameLoopCallback], mock_state: GameState
+) -> None:
+    for cb_map in callbacks:
+        if cb := cb_map.get(GameLoopHook.POST_PHASE):
+            await cb(mock_state)
+
 
 def test_random_persona() -> None:
     persona = random_persona()
@@ -177,11 +188,7 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
     async def mock_game_loop_effect(
         rules: Any, players: Any, callbacks: Any
     ) -> Any:
-        [
-            await cb(mock_state)
-            for cb_map in callbacks
-            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
-        ]
+        await execute_callbacks(callbacks, mock_state)
         return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
 
     mock_game_loop.side_effect = mock_game_loop_effect
@@ -214,11 +221,7 @@ async def test_amain_single_step(
     async def mock_game_loop_effect(
         rules: Any, players: Any, callbacks: Any
     ) -> Any:
-        [
-            await cb(mock_state)
-            for cb_map in callbacks
-            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
-        ]
+        await execute_callbacks(callbacks, mock_state)
         return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
 
     mock_game_loop.side_effect = mock_game_loop_effect
@@ -289,11 +292,7 @@ async def test_amain_autosave_exception(
     async def mock_game_loop_effect(
         rules: Any, players: Any, callbacks: Any
     ) -> Any:
-        [
-            await cb(mock_state)
-            for cb_map in callbacks
-            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
-        ]
+        await execute_callbacks(callbacks, mock_state)
         return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
 
     mock_game_loop.side_effect = mock_game_loop_effect

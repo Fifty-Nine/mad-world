@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import shutil
 import sys
 from datetime import datetime
@@ -290,7 +289,7 @@ def create_log_session_dir(
     return log_dir
 
 
-async def single_step_callback(game: GameState) -> GameState | None:
+async def single_step_callback(_game: GameState) -> GameState | None:
     bindings = KeyBindings()
 
     @bindings.add("<any>")
@@ -337,7 +336,7 @@ async def amain(
 
     async def autosave_callback(game: GameState) -> GameState | None:
         try:
-            await anyio.Path(os.fspath(log_dir / "game_state.json")).write_text(
+            await anyio.Path(log_dir / "game_state.json").write_text(
                 game.model_dump_json(indent=2)
             )
         except OSError:
