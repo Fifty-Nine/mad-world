@@ -214,7 +214,7 @@ async def test_get_description(test_player: Any) -> None:
     test_player.persona = None
     test_player.character_description = None
     desc = await test_player.get_description()
-    assert "A secretive leader known as" in desc
+    assert "A secretive leader about which" in desc
     assert test_player.client.chat.call_count == 0
 
 

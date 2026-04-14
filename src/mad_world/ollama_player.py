@@ -525,14 +525,14 @@ class OllamaPlayer(GamePlayer):
 
     @override
     async def get_description(self) -> str:
-        if self.character_description is not None:
-            return self.character_description
+        if self.character_description is None:
+            await self.elaborate_persona()
 
-        if self.persona is not None and is_trivial_persona(self.persona):
-            if self.character_description is None:
-                await self.elaborate_persona()
-            return self.character_description or self.persona
-        return self.persona or f"A secretive leader known as {self.name}."
+        return (
+            self.character_description
+            or self.persona
+            or "A secretive leader about which not much is known."
+        )
 
     async def elaborate_persona(self) -> None:
         """Expands a trivial persona into a detailed system prompt and summary.
@@ -608,13 +608,7 @@ class OllamaPlayer(GamePlayer):
     @override
     async def start_game(self, game: GameState) -> None:
         await super().start_game(game)
-
-        # In case start_game is called before get_description
-        if (
-            self.persona is not None
-            and is_trivial_persona(self.persona)
-            and self.character_description is None
-        ):
+        if self.character_description is None:
             await self.elaborate_persona()
 
         prompt = (
