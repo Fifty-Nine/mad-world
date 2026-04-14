@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import json
@@ -29,6 +30,7 @@ from mad_world.events import (
     PlayerActor,
     SystemActor,
 )
+from mad_world.hooks import GameLoopHook
 from mad_world.mandates import PacifistUtopiaMandate
 from mad_world.ollama_player import (
     ActionResponse,
@@ -198,7 +200,8 @@ async def test_start_game(
     mock_game.players = {"Alpha": MagicMock()}
     mock_game.rules = stable_rules
 
-    await player.start_game(mock_game)
+    cb = player.get_callbacks()[GameLoopHook.PRE_GAME]
+    await cb(mock_game)
 
     assert len(player.messages) == 1
     assert player.messages[0]["role"] == "system"
@@ -221,7 +224,8 @@ async def test_start_game(
         logger=mock_logger,
     )
     player_no_log.client = AsyncMock()
-    await player_no_log.start_game(mock_game)
+    cb_no_log = player_no_log.get_callbacks()[GameLoopHook.PRE_GAME]
+    await cb_no_log(mock_game)
 
 
 @pytest.mark.asyncio
@@ -807,24 +811,24 @@ async def test_game_over(
     test_player.log_base = tmp_path / "test_player"
     test_player.client.chat.return_value.message.content = "AAR Output"
 
-    await test_player.game_over(
-        basic_game, test_player.name, GameOverReason.ECONOMIC_VICTORY
-    )
+    with patch("mad_world.core.GameState.determine_victor", return_value=(test_player.name, GameOverReason.ECONOMIC_VICTORY)):
+        cb = test_player.get_callbacks()[GameLoopHook.POST_GAME]
+        await cb(basic_game)
     assert test_player.client.chat.call_count == 1
     assert "AAR Output" in test_player.messages[-1]["content"]
 
     test_player.client.chat.reset_mock()
-    await test_player.game_over(
-        basic_game, "Opponent", GameOverReason.WORLD_DESTROYED
-    )
+    with patch("mad_world.core.GameState.determine_victor", return_value=("Opponent", GameOverReason.WORLD_DESTROYED)):
+        cb = test_player.get_callbacks()[GameLoopHook.POST_GAME]
+        await cb(basic_game)
     assert test_player.client.chat.call_count == 1
 
     assert test_player.log_base.with_suffix(".messages.gz").exists()
 
     test_player.log_base = None
-    await test_player.game_over(
-        basic_game, "Opponent", GameOverReason.WORLD_DESTROYED
-    )
+    with patch("mad_world.core.GameState.determine_victor", return_value=("Opponent", GameOverReason.WORLD_DESTROYED)):
+        cb = test_player.get_callbacks()[GameLoopHook.POST_GAME]
+        await cb(basic_game)
 
 
 def test_my_strategy(test_player: Any) -> None:

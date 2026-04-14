@@ -1,8 +1,8 @@
+# ruff: noqa: E501, PLC0415
 """Ollama player implementation for Mad World."""
 
 from __future__ import annotations
 
-import gzip
 import json
 import textwrap
 from enum import StrEnum
@@ -38,8 +38,9 @@ from mad_world.core import (
     format_results,
 )
 from mad_world.crises import BaseCrisis, StandoffCrisis
-from mad_world.enums import GameOverReason, GamePhase
+from mad_world.enums import GamePhase
 from mad_world.events import ChannelOpenedEvent, MessageEvent
+from mad_world.hooks import GameLoopCallback, GameLoopHook
 from mad_world.personas import is_trivial_persona
 from mad_world.players import GamePlayer
 from mad_world.util import (
@@ -593,9 +594,120 @@ class OllamaPlayer(GamePlayer):
         )
 
     @override
-    async def start_game(self, game: GameState) -> None:
-        await super().start_game(game)
-        await self.elaborate_persona()
+    def get_callbacks(self) -> GameLoopCallback:
+        async def pre_game(game: GameState) -> GameState | None:
+            assert self.name in game.players
+            await self.elaborate_persona()
+            prompt = self._build_pre_game_prompt(game)
+            self.messages = [{"role": "system", "content": prompt}]
+
+            self.logger.debug(
+                "==== %s system prompt ====\n%s\n",
+                self.name,
+                wrap_text(prompt, width=80),
+            )
+
+            if self.log_base is not None:
+                import gzip
+                import json
+                settings_path = self.log_base.with_suffix(".model-settings.json")
+                with settings_path.open("w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "model": self.model,
+                            "persona": self.persona,
+                            "params": self.params.model_dump(mode="json"),
+                        },
+                        indent=2,
+                        ensure_ascii=False,
+                        fp=f,
+                    )
+
+                schemas_path = self.log_base.with_suffix(".schemas.json.gz")
+                with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
+                    schemas = {
+                        "opening": InitialMessageResponse.format_schema(),
+                        "messaging": MessagingResponse.format_schema(),
+                        "bidding": BiddingResponse.format_schema(),
+                        "operations": OperationsResponse.format_schema(),
+                        "crisis_messaging": CrisisMessagingResponse.format_schema(),
+                        "crisis": create_crisis_response(
+                            StandoffCrisis()
+                        ).format_schema(),
+                    }
+                    json.dump(schemas, f, indent=2, ensure_ascii=False)
+
+            return None
+
+        async def post_game(game: GameState) -> GameState | None:
+            winner, reason = game.determine_victor()
+            prompt = format_results(winner, reason, game)
+            prompt += self.format_event_log(game.recent_events())
+
+            prompt += (
+                f"You have {'won' if winner == self.name else 'lost'}.\n"
+                "The simulation has ended. Staying entirely in character as your "
+                "assigned persona, write a 2-3 paragraph After Action Report (AAR) "
+                "analyzing the final outcome.\n\n"
+            )
+
+            if winner == self.name:
+                prompt += (
+                    "You successfully secured an Economic Victory. Analyze how "
+                    "your Grand Strategy led to this outcome. Which specific "
+                    "operations or bidding patterns gave you the decisive edge? "
+                    "Detail how you balanced economic growth against the threat "
+                    "of the Doomsday Clock, and explain how you outmaneuvered or "
+                    "exploited your opponent's behavior."
+                )
+            else:
+                prompt += (
+                    "You failed to secure an Economic Victory. Analyze why your "
+                    "strategy failed. Did you miscalculate the Doomsday Clock, "
+                    "allow your opponent to outpace your GDP, or get provoked into "
+                    "suboptimal decisions? If MAD was triggered, explain the "
+                    "strategic or psychological misstep that pushed the world over "
+                    "the brink."
+                )
+
+            prompt += (
+                "\n\nReflect specifically on the 'Grand Strategy' you defined in "
+                "Round 0. Did you maintain discipline and adhere to your core "
+                "loop and contingency plans, or were you forced to deviate? "
+                "Limit your output strictly to 2-3 paragraphs."
+            )
+            self.add_prompt(prompt, GamePhase.END)
+            result = await self.client.chat(
+                model=self.model,
+                messages=self.messages,
+                options=self.prompt_options,
+                think=False,
+            )
+            self.messages.append(
+                {"role": "assistant", "content": result.message.content or ""},
+            )
+
+            self.logger.debug(
+                wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
+            )
+
+            if self.log_base is None:
+                return None
+
+            import gzip
+            import json
+            messages_path = self.log_base.with_suffix(".messages.gz")
+            with gzip.open(messages_path, "wt", encoding="utf-8") as f:
+                json.dump(self.messages, f)
+
+            return None
+
+        return {
+            GameLoopHook.PRE_GAME: pre_game,
+            GameLoopHook.POST_GAME: post_game,
+        }
+
+    def _build_pre_game_prompt(self, game: GameState) -> str:
         prompt = (
             f"You are playing the role of Superpower {self.name}, a global "
             'superpower in a Cold War game called "The Doomsday '
@@ -713,43 +825,7 @@ class OllamaPlayer(GamePlayer):
                 f"for this engagement: {self.persona}\n"
                 "Act accordingly.\n"
             )
-        self.messages.append({"role": "system", "content": prompt})
-
-        self.logger.debug(
-            "==== %s system prompt ====\n%s\n",
-            self.name,
-            wrap_text(prompt, width=80),
-        )
-
-        if self.log_base is None:
-            return
-
-        settings_path = self.log_base.with_suffix(".model-settings.json")
-        with settings_path.open("w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "model": self.model,
-                    "persona": self.persona,
-                    "params": self.params.model_dump(mode="json"),
-                },
-                indent=2,
-                ensure_ascii=False,
-                fp=f,
-            )
-
-        schemas_path = self.log_base.with_suffix(".schemas.json.gz")
-        with gzip.open(schemas_path, "wt", encoding="utf-8") as f:
-            schemas = {
-                "opening": InitialMessageResponse.format_schema(),
-                "messaging": MessagingResponse.format_schema(),
-                "bidding": BiddingResponse.format_schema(),
-                "operations": OperationsResponse.format_schema(),
-                "crisis_messaging": CrisisMessagingResponse.format_schema(),
-                "crisis": create_crisis_response(
-                    StandoffCrisis()
-                ).format_schema(),
-            }
-            json.dump(schemas, f, indent=2, ensure_ascii=False)
+        return prompt
 
     @staticmethod
     def format_player_state(player: PlayerState) -> str:
@@ -1538,67 +1614,4 @@ class OllamaPlayer(GamePlayer):
             else crisis.get_default_action(self.name, game, aggressive=False)
         )
 
-    @override
-    async def game_over(
-        self,
-        game: GameState,
-        winner: str | None,
-        reason: GameOverReason,
-    ) -> None:
-        """Handles post-game logic, optionally logging the final state."""
-        prompt = format_results(winner, reason, game)
-        prompt += self.format_event_log(game.recent_events())
 
-        prompt += (
-            f"You have {'won' if winner == self.name else 'lost'}.\n"
-            "The simulation has ended. Staying entirely in character as your "
-            "assigned persona, write a 2-3 paragraph After Action Report (AAR) "
-            "analyzing the final outcome.\n\n"
-        )
-
-        if winner == self.name:
-            prompt += (
-                "You successfully secured an Economic Victory. Analyze how "
-                "your Grand Strategy led to this outcome. Which specific "
-                "operations or bidding patterns gave you the decisive edge? "
-                "Detail how you balanced economic growth against the threat "
-                "of the Doomsday Clock, and explain how you outmaneuvered or "
-                "exploited your opponent's behavior."
-            )
-        else:
-            prompt += (
-                "You failed to secure an Economic Victory. Analyze why your "
-                "strategy failed. Did you miscalculate the Doomsday Clock, "
-                "allow your opponent to outpace your GDP, or get provoked into "
-                "suboptimal decisions? If MAD was triggered, explain the "
-                "strategic or psychological misstep that pushed the world over "
-                "the brink."
-            )
-
-        prompt += (
-            "\n\nReflect specifically on the 'Grand Strategy' you defined in "
-            "Round 0. Did you maintain discipline and adhere to your core "
-            "loop and contingency plans, or were you forced to deviate? "
-            "Limit your output strictly to 2-3 paragraphs."
-        )
-        self.add_prompt(prompt, GamePhase.END)
-        result = await self.client.chat(
-            model=self.model,
-            messages=self.messages,
-            options=self.prompt_options,
-            think=False,
-        )
-        self.messages.append(
-            {"role": "assistant", "content": result.message.content or ""},
-        )
-
-        self.logger.debug(
-            wrap_text(f"==== {self.name} AAR ====\n{result.message.content}"),
-        )
-
-        if self.log_base is None:
-            return
-
-        messages_path = self.log_base.with_suffix(".messages.gz")
-        with gzip.open(messages_path, "wt", encoding="utf-8") as f:
-            json.dump(self.messages, f)

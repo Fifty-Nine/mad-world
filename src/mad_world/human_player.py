@@ -21,6 +21,7 @@ from mad_world.actions import (
     MessagingAction,
     OperationsAction,
 )
+from mad_world.hooks import GameLoopCallback, GameLoopHook
 from mad_world.players import GamePlayer
 
 if TYPE_CHECKING:
@@ -43,11 +44,15 @@ class HumanPlayer(GamePlayer):
         self.operations_completer: WordCompleter | None = None
 
     @override
-    async def start_game(self, game: GameState) -> None:
-        await super().start_game(game)
-        self.operations_completer = WordCompleter(
-            list(game.rules.allowed_operations.keys()),
-        )
+    def get_callbacks(self) -> GameLoopCallback:
+        async def pre_game(game: GameState) -> GameState | None:
+            assert self.name in game.players
+            self.operations_completer = WordCompleter(
+                list(game.rules.allowed_operations.keys()),
+            )
+            return None
+
+        return {GameLoopHook.PRE_GAME: pre_game}
 
     def _print_mandates(self, game: GameState) -> None:
         player_state = game.players[self.name]

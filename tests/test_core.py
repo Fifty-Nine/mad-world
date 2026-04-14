@@ -1,13 +1,15 @@
+# ruff: noqa: E501
 """Tests for the core module."""
-
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pytest
 
 from mad_world.core import WorldDestroyed
+from mad_world.hooks import GameLoopHook, run_callbacks
 from tests.unimplemented_player import UnimplementedPlayer
 
 if TYPE_CHECKING:
@@ -54,7 +56,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
-from mad_world.hooks import GameLoopCallback, GameLoopHook
+from mad_world.hooks import GameLoopCallback
 from mad_world.rules import GameRules, OperationDefinition
 from mad_world.trivial_players import (
     Capitalist,
@@ -1062,3 +1064,35 @@ async def test_game_loop_callbacks(stable_rules: GameRules) -> None:
 
     assert reason != GameOverReason.WORLD_DESTROYED
     assert game.current_round == 2
+
+@pytest.mark.asyncio
+async def test_run_callbacks_concurrent(basic_game: GameState) -> None:
+
+
+
+
+    events = []
+
+    async def cb1(game: GameState) -> GameState | None:
+        events.append("cb1 start")
+        await asyncio.sleep(0.1)
+        events.append("cb1 end")
+        return None
+
+    async def cb2(game: GameState) -> GameState | None:
+        events.append("cb2 start")
+        await asyncio.sleep(0.05)
+        events.append("cb2 end")
+        return None
+
+    callbacks: list[GameLoopCallback] = [
+        {GameLoopHook.PRE_GAME: cb1},
+        {GameLoopHook.PRE_GAME: cb2},
+    ]
+
+    await run_callbacks(callbacks, basic_game, GameLoopHook.PRE_GAME, concurrent=True)
+
+    # Since they run concurrently, cb2 will finish before cb1
+    assert "cb1 start" in events
+    assert "cb2 start" in events
+    assert events.index("cb2 end") < events.index("cb1 end")

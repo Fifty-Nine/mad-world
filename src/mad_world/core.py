@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Core mechanics for the game."""
 
 from __future__ import annotations
@@ -1108,8 +1109,9 @@ async def game_loop(
     """
     game = GameState.new_game(players=[p.name for p in players], rules=rules)
     callbacks = callbacks or []
+    callbacks.extend(p.get_callbacks() for p in players)
 
-    await asyncio.gather(*(p.start_game(game) for p in players))
+    game = await run_callbacks(callbacks, game, GameLoopHook.PRE_GAME, concurrent=True)
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
@@ -1135,8 +1137,7 @@ async def game_loop(
         ),
     )
 
-    for player in players:
-        await player.game_over(game, winner, reason)
+    game = await run_callbacks(callbacks, game, GameLoopHook.POST_GAME, concurrent=True)
 
     return (winner, reason, game)
 

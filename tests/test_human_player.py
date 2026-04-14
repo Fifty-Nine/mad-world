@@ -19,6 +19,7 @@ from mad_world.actions import (
 )
 from mad_world.crises import GenericCrisis, StandoffCrisis
 from mad_world.enums import OpenChannelPreference, StandoffPosture
+from mad_world.hooks import GameLoopHook
 from mad_world.human_player import HumanPlayer
 
 if TYPE_CHECKING:
@@ -121,7 +122,8 @@ async def test_human_player_bid(basic_game: GameState) -> None:
 @pytest.mark.asyncio
 async def test_human_player_operations(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
-    await player.start_game(basic_game)
+    cb = player.get_callbacks()[GameLoopHook.PRE_GAME]
+    await cb(basic_game)
 
     side_effect = ["domestic-investment", "aggressive-extraction", ""]
     with mock_human_input(player, side_effect=side_effect) as mock_prompt:
@@ -273,7 +275,8 @@ async def test_human_player_crisis_message(basic_game: GameState) -> None:
 @pytest.mark.asyncio
 async def test_human_player_completer_leak(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
-    await player.start_game(basic_game)
+    cb = player.get_callbacks()[GameLoopHook.PRE_GAME]
+    await cb(basic_game)
 
     with mock_human_input(
         player, side_effect=["domestic-investment", ""]
