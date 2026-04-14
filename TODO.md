@@ -12,3 +12,5 @@
   instruction and description of its resolution effects and
   mechanics when there is insufficient combined player influence
   to meet the initial threshold.
+- Add a "model debug" mode that converts (repeated) model generation failures
+  into hard errors (rather than silently accepting them).
