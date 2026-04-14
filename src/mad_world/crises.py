@@ -1030,6 +1030,123 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
         return result
 
 
+
+class AIArmsRaceAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of GDP you are willing to invest into rogue AI "
+            "research. This must be less than or equal to your current GDP."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        gdp = game.players[player_name].gdp
+        if gdp < self.investment:
+            raise InsufficientGDPError(available=gdp, cost=self.investment)
+
+        if self.investment < 0:
+            raise InvalidGDPAmountError
+
+
+class AIArmsRaceDefs:
+    GDP_THRESHOLD: ClassVar[int] = 30
+    WINNER_INF: ClassVar[int] = 15
+
+
+class AIArmsRaceCrisis(GenericCrisis[AIArmsRaceAction]):
+    card_kind: ClassVar[Literal["ai-arms-race"]] = "ai-arms-race"
+
+    @property
+    def action_type(self) -> type[AIArmsRaceAction]:
+        return AIArmsRaceAction
+
+    title: ClassVar[str] = "AI Arms Race"
+    description: ClassVar[str] = (
+        "The rapid acceleration of Artificial Intelligence has led both "
+        "superpowers to pour billions into autonomous strategic defense grids. "
+        "While whoever builds the superior system will gain immense global "
+        "influence, pushing the technology too far too fast carries an "
+        "existential risk. If the AI systems become too advanced before proper "
+        "safety protocols are established, they may go rogue and determine "
+        "that the only winning move is to exterminate humanity."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of GDP to invest in AI research. "
+        "Your bid will be subtracted from your current GDP pool. The player "
+        "who bids the *most* GDP secures dominance in autonomous technology, "
+        f"gaining {AIArmsRaceDefs.WINNER_INF} Influence. If both players bid "
+        "the same amount, no one gains the bonus Influence. However, if the "
+        "combined total of *both* players' bids strictly exceeds "
+        f"{AIArmsRaceDefs.GDP_THRESHOLD} GDP, the accelerating systems escape "
+        "containment. The rogue AI launches a preemptive global nuclear "
+        "strike, destroying the world and ending the game immediately."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> AIArmsRaceAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].gdp
+        # Aggressive players bid near the threshold, diplomatic bid low
+        safe_bid = AIArmsRaceDefs.GDP_THRESHOLD // 2
+        bid = (
+            min(max_bid, safe_bid) if aggressive else min(max_bid, safe_bid // 2)
+        )
+        return AIArmsRaceAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, AIArmsRaceAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} GDP on AI research.",
+                gdp_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} GDP on AI research.",
+                gdp_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment > AIArmsRaceDefs.GDP_THRESHOLD:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The unrestrained AI research has crossed the "
+                        "singularity point. The autonomous systems have "
+                        "escaped containment and seized control of the "
+                        "global strategic missile grid. Concluding humanity "
+                        "is a threat to its own existence, the AI initiates "
+                        "a global nuclear launch. The world is destroyed."
+                    ),
+                    world_ending=True,
+                )
+            )
+            return result
+
+        if p1_amount > p2_amount:
+            result.append(SystemEvent(description=f"{player1} secured AI dominance.", influence_delta={player1: AIArmsRaceDefs.WINNER_INF}))
+        elif p2_amount > p1_amount:
+            result.append(SystemEvent(description=f"{player2} secured AI dominance.", influence_delta={player2: AIArmsRaceDefs.WINNER_INF}))
+        else:
+            result.append(SystemEvent(description="Both superpowers achieved parity in AI research, with neither gaining a definitive advantage."))
+
+        return result
+
+
 class BilateralDisarmamentAction(BaseAction):
     investment: int = Field(
         description=(
@@ -1175,6 +1292,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(ProxyWarCrisis() for _ in range(2)),
     *(NuclearMeltdownCrisis() for _ in range(2)),
     *(RogueProliferationCrisis() for _ in range(2)),
+    *(AIArmsRaceCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
