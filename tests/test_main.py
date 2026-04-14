@@ -39,8 +39,13 @@ from mad_world.trivial_players import CrazyIvan
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from mad_world.core import GameState
+    from mad_world.hooks import GameLoopCallback
 
-async def execute_callbacks(callbacks: Any, mock_state: Any) -> None:
+
+async def execute_callbacks(
+    callbacks: list[GameLoopCallback], mock_state: GameState
+) -> None:
     for cb_map in callbacks:
         if cb := cb_map.get(GameLoopHook.POST_PHASE):
             await cb(mock_state)
