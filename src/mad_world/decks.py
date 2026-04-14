@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     import random
     from collections.abc import Iterable
-    from typing import Self
 
 
 class DeckEmptyError(RuntimeError):
@@ -39,6 +38,18 @@ class Deck[T](BaseModel):
         default_factory=list,
         description="The deck to which trashed cards are added.",
     )
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        if memo is None:
+            memo = {}  # pragma: no cover
+        result = self.__class__.model_construct(
+            draw_pile=list(self.draw_pile),
+            discard_pile=list(self.discard_pile),
+            in_play=list(self.in_play),
+            trash_pile=list(self.trash_pile),
+        )
+        memo[id(self)] = result
+        return result
 
     @classmethod
     def create(cls, initial_cards: Iterable[T], rng: random.Random) -> Self:

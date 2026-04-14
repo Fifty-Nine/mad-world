@@ -100,6 +100,20 @@ class PlayerState(BaseModel):
         ),
     )
 
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        if memo is None:
+            memo = {}  # pragma: no cover
+        result = self.__class__.model_construct(
+            name=self.name,
+            gdp=self.gdp,
+            influence=self.influence,
+            mandates=list(self.mandates),
+            completed_mandates=list(self.completed_mandates),
+            channels_opened=self.channels_opened,
+        )
+        memo[id(self)] = result
+        return result
+
 
 class GameState(BaseModel):
     """Tracks the overall state of the game."""
@@ -176,6 +190,39 @@ class GameState(BaseModel):
         default_factory=list,
         description="The currently active ongoing effects in the game.",
     )
+
+    def __deepcopy__(self, memo: dict[int, Any] | None = None) -> Self:
+        import copy  # noqa: PLC0415
+
+        if memo is None:
+            memo = {}  # pragma: no cover
+
+        # We manually construct the GameState.
+        # rules and log_dir are immutable/safe to reuse.
+        # PlayerState and Decks already implement __deepcopy__.
+        result = self.__class__.model_construct(
+            players={
+                k: copy.deepcopy(v, memo) for k, v in self.players.items()
+            },
+            escalation_track=list(self.escalation_track),
+            current_round=self.current_round,
+            current_phase=self.current_phase,
+            post_crisis_round=self.post_crisis_round,
+            post_crisis_phase=self.post_crisis_phase,
+            crisis_deck=copy.deepcopy(self.crisis_deck, memo),
+            event_deck=copy.deepcopy(self.event_deck, memo),
+            mandate_deck=copy.deepcopy(self.mandate_deck, memo),
+            pending_crisis=self.pending_crisis,  # Immutability assumed
+            last_round=self.last_round,
+            last_phase=self.last_phase,
+            rules=self.rules,  # Rules are immutable
+            event_log=list(self.event_log),  # Shallow copy
+            log_dir=self.log_dir,
+            rng=copy.deepcopy(self.rng, memo),  # Requires deepcopy
+            active_effects=list(self.active_effects),  # Shallow copy
+        )
+        memo[id(self)] = result
+        return result
 
     @property
     def allowed_operations(self) -> dict[str, OperationDefinition]:
