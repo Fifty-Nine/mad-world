@@ -8,6 +8,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    ProxyWarEscalationEffect,
     SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
@@ -16,6 +17,7 @@ from mad_world.event_cards import (
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
+    ProxyWarEscalationEvent,
     SupplyChainShockEvent,
 )
 from mad_world.events import ActorKind
@@ -114,6 +116,27 @@ def test_supply_chain_shock_effect(basic_game: GameState) -> None:
     )
 
 
+def test_proxy_war_escalation_effect(basic_game: GameState) -> None:
+    effect = ProxyWarEscalationEffect(duration=None)
+    ops = basic_game.allowed_operations
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["proxy-subversion"].clock_effect
+        == ops["proxy-subversion"].clock_effect + 1
+    )
+    assert (
+        modified_ops["conventional-offensive"].clock_effect
+        == ops["conventional-offensive"].clock_effect + 1
+    )
+
+    assert (
+        modified_ops["domestic-investment"].clock_effect
+        == ops["domestic-investment"].clock_effect
+    )
+
+
 def test_ban_zero_bids_event(basic_game: GameState) -> None:
     event = BanZeroBidsEvent()
     basic_game.current_round = 5
@@ -174,6 +197,22 @@ def test_supply_chain_shock_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, SupplyChainShockEffect)
+    assert effect.duration == 2
+
+
+def test_proxy_war_escalation_event(basic_game: GameState) -> None:
+    event = ProxyWarEscalationEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, ProxyWarEscalationEffect)
     assert effect.duration == 2
 
 
