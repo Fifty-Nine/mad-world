@@ -1267,7 +1267,7 @@ class OllamaPlayer(GamePlayer):
     def _format_message_for_prompt(e: MessageEvent) -> str:
         return f"{e.actor.name}:\n{wrap_text(e.message or '', indent='> ')}\n"
 
-    def _channel_opened_by_me(self, game: GameState) -> bool:
+    def _is_first_speaker(self, game: GameState) -> bool:
         return (
             game.query_event_log()
             .since_last(ChannelOpenedEvent)
@@ -1297,7 +1297,7 @@ class OllamaPlayer(GamePlayer):
             indent="  ",
         )
 
-        if self._channel_opened_by_me(game):
+        if self._is_first_speaker(game):
             prompt += (
                 "Now that the direct "
                 "channel is open, you have the floor to send the first "
