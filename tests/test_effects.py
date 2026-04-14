@@ -8,7 +8,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
-    SupplyChainCrisisEffect,
+    SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
 from mad_world.enums import GamePhase
@@ -16,7 +16,7 @@ from mad_world.event_cards import (
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
-    SupplyChainCrisisEvent,
+    SupplyChainShockEvent,
 )
 from mad_world.events import ActorKind
 
@@ -93,8 +93,8 @@ def test_no_domestic_investment_effect(basic_game: GameState) -> None:
     assert "aggressive-extraction" in modified_ops
 
 
-def test_supply_chain_crisis_effect(basic_game: GameState) -> None:
-    effect = SupplyChainCrisisEffect(duration=None)
+def test_supply_chain_shock_effect(basic_game: GameState) -> None:
+    effect = SupplyChainShockEffect(duration=None)
     ops = basic_game.allowed_operations
 
     modified_ops = effect.modify_operations(ops)
@@ -161,8 +161,8 @@ def test_arms_control_treaty_event(basic_game: GameState) -> None:
     assert effect.duration == 2
 
 
-def test_supply_chain_crisis_event(basic_game: GameState) -> None:
-    event = SupplyChainCrisisEvent()
+def test_supply_chain_shock_event(basic_game: GameState) -> None:
+    event = SupplyChainShockEvent()
     basic_game.current_round = 2
 
     events = event.run(basic_game)
@@ -173,7 +173,7 @@ def test_supply_chain_crisis_event(basic_game: GameState) -> None:
 
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
-    assert isinstance(effect, SupplyChainCrisisEffect)
+    assert isinstance(effect, SupplyChainShockEffect)
     assert effect.duration == 2
 
 

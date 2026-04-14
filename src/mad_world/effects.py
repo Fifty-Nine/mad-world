@@ -129,16 +129,16 @@ class ArmsControlEffect(BaseEffect):
         return super().modify_bids([b for b in bids if b <= 3])
 
 
-class SupplyChainCrisisEffect(BaseEffect):
-    card_kind: ClassVar[str] = "supply_chain_crisis"
+class SupplyChainShockEffect(BaseEffect):
+    card_kind: ClassVar[str] = "supply_chain_shock"
 
-    title: ClassVar[str] = "Supply Chain Crisis"
+    title: ClassVar[str] = "Supply Chain Shock"
     description: ClassVar[str] = (
         "Global logistics networks are severely disrupted."
     )
     mechanics: ClassVar[str] = (
         "During the operations phase, the influence cost of all operations "
-        "is increased by 1 while the effect is ongoing."
+        "(except first-strike) is increased by 1 while the effect is ongoing."
     )
 
     @override

@@ -15,7 +15,7 @@ from mad_world.effects import (
     BaseEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
-    SupplyChainCrisisEffect,
+    SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
@@ -282,16 +282,16 @@ class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
         return ArmsControlEffect
 
 
-class SupplyChainCrisisEvent(BaseOngoingEffectEvent):
-    card_kind: ClassVar[str] = "supply_chain_crisis_event"
+class SupplyChainShockEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "supply_chain_shock_event"
 
-    title: str = "Supply Chain Crisis"
+    title: str = "Supply Chain Shock"
     description: str = "Global logistics networks are severely disrupted."
     duration: int = 2
 
     @override
-    def effect_type(self) -> type[SupplyChainCrisisEffect]:
-        return SupplyChainCrisisEffect
+    def effect_type(self) -> type[SupplyChainShockEffect]:
+        return SupplyChainShockEffect
 
 
 class UNPeacekeepingEvent(BaseOngoingEffectEvent):
@@ -332,7 +332,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (BanZeroBidsEvent(), 2),
     (BanDomesticInvestmentEvent(), 3),
     (ArmsControlTreatyEvent(), 3),
-    (SupplyChainCrisisEvent(), 3),
+    (SupplyChainShockEvent(), 3),
     (UNPeacekeepingEvent(), 3),
 )
 
