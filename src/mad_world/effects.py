@@ -129,6 +129,31 @@ class ArmsControlEffect(BaseEffect):
         return super().modify_bids([b for b in bids if b <= 3])
 
 
+class SupplyChainShockEffect(BaseEffect):
+    card_kind: ClassVar[str] = "supply_chain_shock"
+
+    title: ClassVar[str] = "Supply Chain Shock"
+    description: ClassVar[str] = (
+        "Global logistics networks are severely disrupted."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the influence cost of all operations "
+        "(except first-strike) is increased by 1 while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(update={"influence_cost": v.influence_cost + 1})
+            if op != "first-strike"
+            else v
+            for op, v in ops.items()
+        }
+
+
 class UNPeacekeepingEffect(BaseEffect):
     card_kind: ClassVar[str] = "un_peacekeeping"
 

@@ -8,6 +8,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
 from mad_world.enums import GamePhase
@@ -15,6 +16,7 @@ from mad_world.event_cards import (
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
+    SupplyChainShockEvent,
 )
 from mad_world.events import ActorKind
 
@@ -91,6 +93,27 @@ def test_no_domestic_investment_effect(basic_game: GameState) -> None:
     assert "aggressive-extraction" in modified_ops
 
 
+def test_supply_chain_shock_effect(basic_game: GameState) -> None:
+    effect = SupplyChainShockEffect(duration=None)
+    ops = basic_game.allowed_operations
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["domestic-investment"].influence_cost
+        == ops["domestic-investment"].influence_cost + 1
+    )
+    assert (
+        modified_ops["proxy-subversion"].influence_cost
+        == ops["proxy-subversion"].influence_cost + 1
+    )
+
+    assert (
+        modified_ops["first-strike"].influence_cost
+        == ops["first-strike"].influence_cost
+    )
+
+
 def test_ban_zero_bids_event(basic_game: GameState) -> None:
     event = BanZeroBidsEvent()
     basic_game.current_round = 5
@@ -135,6 +158,22 @@ def test_arms_control_treaty_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, ArmsControlEffect)
+    assert effect.duration == 2
+
+
+def test_supply_chain_shock_event(basic_game: GameState) -> None:
+    event = SupplyChainShockEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, SupplyChainShockEffect)
     assert effect.duration == 2
 
 
