@@ -15,6 +15,7 @@ from mad_world.effects import (
     BaseEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
+    ProxyWarEscalationEffect,
     SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
@@ -302,6 +303,26 @@ class SupplyChainShockEvent(BaseOngoingEffectEvent):
         return SupplyChainShockEffect
 
 
+class ProxyWarEscalationEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "proxy_war_escalation_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Proxy War Escalation"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "Foreign powers drastically increase their involvement in proxy conflicts."
+
+    @override
+    def effect_type(self) -> type[ProxyWarEscalationEffect]:
+        return ProxyWarEscalationEffect
+
+
 class UNPeacekeepingEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "un_peacekeeping_event"
 
@@ -341,6 +362,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (BanDomesticInvestmentEvent(), 3),
     (ArmsControlTreatyEvent(), 3),
     (SupplyChainShockEvent(), 3),
+    (ProxyWarEscalationEvent(), 3),
     (UNPeacekeepingEvent(), 3),
 )
 

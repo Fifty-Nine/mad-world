@@ -154,6 +154,33 @@ class SupplyChainShockEffect(BaseEffect):
         }
 
 
+class ProxyWarEscalationEffect(BaseEffect):
+    card_kind: ClassVar[str] = "proxy_war_escalation"
+
+    title: ClassVar[str] = "Proxy War Escalation"
+    description: ClassVar[str] = (
+        "Global tensions rise as regional conflicts receive massive influxes "
+        "of foreign support."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the clock impact of 'proxy-subversion' "
+        "and 'conventional-offensive' operations is increased by 1 while the "
+        "effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(update={"clock_effect": v.clock_effect + 1})
+            if op in ("proxy-subversion", "conventional-offensive")
+            else v
+            for op, v in ops.items()
+        }
+
+
 class UNPeacekeepingEffect(BaseEffect):
     card_kind: ClassVar[str] = "un_peacekeeping"
 
