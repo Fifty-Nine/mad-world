@@ -126,6 +126,7 @@ async def test_elaborate_persona(test_player: Any) -> None:
     assert test_player.client.chat.call_count == 1
     assert "He is a detailed pacifist." in test_player.persona
     assert "General Pacifisto" in test_player.persona
+    assert test_player.character_description == "He is a detailed pacifist."
 
     # Test JSON parse error recovery (should just ignore and not crash)
     test_player.persona = "Earnest Pacifist"
@@ -174,6 +175,88 @@ def test_elaborated_persona_schema_type() -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_description(test_player: Any) -> None:
+    # Test when persona is trivial and not yet elaborated
+    test_player.persona = "Earnest Pacifist"
+    test_player.character_description = None
+    test_player.client.chat.return_value.message.content = json.dumps(
+        {
+            "00_persona_seed": "Earnest Pacifist",
+            "01_character_description": "A calm pacifist.",
+            "02_character_instructions": "Be calm.",
+            "03_archetype": PlayerArchetype.PRESERVATIONIST.value,
+            "99_name": "General Peace",
+        }
+    )
+    # By mocking out the elaboration part returning early or something?
+    # Actually wait, elaborate_persona modifies self.persona as well.
+    desc = await test_player.get_description()
+    assert "A calm pacifist." in desc
+    assert test_player.character_description == "A calm pacifist."
+    assert test_player.client.chat.call_count == 1
+
+    # Test when persona is already elaborated (character_description is set)
+    test_player.client.chat.reset_mock()
+    desc = await test_player.get_description()
+    assert "A calm pacifist." in desc
+    assert test_player.client.chat.call_count == 0
+
+    # Test when persona is not trivial
+    test_player.client.chat.reset_mock()
+    test_player.persona = "Already\nElaborated"
+    test_player.character_description = None
+    desc = await test_player.get_description()
+    assert desc == "Already\nElaborated"
+    assert test_player.client.chat.call_count == 0
+
+    # Test when persona is None
+    test_player.client.chat.reset_mock()
+    test_player.persona = None
+    test_player.character_description = None
+    desc = await test_player.get_description()
+    assert "A secretive leader known as" in desc
+    assert test_player.client.chat.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_start_game_elaborates_persona_if_needed(
+    player_config: LLMPlayerConfig,
+    mock_logger: Any,
+    tmp_path: Any,
+    stable_rules: GameRules,
+) -> None:
+    player = OllamaPlayer(
+        config=player_config,
+        opponent_name="Opponent",
+        log_dir=None,
+        logger=mock_logger,
+    )
+    player.persona = "Earnest Pacifist"
+    player.character_description = None
+    mock_game = MagicMock(spec=GameState)
+    opponent_mock = MagicMock()
+    opponent_mock.description = None
+    mock_game.players = {"Alpha": MagicMock(), "Opponent": opponent_mock}
+    mock_game.rules = stable_rules
+
+    player.client = MagicMock()
+    player.client.chat = AsyncMock()
+    player.client.chat.return_value.message.content = json.dumps(
+        {
+            "00_persona_seed": "Earnest Pacifist",
+            "01_character_description": "A calm pacifist.",
+            "02_character_instructions": "Be calm.",
+            "03_archetype": PlayerArchetype.PRESERVATIONIST.value,
+            "99_name": "General Peace",
+        }
+    )
+    await player.start_game(mock_game)
+    assert player.client.chat.call_count == 1
+    assert player.character_description is not None
+    assert "A calm pacifist." in player.character_description
+
+
+@pytest.mark.asyncio
 async def test_start_game(
     player_config: LLMPlayerConfig,
     mock_logger: Any,
@@ -195,7 +278,9 @@ async def test_start_game(
     stable_rules.allowed_operations = {}
 
     mock_game = MagicMock(spec=GameState)
-    mock_game.players = {"Alpha": MagicMock()}
+    opponent_mock = MagicMock()
+    opponent_mock.description = "A strong opponent."
+    mock_game.players = {"Alpha": MagicMock(), "Opponent": opponent_mock}
     mock_game.rules = stable_rules
 
     await player.start_game(mock_game)

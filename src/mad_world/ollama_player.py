@@ -518,9 +518,21 @@ class OllamaPlayer(GamePlayer):
         )
         self.compression_threshold = compression_threshold
         self.logger = logger
+        self.character_description: str | None = None
 
     class _ModelPromptError(Exception):
         pass
+
+    @override
+    async def get_description(self) -> str:
+        if self.character_description is not None:
+            return self.character_description
+
+        if self.persona is not None and is_trivial_persona(self.persona):
+            if self.character_description is None:
+                await self.elaborate_persona()
+            return self.character_description or self.persona
+        return self.persona or f"A secretive leader known as {self.name}."
 
     async def elaborate_persona(self) -> None:
         """Expands a trivial persona into a detailed system prompt and summary.
@@ -582,6 +594,7 @@ class OllamaPlayer(GamePlayer):
             return
 
         self.persona = elaborated.format_for_prompt()
+        self.character_description = elaborated.character_description
 
         self.logger.info(
             "%s%s",
@@ -595,13 +608,26 @@ class OllamaPlayer(GamePlayer):
     @override
     async def start_game(self, game: GameState) -> None:
         await super().start_game(game)
-        await self.elaborate_persona()
+
+        # In case start_game is called before get_description
+        if (
+            self.persona is not None
+            and is_trivial_persona(self.persona)
+            and self.character_description is None
+        ):
+            await self.elaborate_persona()
+
         prompt = (
             f"You are playing the role of Superpower {self.name}, a global "
             'superpower in a Cold War game called "The Doomsday '
             'Clock."\n'
             f'Your opponent is "{self.opponent_name}".\n'
             "\n"
+        )
+        if opponent_desc := game.players[self.opponent_name].description:
+            prompt += f"Your opponent's known profile:\n  {opponent_desc}\n\n"
+
+        prompt += (
             "Your ultimate objective is to finish the game with a higher Gross "
             "Domestic Product (GDP) than your opponent. However, you must "
             "manage global tensions to avoid Mutually Assured Destruction "

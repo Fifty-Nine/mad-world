@@ -109,6 +109,22 @@ async def test_human_player_message(basic_game: GameState) -> None:
 
 
 @pytest.mark.asyncio
+async def test_human_player_get_description() -> None:
+    player = HumanPlayer("Test")
+
+    # Mock user input
+    expected_desc = "A fierce faction."
+    mock_prompt = AsyncMock(return_value=expected_desc)
+
+    with patch.object(player.session, "prompt_async", mock_prompt):
+        description = await player.get_description()
+
+    assert description == expected_desc
+    mock_prompt.assert_called_once()
+    assert "brief description" in mock_prompt.call_args[0][0]
+
+
+@pytest.mark.asyncio
 async def test_human_player_bid(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 

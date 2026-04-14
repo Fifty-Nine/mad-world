@@ -78,6 +78,12 @@ class PlayerState(BaseModel):
     """Tracks the state of a single player in the game."""
 
     name: str = Field(description="The name of the player.")
+    description: str | None = Field(
+        default=None,
+        description=(
+            "A third-person description of the player's persona or faction."
+        ),
+    )
     gdp: int = Field(default=50, description="The player's current GDP.", ge=0)
     influence: int = Field(
         default=5,
@@ -1134,6 +1140,10 @@ async def game_loop(
         players=[p.name for p in players], rules=rules, log_dir=log_dir
     )
     callbacks = callbacks or []
+
+    descriptions = await asyncio.gather(*(p.get_description() for p in players))
+    for p, desc in zip(players, descriptions, strict=True):
+        game.players[p.name].description = desc
 
     await asyncio.gather(*(p.start_game(game) for p in players))
     while not check_game_over(game):

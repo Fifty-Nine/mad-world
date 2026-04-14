@@ -27,6 +27,13 @@ from mad_world.trivial_players import (
 
 
 @pytest.mark.asyncio
+async def test_trivial_player_get_description() -> None:
+    player = CrazyIvan("TestIvan")
+    description = await player.get_description()
+    assert "A highly predictable entity known as TestIvan" in description
+
+
+@pytest.mark.asyncio
 async def test_trivial_player_chat() -> None:
     player = CrazyIvan("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
