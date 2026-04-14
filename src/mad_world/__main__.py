@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 import anyio
 from jsonargparse import CLI
 from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
 
 from mad_world import trivial_players
 from mad_world.config import (
@@ -31,6 +32,8 @@ from mad_world.rules import GameRules
 from mad_world.util import wrap_text
 
 if TYPE_CHECKING:
+    from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+
     from mad_world.players import GamePlayer
 
 
@@ -166,6 +169,8 @@ def run_game(
     omega: PlayerConfig = DEFAULT_OMEGA,
     log_dir: Path = Path("./logs"),
     verbosity: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO",
+    *,
+    single_step: bool = False,
 ) -> None:
     """
     Mad World CLI
@@ -175,6 +180,7 @@ def run_game(
         omega: Configuration for player 2.
         log_dir: Base directory for storing session logs.
         verbosity: Logging verbosity level.
+        single_step: Whether to pause before advancing each game phase.
     """
     alpha = _default_config(
         alpha, _get_explicitly_set_params(sys.argv, "alpha")
@@ -199,6 +205,7 @@ def run_game(
                 omega_config=omega,
                 log_dir=specific_log_dir,
                 logger=logger,
+                single_step=single_step,
             )
         )
     except (KeyboardInterrupt, EOFError):
@@ -273,11 +280,27 @@ def create_log_session_dir(
     return log_dir
 
 
+async def single_step_callback(game: GameState) -> GameState | None:
+    bindings = KeyBindings()
+
+    @bindings.add("<any>")
+    def _(event: KeyPressEvent) -> None:
+        event.app.exit()
+
+    print(  # noqa: T201
+        "\n--- [Press any key to advance to the next phase] ---"
+    )
+    await PromptSession(key_bindings=bindings).prompt_async("")
+    return None
+
+
 async def amain(
     alpha_config: PlayerConfig,
     omega_config: PlayerConfig,
     logger: logging.Logger,
     log_dir: Path,
+    *,
+    single_step: bool = False,
 ) -> None:
     """Main async entrypoint."""
 
@@ -314,6 +337,9 @@ async def amain(
     callbacks: list[GameLoopCallback] = [
         {GameLoopHook.POST_PHASE: autosave_callback}
     ]
+
+    if single_step:
+        callbacks.append({GameLoopHook.POST_PHASE: single_step_callback})
 
     winner, reason, state = await game_loop(
         GameRules(), players, callbacks=callbacks

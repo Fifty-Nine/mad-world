@@ -20,6 +20,7 @@ from mad_world.__main__ import (
     prompt_bool_once,
     run_game,
     setup_logging,
+    single_step_callback,
 )
 from mad_world.config import (
     HumanPlayerConfig,
@@ -197,6 +198,79 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
 
     assert mock_game_loop.called
     assert (tmp_path / "game_state.json").exists()
+
+
+@pytest.mark.asyncio
+@patch("mad_world.__main__.game_loop", new_callable=AsyncMock)
+@patch("mad_world.__main__.PromptSession")
+async def test_amain_single_step(
+    mock_prompt_session: MagicMock, mock_game_loop: AsyncMock, tmp_path: Path
+) -> None:
+    mock_state = MagicMock()
+    mock_state.current_round = 10
+    mock_state.players = {}
+    mock_state.model_dump_json.return_value = "{}"
+
+    async def mock_game_loop_effect(
+        rules: Any, players: Any, callbacks: Any
+    ) -> Any:
+        [
+            await cb(mock_state)
+            for cb_map in callbacks
+            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
+        ]
+        return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
+
+    mock_game_loop.side_effect = mock_game_loop_effect
+
+    mock_session_instance = AsyncMock()
+    mock_prompt_session.return_value = mock_session_instance
+
+    alpha_config = HumanPlayerConfig(name="Alpha")
+    omega_config = HumanPlayerConfig(name="Omega")
+
+    await amain(
+        alpha_config,
+        omega_config,
+        log_dir=tmp_path,
+        logger=logging.getLogger(__name__),
+        single_step=True,
+    )
+
+    assert mock_game_loop.called
+    assert mock_session_instance.prompt_async.called
+
+
+@pytest.mark.asyncio
+@patch("mad_world.__main__.PromptSession")
+@patch("mad_world.__main__.KeyBindings")
+async def test_single_step_callback(
+    mock_key_bindings: MagicMock, mock_prompt_session: MagicMock
+) -> None:
+    mock_bindings_instance = MagicMock()
+    mock_key_bindings.return_value = mock_bindings_instance
+
+    mock_session_instance = AsyncMock()
+    mock_prompt_session.return_value = mock_session_instance
+
+    mock_state = MagicMock()
+
+    def mock_add(key: str) -> Any:
+        def decorator(func: Any) -> Any:
+            # simulate calling the bound function
+            mock_event = MagicMock()
+            func(mock_event)
+            assert mock_event.app.exit.called
+            return func
+
+        return decorator
+
+    mock_bindings_instance.add.side_effect = mock_add
+
+    await single_step_callback(mock_state)
+
+    assert mock_bindings_instance.add.called
+    assert mock_session_instance.prompt_async.called
 
 
 @pytest.mark.asyncio
