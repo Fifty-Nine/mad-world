@@ -316,7 +316,10 @@ class ProxyWarEscalationEvent(BaseOngoingEffectEvent):
     @property
     @override
     def description(self) -> str:
-        return "Foreign powers drastically increase their involvement in proxy conflicts."
+        return (
+            "Foreign powers drastically increase their involvement in proxy "
+            "conflicts."
+        )
 
     @override
     def effect_type(self) -> type[ProxyWarEscalationEffect]:
