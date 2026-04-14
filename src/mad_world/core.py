@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-import os
 import random
 from dataclasses import dataclass
 from functools import reduce
@@ -532,9 +531,9 @@ class GameState(BaseModel):
             return
 
         try:
-            await anyio.Path(
-                os.fspath(self.log_dir / "game_state.json")
-            ).write_text(self.model_dump_json(indent=2))
+            await anyio.Path(self.log_dir / "game_state.json").write_text(
+                self.model_dump_json(indent=2)
+            )
         except OSError:
             logging.getLogger("mad_world").exception(
                 "Failed to write save game to log dir"
