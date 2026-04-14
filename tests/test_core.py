@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,8 +11,6 @@ from mad_world.core import WorldDestroyed
 from tests.unimplemented_player import UnimplementedPlayer
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from mad_world.players import GamePlayer
 
 
@@ -731,44 +727,6 @@ def test_crisis_trigger_logging() -> None:
     assert "ROUND" in last_event.description
     assert "PHASE" in last_event.description
     assert last_event.secret is True
-
-
-@pytest.mark.asyncio
-async def test_autosave(tmp_path: Path) -> None:
-    rules = GameRules()
-    players = ["alpha", "omega"]
-    game = GameState.new_game(rules=rules, players=players, log_dir=tmp_path)
-    await game.autosave()
-    assert (tmp_path / "game_state.json").exists()
-
-
-@pytest.mark.asyncio
-@patch("anyio.Path.write_text", new_callable=AsyncMock)
-async def test_autosave_no_log_dir(mock_write: AsyncMock) -> None:
-    rules = GameRules()
-    players = ["alpha", "omega"]
-    game = GameState.new_game(rules=rules, players=players, log_dir=None)
-    await game.autosave()
-    assert not mock_write.called
-
-
-@pytest.mark.asyncio
-@patch("anyio.Path.write_text", new_callable=AsyncMock)
-async def test_autosave_exception(
-    mock_write: AsyncMock, tmp_path: Path
-) -> None:
-    rules = GameRules()
-    players = ["alpha", "omega"]
-    game = GameState.new_game(rules=rules, players=players, log_dir=tmp_path)
-
-    mock_write.side_effect = OSError()
-
-    with patch.object(
-        logging.getLogger("mad_world"), "exception", new_callable=MagicMock
-    ) as log_except:
-        await game.autosave()
-        assert log_except.called
-        assert log_except.called
 
 
 @pytest.mark.asyncio

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import anyio
 from jsonargparse import CLI
 from prompt_toolkit import PromptSession
 
@@ -20,7 +22,8 @@ from mad_world.config import (
     PlayerKind,
     TrivialPlayerConfig,
 )
-from mad_world.core import format_results, game_loop
+from mad_world.core import GameState, format_results, game_loop
+from mad_world.hooks import GameLoopCallback, GameLoopHook
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.personas import random_persona
@@ -298,8 +301,22 @@ async def amain(
             logger,
         ),
     ]
+
+    async def autosave_callback(game: GameState) -> GameState | None:
+        try:
+            await anyio.Path(os.fspath(log_dir / "game_state.json")).write_text(
+                game.model_dump_json(indent=2)
+            )
+        except OSError:
+            logger.exception("Failed to write save game to log dir")
+        return None
+
+    callbacks: list[GameLoopCallback] = [
+        {GameLoopHook.POST_PHASE: autosave_callback}
+    ]
+
     winner, reason, state = await game_loop(
-        GameRules(), players, log_dir=log_dir
+        GameRules(), players, callbacks=callbacks
     )
     logger.info(wrap_text(format_results(winner, reason, state)))
 

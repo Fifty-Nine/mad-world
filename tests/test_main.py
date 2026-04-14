@@ -4,7 +4,7 @@ import logging
 import re
 from argparse import ArgumentError
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,6 +29,7 @@ from mad_world.config import (
     _load_model_defaults,
 )
 from mad_world.enums import GameOverReason
+from mad_world.hooks import GameLoopHook
 from mad_world.human_player import HumanPlayer
 from mad_world.ollama_player import OllamaPlayer
 from mad_world.personas import random_persona
@@ -170,11 +171,19 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
     mock_state = MagicMock()
     mock_state.current_round = 10
     mock_state.players = {}
-    mock_game_loop.return_value = (
-        "Alpha",
-        GameOverReason.ECONOMIC_VICTORY,
-        mock_state,
-    )
+    mock_state.model_dump_json.return_value = "{}"
+
+    async def mock_game_loop_effect(
+        rules: Any, players: Any, callbacks: Any
+    ) -> Any:
+        [
+            await cb(mock_state)
+            for cb_map in callbacks
+            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
+        ]
+        return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
+
+    mock_game_loop.side_effect = mock_game_loop_effect
 
     alpha_config = HumanPlayerConfig(name="Alpha")
     omega_config = HumanPlayerConfig(name="Omega")
@@ -187,6 +196,47 @@ async def test_amain_success(mock_game_loop: AsyncMock, tmp_path: Path) -> None:
     )
 
     assert mock_game_loop.called
+    assert (tmp_path / "game_state.json").exists()
+
+
+@pytest.mark.asyncio
+@patch("mad_world.__main__.game_loop", new_callable=AsyncMock)
+@patch("anyio.Path.write_text", new_callable=AsyncMock)
+async def test_amain_autosave_exception(
+    mock_write: AsyncMock, mock_game_loop: AsyncMock, tmp_path: Path
+) -> None:
+    mock_state = MagicMock()
+    mock_state.current_round = 10
+    mock_state.players = {}
+    mock_state.model_dump_json.return_value = "{}"
+
+    mock_write.side_effect = OSError("Disk full")
+
+    async def mock_game_loop_effect(
+        rules: Any, players: Any, callbacks: Any
+    ) -> Any:
+        [
+            await cb(mock_state)
+            for cb_map in callbacks
+            if (cb := cb_map.get(GameLoopHook.POST_PHASE))
+        ]
+        return "Alpha", GameOverReason.ECONOMIC_VICTORY, mock_state
+
+    mock_game_loop.side_effect = mock_game_loop_effect
+
+    alpha_config = HumanPlayerConfig(name="Alpha")
+    omega_config = HumanPlayerConfig(name="Omega")
+
+    with patch.object(
+        logging.getLogger(__name__), "exception", new_callable=MagicMock
+    ) as log_except:
+        await amain(
+            alpha_config,
+            omega_config,
+            log_dir=tmp_path,
+            logger=logging.getLogger(__name__),
+        )
+        assert log_except.called
 
 
 @patch("mad_world.__main__.amain", new_callable=AsyncMock)

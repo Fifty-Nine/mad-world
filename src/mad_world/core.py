@@ -5,15 +5,12 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-import os
 import random
 from dataclasses import dataclass
 from functools import reduce
 from itertools import zip_longest
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, cast
 
-import anyio
 from pydantic import BaseModel, Field
 
 from mad_world.actions import (
@@ -162,11 +159,6 @@ class GameState(BaseModel):
         description="A chronological log of all events that "
         "have occurred in the game.",
     )
-    log_dir: Path | None = Field(
-        default=None,
-        description="The directory to store game logs, if any.",
-        exclude=True,
-    )
 
     rng: SerializableRandom = Field(
         description="The RNG state used for this game.",
@@ -199,7 +191,6 @@ class GameState(BaseModel):
         *,
         rules: GameRules,
         players: list[str],
-        log_dir: Path | None = None,
         **kwargs: Any,
     ) -> Self:
         """Creates a new game state from the provided rules and players.
@@ -210,7 +201,6 @@ class GameState(BaseModel):
         result = cls(
             rng=rng,
             rules=rules,
-            log_dir=log_dir,
             players={
                 player: PlayerState(
                     name=player,
@@ -520,19 +510,6 @@ class GameState(BaseModel):
                 secret=True,
             ),
         )
-
-    async def autosave(self) -> None:
-        if self.log_dir is None:
-            return
-
-        try:
-            await anyio.Path(
-                os.fspath(self.log_dir / "game_state.json")
-            ).write_text(self.model_dump_json(indent=2))
-        except OSError:
-            logging.getLogger("mad_world").exception(
-                "Failed to write save game to log dir"
-            )
 
     def _expire_effects(self) -> None:
         new_effects: list[BaseEffect] = []
@@ -1123,23 +1100,19 @@ def destroy_world(game: GameState) -> GameState:
 async def game_loop(
     rules: GameRules,
     players: list[GamePlayer],
-    log_dir: Path | None = None,
     callbacks: list[GameLoopCallback] | None = None,
 ) -> tuple[str | None, GameOverReason, GameState]:
     """Continuously executes the game phases.
 
     Runs until a game over condition is reached.
     """
-    game = GameState.new_game(
-        players=[p.name for p in players], rules=rules, log_dir=log_dir
-    )
+    game = GameState.new_game(players=[p.name for p in players], rules=rules)
     callbacks = callbacks or []
 
     await asyncio.gather(*(p.start_game(game) for p in players))
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
-            await game.autosave()
 
             game = await run_callbacks(callbacks, game, GameLoopHook.POST_PHASE)
         except WorldDestroyed:
