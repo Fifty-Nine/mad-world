@@ -47,9 +47,7 @@ async def test_human_player_chat(basic_game: GameState) -> None:
     player = HumanPlayer("Alpha")
 
     with mock_human_input(player, side_effect=["Hello World", "true"]):
-        action = await player.chat(
-            basic_game, remaining_messages=5, last_message=None
-        )
+        action = await player.chat(basic_game, remaining_messages=5)
 
     assert isinstance(action, ChatAction)
     assert action.message == "Hello World"
@@ -63,9 +61,7 @@ async def test_human_player_chat_retry(basic_game: GameState) -> None:
     with mock_human_input(
         player, side_effect=["too long" * 100, "false", "Hello World", "true"]
     ):
-        action = await player.chat(
-            basic_game, remaining_messages=5, last_message=None
-        )
+        action = await player.chat(basic_game, remaining_messages=5)
 
     assert isinstance(action, ChatAction)
     assert action.message == "Hello World"
@@ -73,14 +69,15 @@ async def test_human_player_chat_retry(basic_game: GameState) -> None:
 
 
 @pytest.mark.asyncio
-async def test_human_player_initial_message(basic_game: GameState) -> None:
+async def test_human_player_initial_message_request(
+    basic_game: GameState,
+) -> None:
     player = HumanPlayer("Alpha")
 
-    with mock_human_input(player, side_effect=["Hello World", "request"]):
+    with mock_human_input(player, side_effect=["Hello World"]):
         action = await player.initial_message(basic_game)
 
-    assert action.message_to_opponent == "Hello World"
-    assert action.channel_preference == OpenChannelPreference.REQUEST
+    assert action.opening_statement == "Hello World"
 
 
 @pytest.mark.asyncio
@@ -89,11 +86,10 @@ async def test_human_player_initial_message_reject(
 ) -> None:
     player = HumanPlayer("Alpha")
 
-    with mock_human_input(player, side_effect=["Hello World", "reject"]):
+    with mock_human_input(player, side_effect=["Hello World"]):
         action = await player.initial_message(basic_game)
 
-    assert action.message_to_opponent == "Hello World"
-    assert action.channel_preference == OpenChannelPreference.REJECT
+    assert action.opening_statement == "Hello World"
 
 
 @pytest.mark.asyncio
@@ -144,7 +140,7 @@ async def test_human_player_prompt_user_invalid_then_valid(
     def parse_with_error(t: str) -> InitialMessageAction:
         if t == "error":
             raise ValueError("test error")  # noqa: TRY003
-        return InitialMessageAction(message_to_opponent=t)
+        return InitialMessageAction(opening_statement=t)
 
     side_effect = ["error", "valid"]
     with mock_human_input(player, side_effect=side_effect):
@@ -154,7 +150,7 @@ async def test_human_player_prompt_user_invalid_then_valid(
             parse_with_error,
         )
 
-    assert action.message_to_opponent == "valid"
+    assert action.opening_statement == "valid"
 
 
 @pytest.mark.asyncio

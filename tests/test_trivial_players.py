@@ -30,7 +30,7 @@ from mad_world.trivial_players import (
 async def test_trivial_player_chat() -> None:
     player = CrazyIvan("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
-    action = await player.chat(game_state, 5, last_message=None)
+    action = await player.chat(game_state, 5)
     assert action.message
     assert action.end_channel is True
 
@@ -39,7 +39,7 @@ async def test_trivial_player_chat() -> None:
 async def test_pareto_efficient_player_chat() -> None:
     player = ParetoEfficientPlayer("Test")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
-    action = await player.chat(game_state, 5, last_message=None)
+    action = await player.chat(game_state, 5)
     assert action.message
     assert action.end_channel is True
 
@@ -51,7 +51,7 @@ async def test_crazy_ivan_initial_message() -> None:
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         await player.initial_message(game_state)
-    ).message_to_opponent == "I'm crazy Ivan. Prepare to die!"
+    ).opening_statement == "I'm crazy Ivan. Prepare to die!"
 
 
 @pytest.mark.asyncio
@@ -95,7 +95,7 @@ async def test_pacifist_initial_message() -> None:
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
         await player.initial_message(game_state)
-    ).message_to_opponent == "I seek only peace and prosperity for all."
+    ).opening_statement == "I seek only peace and prosperity for all."
 
 
 @pytest.mark.asyncio
@@ -145,7 +145,7 @@ async def test_capitalist_initial_message() -> None:
     player = Capitalist("TestCap")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
-        (await player.initial_message(game_state)).message_to_opponent
+        (await player.initial_message(game_state)).opening_statement
         == "Greed is good. I am here to maximize shareholder value."
     )
 
@@ -193,7 +193,7 @@ async def test_saboteur_initial_message() -> None:
     player = Saboteur("TestSaboteur")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
-        (await player.initial_message(game_state)).message_to_opponent
+        (await player.initial_message(game_state)).opening_statement
         == "We look forward to a long and mutually beneficial relationship..."
     )
 
@@ -277,7 +277,7 @@ async def test_diplomat_initial_message() -> None:
     player = Diplomat("TestDiplomat")
     game_state = GameState.new_game(players=[player.name], rules=GameRules())
     assert (
-        (await player.initial_message(game_state)).message_to_opponent
+        (await player.initial_message(game_state)).opening_statement
         == "I believe we can resolve our differences through dialogue."
     )
 

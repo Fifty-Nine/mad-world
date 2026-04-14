@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from mad_world.actions import (
     BiddingAction,
     ChatAction,
+    InitialMessageAction,
     InsufficientInfluenceError,
     InvalidActionError,
     InvalidOperationError,
@@ -61,6 +62,7 @@ if TYPE_CHECKING:
 
     from mad_world.players import GamePlayer
 
+from mad_world.hooks import GameLoopCallback, GameLoopHook, run_callbacks
 
 CLOCK_WARNING_THRESHOLD = 0.8
 
@@ -367,19 +369,13 @@ class GameState(BaseModel):
         self,
         self_player: str,
         opponent_player: str,
-        action: MessagingAction | ChatAction,
+        action: MessagingAction | ChatAction | InitialMessageAction,
     ) -> None:
         """Records a messaging action between players.
 
         Logs the action into the game event log as a MessageEvent.
         """
-        message = (
-            action.message_to_opponent
-            if isinstance(action, MessagingAction)
-            else action.message
-        )
-
-        if message is None:
+        if action.message is None:
             return
 
         self.apply_event(
@@ -389,12 +385,12 @@ class GameState(BaseModel):
                     f"{self_player} sent a message to "
                     f"{opponent_player}:\n"
                     + wrap_text(
-                        message,
+                        action.message,
                         width=80,
                         indent="  ",
                     )
                 ),
-                message=message,
+                message=action.message,
                 channel_message=isinstance(action, ChatAction),
             ),
         )
@@ -905,7 +901,7 @@ async def resolve_chat_channel(
         )
     )
 
-    max_messages = 10
+    max_messages = new_game.rules.max_messages_per_channel
     sender_idx = (
         new_game.rng.choice([0, 1])
         if initiator is None
@@ -916,13 +912,11 @@ async def resolve_chat_channel(
 
     sender = players[sender_idx]
     receiver = players[1 - sender_idx]
-    last_message: str | None = None
 
     for i in range(max_messages * 2):
         remaining = (max_messages * 2 + 1 - i) // 2
-        chat_action = await sender.chat(new_game, remaining, last_message)
+        chat_action = await sender.chat(new_game, remaining)
         new_game.log_message(sender.name, receiver.name, chat_action)
-        last_message = chat_action.message
 
         if chat_action.end_channel:
             new_game.apply_event(
@@ -997,8 +991,6 @@ async def resolve_opening(
 
     new_game.log_message(alpha_name, omega_name, alpha_msg)
     new_game.log_message(omega_name, alpha_name, omega_msg)
-
-    await resolve_chat_channel(new_game, players, alpha_msg, omega_msg)
 
     new_game.advance_phase()
 
@@ -1132,6 +1124,7 @@ async def game_loop(
     rules: GameRules,
     players: list[GamePlayer],
     log_dir: Path | None = None,
+    callbacks: list[GameLoopCallback] | None = None,
 ) -> tuple[str | None, GameOverReason, GameState]:
     """Continuously executes the game phases.
 
@@ -1140,16 +1133,21 @@ async def game_loop(
     game = GameState.new_game(
         players=[p.name for p in players], rules=rules, log_dir=log_dir
     )
+    callbacks = callbacks or []
 
     await asyncio.gather(*(p.start_game(game) for p in players))
     while not check_game_over(game):
         try:
             game = await iterate_game(game, players)
             await game.autosave()
+
+            game = await run_callbacks(callbacks, game, GameLoopHook.POST_PHASE)
         except WorldDestroyed:
+            game = await run_callbacks(
+                callbacks, game, GameLoopHook.PRE_DESTROY_WORLD
+            )
             game = destroy_world(game)
             break
-
     game.check_endgame_mandates()
     winner, reason = game.determine_victor()
     logger = logging.getLogger("mad_world")

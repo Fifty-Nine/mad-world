@@ -7,11 +7,12 @@ from typing import overload
 import pytest
 
 from mad_world.enums import GamePhase
-from mad_world.event_stream import EventStream
+from mad_world.event_stream import EmptyStreamError, EventStream
 from mad_world.events import (
     BiddingEvent,
     GameEvent,
     LoggedEvent,
+    OperationConductedEvent,
     PlayerActor,
     SystemActor,
     SystemEvent,
@@ -275,4 +276,100 @@ def test_take_rounds(extended_events: Sequence[LoggedEvent[GameEvent]]) -> None:
 
     query = EventStream[GameEvent]([]).between_rounds(1, 3)
     assert not query
+    assert list(query) == []
+
+
+def test_head(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    query = EventStream(sample_events)
+    # Successive calls to head() consume elements
+    assert query.head() == sample_events[0]
+    assert query.head() == sample_events[1]
+
+    # Empty stream without default raises EmptyStreamError
+    query = EventStream[GameEvent]([])
+    with pytest.raises(EmptyStreamError):
+        query.head()
+
+    # Empty stream with default returns the default
+    assert query.head(default="foobar") == "foobar"
+    assert query.head(default=None) is None
+
+    my_object = object()
+    assert query.head(default=my_object) is my_object
+
+    # Filtering down to empty stream also raises
+    query = EventStream(sample_events).of_type(OperationConductedEvent)
+    with pytest.raises(EmptyStreamError):
+        query.head()
+
+
+def test_slice(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    # Test slice with stop only
+    query = EventStream(sample_events).slice(3)
+    assert list(query) == list(sample_events[:3])
+
+    # Test slice with start and stop
+    query = EventStream(sample_events).slice(2, 5)
+    assert list(query) == list(sample_events[2:5])
+
+    # Test slice with start, stop, and step
+    query = EventStream(sample_events).slice(1, 6, 2)
+    assert list(query) == list(sample_events[1:6:2])
+
+    # Test that slicing an empty stream returns an empty stream
+    query = EventStream[GameEvent]([]).slice(5)
+    assert list(query) == []
+
+
+def test_since_last(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    events = list(reversed(sample_events))
+    # Reverse order:
+    # 0: SystemEvent (round 3, "4")
+    # 1: BiddingEvent (round 2, bid 15)
+    # 2: BiddingEvent (round 2, bid 10)
+    # 3: SystemEvent (round 2, "3")
+    # 4: BiddingEvent (round 1, bid 5)
+    # 5: SystemEvent (round 1, "2")
+    # 6: SystemEvent (round 1, "1")
+
+    # Test since_last(BiddingEvent)
+    # Should yield only the first SystemEvent before hitting a BiddingEvent
+    query = EventStream(events).since_last(BiddingEvent)
+    result = list(query)
+    assert len(result) == 1
+    assert result[0] == events[0]
+
+    # Test since_last(SystemEvent)
+    # The first event is a SystemEvent, so it should yield nothing
+    query = EventStream(events).since_last(SystemEvent)
+    assert list(query) == []
+
+    # Test since_last(SystemEvent) skipping the first element
+    # Elements 1 & 2 are BiddingEvents, element 3 is SystemEvent
+    query = EventStream(events[1:]).since_last(SystemEvent)
+    result = list(query)
+    assert len(result) == 2
+    assert result == events[1:3]
+
+    # Test since_last for an event type not in the stream
+    query = EventStream(events).since_last(OperationConductedEvent)
+    assert list(query) == events
+
+
+def test_count(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
+    # Test counting a full stream
+    query = EventStream(sample_events)
+    assert query.count() == len(sample_events)
+
+    # Test counting a stream that yields nothing
+    query = EventStream[GameEvent]([])
+    assert query.count() == 0
+
+    # Test counting after filtering
+    query = EventStream(sample_events).of_type(BiddingEvent)
+    assert query.count() == 3
+
+    # Ensure calling count() consumes the stream
+    query = EventStream(sample_events)
+    assert query.count() == len(sample_events)
     assert list(query) == []

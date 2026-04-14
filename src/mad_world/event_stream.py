@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from mad_world.events import BaseGameEvent, LoggedEvent
 
@@ -9,6 +9,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
 
     from mad_world.enums import GamePhase
+
+_MISSING = object()
+
+
+class EmptyStreamError(IndexError):
+    def __init__(self, op: str) -> None:
+        super().__init__(f"{op} is an invalid operation for an empty stream.")
 
 
 class EventStream[T: BaseGameEvent]:
@@ -19,10 +26,13 @@ class EventStream[T: BaseGameEvent]:
     or ensure you only traverse the items once."""
 
     def __init__(self, stream: Iterable[LoggedEvent[T]]) -> None:
-        self._stream = stream
+        self._stream = iter(stream)
 
     def __iter__(self) -> Iterator[LoggedEvent[T]]:
-        return iter(self._stream)
+        return self
+
+    def __next__(self) -> LoggedEvent[T]:
+        return next(self._stream)
 
     def filter(
         self, predicate: Callable[[LoggedEvent[T]], bool]
@@ -39,7 +49,7 @@ class EventStream[T: BaseGameEvent]:
             if isinstance(e.event, event_type)
         )
 
-    def unwrap(self) -> Iterable[T]:
+    def unwrap(self) -> Iterator[T]:
         """Unwrap the logged events and return a generator of the inner
         events.
         """
@@ -87,6 +97,11 @@ class EventStream[T: BaseGameEvent]:
 
         return EventStream(_generator())
 
+    def since_last[U: BaseGameEvent](
+        self, event_type: type[U]
+    ) -> EventStream[T]:
+        return self.take_while(lambda e: not isinstance(e.event, event_type))
+
     def between_rounds(self, start: int, end: int) -> EventStream[T]:
         """Yield events that occurred between 'start' and 'end' rounds,
         inclusive. This works whether the stream is reversed or not."""
@@ -116,6 +131,29 @@ class EventStream[T: BaseGameEvent]:
             )
 
         return EventStream(_generator())
+
+    def slice(self, *args: Any, **kwargs: Any) -> EventStream[T]:
+        return EventStream(itertools.islice(self._stream, *args, **kwargs))
+
+    def count(self) -> int:
+        """Consume the stream and return the number of elements it contained."""
+        return sum(1 for _ in self)
+
+    @overload
+    def head(self) -> LoggedEvent[T]: ...
+
+    @overload
+    def head[U](self, default: U) -> LoggedEvent[T] | U: ...
+
+    def head[U](
+        self, default: U | object = _MISSING
+    ) -> LoggedEvent[T] | U | None:
+        try:
+            return next(self)
+        except StopIteration as e:
+            if default is _MISSING:
+                raise EmptyStreamError("head()") from e
+            return cast("U", default)
 
     def __bool__(self) -> bool:
         """Evaluate truthiness by checking if the stream yields any elements.

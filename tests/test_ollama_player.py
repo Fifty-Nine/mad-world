@@ -21,7 +21,14 @@ from mad_world.config import LLMParams, LLMPlayerConfig
 from mad_world.core import GameState, PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GameOverReason, GamePhase
-from mad_world.events import ActionEvent, LoggedEvent, PlayerActor
+from mad_world.events import (
+    ActionEvent,
+    ChannelOpenedEvent,
+    LoggedEvent,
+    MessageEvent,
+    PlayerActor,
+    SystemActor,
+)
 from mad_world.mandates import PacifistUtopiaMandate
 from mad_world.ollama_player import (
     ActionResponse,
@@ -522,26 +529,152 @@ def test_format_ongoing_effects_with_effects(
 
 
 @pytest.mark.asyncio
-async def test_chat(test_player: Any, basic_game: GameState) -> None:
+async def test_chat_subsequent_message(
+    test_player: Any, basic_game: GameState
+) -> None:
     test_player.retry_action = AsyncMock()
+    basic_game.rules.max_messages_per_channel = 6
 
     mock_response = MagicMock()
-    mock_response.action = ChatAction(message="test", end_channel=False)
+    mock_response.action = ChatAction(chat_message="test", end_channel=False)
     test_player.retry_action.return_value = mock_response
 
-    action = await test_player.chat(
-        basic_game, remaining_messages=5, last_message=None
-    )
+    # remaining_messages < msg_limit
+    action = await test_player.chat(basic_game, remaining_messages=5)
 
     assert test_player.retry_action.call_count == 1
     assert action == mock_response.action
 
+    # Prompt shouldn't include the "Both you and your
+    # opponent just sent..." message
+    last_prompt = test_player.messages[-1]["content"]
+    assert "Both you and your opponent just sent" not in last_prompt
+
+    # Test fallback
     test_player.retry_action.return_value = None
-    action = await test_player.chat(
-        basic_game, remaining_messages=5, last_message="some nonsense"
-    )
+    action = await test_player.chat(basic_game, remaining_messages=5)
     assert isinstance(action, ChatAction)
     assert action.end_channel is True
+
+
+@pytest.mark.asyncio
+async def test_chat_first_speaker_first_message(
+    test_player: Any, basic_game: GameState
+) -> None:
+    test_player.retry_action = AsyncMock()
+    basic_game.rules.max_messages_per_channel = 6
+
+    mock_response = MagicMock()
+    mock_response.action = ChatAction(chat_message="test", end_channel=False)
+    test_player.retry_action.return_value = mock_response
+
+    # Add a ChannelOpenedEvent and some broadcast messages
+    basic_game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=MessageEvent(
+                    actor=PlayerActor(name="Opponent"),
+                    description="",
+                    message="Hi",
+                    channel_message=False,
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=MessageEvent(
+                    actor=PlayerActor(name="Alpha"),
+                    description="",
+                    message="Hello",
+                    channel_message=False,
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=ChannelOpenedEvent(
+                    actor=SystemActor(), description="", initiator=None
+                ),
+            ),
+        ]
+    )
+
+    # remaining_messages at limit
+    action = await test_player.chat(basic_game, remaining_messages=6)
+
+    assert test_player.retry_action.call_count == 1
+    assert action == mock_response.action
+
+    last_prompt = test_player.messages[-1]["content"]
+    assert "Both you and your opponent just sent" in last_prompt
+    assert "Now that the direct channel is open" in last_prompt
+
+
+@pytest.mark.asyncio
+async def test_chat_second_speaker_first_message(
+    test_player: Any, basic_game: GameState
+) -> None:
+    test_player.retry_action = AsyncMock()
+    basic_game.rules.max_messages_per_channel = 6
+
+    mock_response = MagicMock()
+    mock_response.action = ChatAction(chat_message="test", end_channel=False)
+    test_player.retry_action.return_value = mock_response
+
+    # Add a ChannelOpenedEvent, broadcast messages, and one channel message
+    basic_game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=MessageEvent(
+                    actor=PlayerActor(name="Opponent"),
+                    description="",
+                    message="Hi",
+                    channel_message=False,
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=MessageEvent(
+                    actor=PlayerActor(name="Alpha"),
+                    description="",
+                    message="Hello",
+                    channel_message=False,
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=ChannelOpenedEvent(
+                    actor=SystemActor(), description="", initiator=None
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.BIDDING_MESSAGING,
+                event=MessageEvent(
+                    actor=PlayerActor(name="Opponent"),
+                    description="",
+                    message="First channel message",
+                    channel_message=True,
+                ),
+            ),
+        ]
+    )
+
+    # remaining_messages at limit
+    action = await test_player.chat(basic_game, remaining_messages=6)
+
+    assert test_player.retry_action.call_count == 1
+    assert action == mock_response.action
+
+    last_prompt = test_player.messages[-1]["content"]
+    assert "Both you and your opponent just sent" in last_prompt
+    assert "Now that the direct channel is open" not in last_prompt
 
 
 @pytest.mark.asyncio
@@ -550,7 +683,7 @@ async def test_initial_message(test_player: Any, basic_game: GameState) -> None:
 
     mock_response = MagicMock()
     mock_response.grand_strategy = MagicMock()
-    mock_response.action = InitialMessageAction()
+    mock_response.action = InitialMessageAction(opening_statement="")
     test_player.retry_action.return_value = mock_response
 
     action = await test_player.initial_message(basic_game)

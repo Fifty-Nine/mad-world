@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mad_world.core import WorldDestroyed
 from tests.unimplemented_player import UnimplementedPlayer
 
 if TYPE_CHECKING:
@@ -57,6 +58,7 @@ from mad_world.events import (
     SystemActor,
     SystemEvent,
 )
+from mad_world.hooks import GameLoopCallback, GameLoopHook
 from mad_world.rules import GameRules, OperationDefinition
 from mad_world.trivial_players import (
     Capitalist,
@@ -179,10 +181,10 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
             return ChatAction(
-                message=f"Alpha chat {remaining_messages}", end_channel=False
+                chat_message=f"Alpha chat {remaining_messages}",
+                end_channel=False,
             )
 
     class TestOmegaPlayer(UnimplementedPlayer):
@@ -190,9 +192,8 @@ async def test_resolve_chat_channel(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="Omega done", end_channel=True)
+            return ChatAction(chat_message="Omega done", end_channel=True)
 
     players: list[GamePlayer] = [
         TestAlphaPlayer("Alpha"),
@@ -221,9 +222,8 @@ async def test_resolve_chat_channel_rejected(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
 
@@ -266,9 +266,8 @@ async def test_resolve_chat_channel_double_request(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -293,9 +292,8 @@ async def test_resolve_chat_channel_omega_request(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=True)
+            return ChatAction(chat_message="test", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -320,9 +318,8 @@ async def test_resolve_chat_channel_max_messages(
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="test", end_channel=False)
+            return ChatAction(chat_message="test", end_channel=False)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -352,9 +349,8 @@ async def test_resolve_chat_channel_no_consent(basic_game: GameState) -> None:
             self,
             game: GameState,
             remaining_messages: int,
-            last_message: str | None,
         ) -> ChatAction:
-            return ChatAction(message="Never called", end_channel=True)
+            return ChatAction(chat_message="Never called", end_channel=True)
 
     players: list[GamePlayer] = [TestPlayer("Alpha"), TestPlayer("Omega")]
     await resolve_chat_channel(basic_game, players, alpha_msg, omega_msg)
@@ -1026,3 +1022,85 @@ async def test_bilateral_disarmament_integration(
         for d in descriptions
     )
     assert has_event, f"No resolution event found. Descriptions: {descriptions}"
+
+
+@pytest.mark.asyncio
+async def test_game_loop_callbacks(stable_rules: GameRules) -> None:
+    stable_rules.round_count = 2
+
+    call_count = 0
+    pre_destroy_count = 0
+
+    async def counting_post_phase(game: GameState) -> GameState | None:
+        nonlocal call_count
+        call_count += 1
+        return None
+
+    async def counting_pre_destroy(game: GameState) -> GameState | None:
+        nonlocal pre_destroy_count
+        pre_destroy_count += 1
+        return None
+
+    counting_callback: GameLoopCallback = {
+        GameLoopHook.POST_PHASE: counting_post_phase,
+        GameLoopHook.PRE_DESTROY_WORLD: counting_pre_destroy,
+    }
+
+    await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+        callbacks=[counting_callback],
+    )
+
+    assert call_count > 0
+    assert pre_destroy_count == 0
+
+    async def mutating_post_phase(game: GameState) -> GameState | None:
+        game.current_round = 100
+        return game
+
+    mutating_callback: GameLoopCallback = {
+        GameLoopHook.POST_PHASE: mutating_post_phase,
+    }
+
+    _, _reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+        callbacks=[mutating_callback],
+    )
+
+    assert game.current_round >= 100
+
+    async def destroying_post_phase(game: GameState) -> GameState | None:
+        raise WorldDestroyed(instigator="Test")
+
+    destroying_callback: GameLoopCallback = {
+        GameLoopHook.POST_PHASE: destroying_post_phase,
+        GameLoopHook.PRE_DESTROY_WORLD: counting_pre_destroy,
+    }
+
+    stable_rules.max_clock_state = 10
+    stable_rules.initial_clock_state = 0
+
+    _, reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+        callbacks=[destroying_callback],
+    )
+
+    assert reason == GameOverReason.WORLD_DESTROYED
+    assert pre_destroy_count == 1
+
+    # Test unspecified callbacks (empty dict)
+    stable_rules.max_clock_state = 10
+    stable_rules.initial_clock_state = 0
+    stable_rules.round_count = 1
+
+    _, reason, game = await game_loop(
+        stable_rules,
+        [Diplomat("Alpha"), Diplomat("Omega")],
+        callbacks=[{}],
+    )
+
+    assert reason != GameOverReason.WORLD_DESTROYED
+    assert game.current_round == 2
