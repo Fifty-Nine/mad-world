@@ -538,6 +538,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         MilitaryIndustrialComplexMandate(),
         MoralHighGroundMandate(),
         DetenteMandate(),
+        EconomicHitmanMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
@@ -605,6 +606,75 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
                 },
                 influence_delta={
                     player_name: MilitaryIndustrialComplexDefs.REWARD_INF
+                },
+            )
+        ]
+
+
+class EconomicHitmanDefs:
+    PLAYER_OP: ClassVar[str] = "aggressive-extraction"
+    OPPONENT_OP: ClassVar[str] = "domestic-investment"
+    REWARD_GDP: ClassVar[int] = 10
+    STEAL_GDP: ClassVar[int] = 5
+
+
+class EconomicHitmanMandate(InstantMandate):
+    card_kind: ClassVar[str] = "economic_hitman"
+    title: ClassVar[str] = "Economic Hitman"
+    description: ClassVar[str] = (
+        f"If you conduct {EconomicHitmanDefs.PLAYER_OP} while your opponent "
+        f"conducts {EconomicHitmanDefs.OPPONENT_OP} in the same round, gain "
+        f"{EconomicHitmanDefs.REWARD_GDP} GDP and steal "
+        f"{EconomicHitmanDefs.STEAL_GDP} GDP from your opponent."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
+        if game.last_phase != GamePhase.OPERATIONS:
+            return False
+
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
+            .of_type(OperationConductedEvent)
+            .unwrap()
+        )
+
+        player_conducted_op = any(
+            e.done_by_player(player_name)
+            and e.operation == EconomicHitmanDefs.PLAYER_OP
+            for e in events
+        )
+
+        opponent_conducted_op = any(
+            e.done_by_player(opponent_name)
+            and e.operation == EconomicHitmanDefs.OPPONENT_OP
+            for e in events
+        )
+
+        return player_conducted_op and opponent_conducted_op
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Exploiting safe markets: "
+                    f"+{EconomicHitmanDefs.REWARD_GDP} GDP, and stealing "
+                    f"{EconomicHitmanDefs.STEAL_GDP} GDP from {opponent_name}."
+                ),
+                gdp_delta={
+                    player_name: EconomicHitmanDefs.REWARD_GDP
+                    + EconomicHitmanDefs.STEAL_GDP,
+                    opponent_name: -EconomicHitmanDefs.STEAL_GDP,
                 },
             )
         ]

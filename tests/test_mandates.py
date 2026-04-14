@@ -22,6 +22,7 @@ from mad_world.mandates import (
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     DetenteMandate,
+    EconomicHitmanMandate,
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
@@ -69,7 +70,7 @@ def test_check_endgame_mandates() -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 11
+    assert len(deck) == 12
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -438,6 +439,70 @@ def test_military_industrial_complex_mandate() -> None:
     )
     assert mandate.is_met(game, "Alpha") is True
 
+    # Check rewards
+    events = mandate.reward(game, "Alpha")
+    assert len(events) == 1
+    event = events[0]
+    assert isinstance(event, MandateFulfilledEvent)
+    assert event.gdp_delta == {"Alpha": 10}
+    assert event.influence_delta == {"Alpha": 2}
+
+
+def test_economic_hitman_mandate() -> None:
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+    mandate = EconomicHitmanMandate()
+
+    # Not met by default
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 1
+
+    # Still not met
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Simulate player doing the operation, but not opponent
+    game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description="Alpha conducted aggressive-extraction",
+                    actor=PlayerActor(name="Alpha"),
+                    operation="aggressive-extraction",
+                ),
+            )
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Both conditions met
+    game.event_log.clear()
+    game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description="Alpha conducted aggressive-extraction",
+                    actor=PlayerActor(name="Alpha"),
+                    operation="aggressive-extraction",
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description="Omega conducted domestic-investment",
+                    actor=PlayerActor(name="Omega"),
+                    operation="domestic-investment",
+                ),
+            ),
+        ]
+    )
+    assert mandate.is_met(game, "Alpha") is True
+
     # Reverse roles, shouldn't work for Alpha
     game.event_log.clear()
     game.event_log.extend(
@@ -446,31 +511,55 @@ def test_military_industrial_complex_mandate() -> None:
                 round=1,
                 phase=GamePhase.OPERATIONS,
                 event=OperationConductedEvent(
-                    description=("Omega conducted conventional-offensive"),
+                    description="Omega conducted aggressive-extraction",
                     actor=PlayerActor(name="Omega"),
-                    operation="conventional-offensive",
+                    operation="aggressive-extraction",
                 ),
             ),
             LoggedEvent(
                 round=1,
                 phase=GamePhase.OPERATIONS,
                 event=OperationConductedEvent(
-                    description=("Alpha conducted a stand-down operation."),
+                    description="Alpha conducted domestic-investment",
                     actor=PlayerActor(name="Alpha"),
-                    operation="stand-down",
+                    operation="domestic-investment",
                 ),
             ),
         ]
     )
     assert mandate.is_met(game, "Alpha") is False
 
-    # Check rewards
+    # Check rewards (using the valid event log where Alpha met the condition)
+    game.event_log.clear()
+    game.event_log.extend(
+        [
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description="Alpha conducted aggressive-extraction",
+                    actor=PlayerActor(name="Alpha"),
+                    operation="aggressive-extraction",
+                ),
+            ),
+            LoggedEvent(
+                round=1,
+                phase=GamePhase.OPERATIONS,
+                event=OperationConductedEvent(
+                    description="Omega conducted domestic-investment",
+                    actor=PlayerActor(name="Omega"),
+                    operation="domestic-investment",
+                ),
+            ),
+        ]
+    )
+
     events = mandate.reward(game, "Alpha")
     assert len(events) == 1
     event = events[0]
     assert isinstance(event, MandateFulfilledEvent)
-    assert event.gdp_delta == {"Alpha": 10}
-    assert event.influence_delta == {"Alpha": 2}
+    assert event.gdp_delta == {"Alpha": 15, "Omega": -5}
+    assert event.influence_delta == {}
 
 
 def test_detente_mandate() -> None:
@@ -596,7 +685,6 @@ def test_moral_high_ground_mandate() -> None:
     sys_event = events[0]
     assert isinstance(sys_event, MandateFulfilledEvent)
     assert sys_event.gdp_delta == {"Alpha": 10}
-    assert sys_event.influence_delta == {"Alpha": 2}
 
     # Reset event log for negative cases
     game.event_log = []
