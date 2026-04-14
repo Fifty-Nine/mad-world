@@ -16,3 +16,4 @@
   to meet the initial threshold.
 - Add a "model debug" mode that converts (repeated) model generation failures
   into hard errors (rather than silently accepting them).
+- Add a way to easily save fun model personas for later.
