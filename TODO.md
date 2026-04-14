@@ -7,3 +7,8 @@
 - Use ConfigDict(frozen=true) in most pydantic models.
 - Use ConfigDict(frozen=true) in GameState (requires a big refactor)
 - Create a fluent interface/DSL for defining and manipulating game loop callbacks (similar to EventStream).
+- ProxyWarCrisis, NuclearMeltdownCrisis and RogueProliferationCrisis
+  need to be reviewed to ensure they provide sufficient player
+  instruction and description of its resolution effects and
+  mechanics when there is insufficient combined player influence
+  to meet the initial threshold.

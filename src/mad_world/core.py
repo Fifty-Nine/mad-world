@@ -276,38 +276,50 @@ class GameState(BaseModel):
                 operation=operation_name,
             )
 
-    def _deescalate_one(self, actor: SystemActor | PlayerActor) -> None:
-        # First look for any of actor's cubes.
-        for i in range(len(self.escalation_track) - 1, -1, -1):
-            track_actor = self.escalation_track[i]
-            if track_actor == actor or (
-                actor.is_system() and track_actor is not None
-            ):
-                self.escalation_track[i] = None
-                return
+    def _do_escalate(
+        self, actor: SystemActor | PlayerActor, amount: int
+    ) -> None:
+        none_indices = [
+            i for i, t in enumerate(self.escalation_track) if t is None
+        ]
+        for i in none_indices[:amount]:
+            self.escalation_track[i] = actor
 
-        # Now look for any cube.
-        for i in range(len(self.escalation_track) - 1, -1, -1):
-            track_actor = self.escalation_track[i]
-            if track_actor is None:
-                continue
+    def _do_deescalate(
+        self, actor: SystemActor | PlayerActor, amount: int
+    ) -> None:
+        to_remove = abs(amount)
+        is_system = actor.is_system()
 
+        target_indices = [
+            i
+            for i in range(len(self.escalation_track) - 1, -1, -1)
+            if self.escalation_track[i] is not None
+            and (is_system or self.escalation_track[i] == actor)
+        ]
+
+        removed = len(target_indices[:to_remove])
+        for i in target_indices[:to_remove]:
             self.escalation_track[i] = None
-            break
 
-    def _escalate_one(self, actor: SystemActor | PlayerActor) -> None:
-        for i in range(len(self.escalation_track)):
-            if self.escalation_track[i] is None:
-                self.escalation_track[i] = actor
-                return
+        if removed < to_remove:
+            self._remove_any_cubes_from_end(to_remove - removed)
+
+    def _remove_any_cubes_from_end(self, to_remove: int) -> None:
+        any_indices = [
+            i
+            for i in range(len(self.escalation_track) - 1, -1, -1)
+            if self.escalation_track[i] is not None
+        ]
+        for i in any_indices[:to_remove]:
+            self.escalation_track[i] = None
 
     def escalate(self, actor: SystemActor | PlayerActor, amount: int) -> None:
         """Escalate the doomsday clock by adding cubes to the track."""
-        fn = self._escalate_one if amount >= 0 else self._deescalate_one
-        amount = abs(amount)
-        while amount > 0:
-            fn(actor)
-            amount -= 1
+        if amount > 0:
+            self._do_escalate(actor, amount)
+        elif amount < 0:
+            self._do_deescalate(actor, amount)
 
     def reset_escalation(self) -> None:
         self.escalate(SystemActor(), -self.rules.max_clock_state)
