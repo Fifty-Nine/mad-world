@@ -1030,7 +1030,6 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
         return result
 
 
-
 class AIArmsRaceAction(BaseAction):
     investment: int = Field(
         description=(
@@ -1092,7 +1091,9 @@ class AIArmsRaceCrisis(GenericCrisis[AIArmsRaceAction]):
         # Aggressive players bid near the threshold, diplomatic bid low
         safe_bid = AIArmsRaceDefs.GDP_THRESHOLD // 2
         bid = (
-            min(max_bid, safe_bid) if aggressive else min(max_bid, safe_bid // 2)
+            min(max_bid, safe_bid)
+            if aggressive
+            else min(max_bid, safe_bid // 2)
         )
         return AIArmsRaceAction(investment=bid)
 
@@ -1138,11 +1139,28 @@ class AIArmsRaceCrisis(GenericCrisis[AIArmsRaceAction]):
             return result
 
         if p1_amount > p2_amount:
-            result.append(SystemEvent(description=f"{player1} secured AI dominance.", influence_delta={player1: AIArmsRaceDefs.WINNER_INF}))
+            result.append(
+                SystemEvent(
+                    description=f"{player1} secured AI dominance.",
+                    influence_delta={player1: AIArmsRaceDefs.WINNER_INF},
+                )
+            )
         elif p2_amount > p1_amount:
-            result.append(SystemEvent(description=f"{player2} secured AI dominance.", influence_delta={player2: AIArmsRaceDefs.WINNER_INF}))
+            result.append(
+                SystemEvent(
+                    description=f"{player2} secured AI dominance.",
+                    influence_delta={player2: AIArmsRaceDefs.WINNER_INF},
+                )
+            )
         else:
-            result.append(SystemEvent(description="Both superpowers achieved parity in AI research, with neither gaining a definitive advantage."))
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers achieved parity in AI research, "
+                        "with neither gaining a definitive advantage."
+                    )
+                )
+            )
 
         return result
 
