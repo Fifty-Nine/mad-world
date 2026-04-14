@@ -37,6 +37,10 @@ class TrivialPlayer(GamePlayer):
         self.aggressive = aggressive
 
     @override
+    async def get_description(self) -> str:
+        return f"A highly predictable entity known as {self.name}."
+
+    @override
     async def crisis[T: BaseAction](
         self,
         game: GameState,

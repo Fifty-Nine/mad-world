@@ -30,6 +30,10 @@ class GamePlayer(ABC):
         assert self.name in game.players
 
     @abstractmethod
+    async def get_description(self) -> str:
+        """Returns a description of the player's persona or faction."""
+
+    @abstractmethod
     async def initial_message(self, game: GameState) -> InitialMessageAction:
         """Get the initial message for your opponent. This will be provided
         to them in the bidding phase of round 1.

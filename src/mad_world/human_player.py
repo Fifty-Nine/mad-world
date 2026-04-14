@@ -43,6 +43,12 @@ class HumanPlayer(GamePlayer):
         self.operations_completer: WordCompleter | None = None
 
     @override
+    async def get_description(self) -> str:
+        return await self.session.prompt_async(
+            f"[{self.name}] Enter a brief description for your faction: "
+        )
+
+    @override
     async def start_game(self, game: GameState) -> None:
         await super().start_game(game)
         self.operations_completer = WordCompleter(

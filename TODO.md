@@ -1,3 +1,5 @@
+- **Rename GamePlayer.name**
+  - Consider renaming `GamePlayer.name` to better reflect it is the country name rather than the player persona name.
 - **Add influence cap/decay**
 - **Add coop win condition**
 - Improve first strike mechanic?
