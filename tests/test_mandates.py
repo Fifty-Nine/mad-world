@@ -15,6 +15,7 @@ from mad_world.events import (
     MandateFulfilledEvent,
     OperationConductedEvent,
     PlayerActor,
+    SystemActor,
 )
 from mad_world.mandates import (
     AccelerationistMandate,
@@ -25,6 +26,7 @@ from mad_world.mandates import (
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
+    PeacemakerMandate,
     PopularJingoismMandate,
     SleepingGiantMandate,
     SpaceRaceMandate,
@@ -69,7 +71,7 @@ def test_check_endgame_mandates() -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 11
+    assert len(deck) == 12
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -679,3 +681,25 @@ def test_moral_high_ground_mandate() -> None:
         ]
     )
     assert mandate.is_met(game, "Alpha") is False
+
+
+def test_peacemaker_mandate() -> None:
+    mandate = PeacemakerMandate()
+    game = GameState.new_game(
+        rules=GameRules(max_clock_state=30), players=["Alpha", "Omega"]
+    )
+
+    # 30% of 30 is 9.0
+    game.escalation_track = [SystemActor() for _ in range(10)]
+    assert not mandate.is_met(game, "Alpha")
+
+    game.escalation_track = [SystemActor() for _ in range(9)]
+    assert mandate.is_met(game, "Alpha")
+
+    game.escalation_track = [SystemActor() for _ in range(5)]
+    assert mandate.is_met(game, "Alpha")
+
+    rewards = mandate.reward(game, "Alpha")
+    assert len(rewards) == 1
+    assert isinstance(rewards[0], MandateFulfilledEvent)
+    assert rewards[0].gdp_delta == {"Alpha": 25}
