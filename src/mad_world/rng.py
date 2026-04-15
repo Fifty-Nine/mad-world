@@ -19,10 +19,10 @@ class ComparableRandom(random.Random):
         if hasattr(other, "getstate"):
             # mypy and ruff disagree on the type, so we can't satisfy both
             return self.getstate() == other.getstate()  # type: ignore[no-any-return]
-        raise NotImplementedError  # pragma: no cover
+        return NotImplemented  # pragma: no cover
 
     def __hash__(self) -> int:
-        raise NotImplementedError  # pragma: no cover
+        raise TypeError("ComparableRandom is unhashable")  # pragma: no cover
 
 
 def _to_tuple(obj: Any) -> Any:
