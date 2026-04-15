@@ -7,7 +7,6 @@ import copy
 import logging
 from dataclasses import dataclass
 from functools import reduce
-from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, Self, cast
 
 from pydantic import BaseModel, Field
@@ -701,7 +700,7 @@ def effects_to_dict(
 ) -> dict[str, int]:
 
     result: dict[str, int] = {}
-    for p, e in zip_longest(names, effects):
+    for p, e in zip(names, effects, strict=True):
         if e == 0:
             continue
 
