@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from mad_world.effects import (
     ArmsControlEffect,
+    GlobalSanctionsEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
@@ -93,6 +94,13 @@ def test_no_domestic_investment_effect(basic_game: GameState) -> None:
     modified_ops = effect.modify_operations(ops)
     assert "domestic-investment" not in modified_ops
     assert "aggressive-extraction" in modified_ops
+
+
+def test_global_sanctions_effect(basic_game: GameState) -> None:
+    effect = GlobalSanctionsEffect(duration=2)
+    ops = effect.modify_operations(basic_game.rules.allowed_operations)
+    assert "aggressive-extraction" not in ops
+    assert "domestic-investment" in ops
 
 
 def test_supply_chain_shock_effect(basic_game: GameState) -> None:

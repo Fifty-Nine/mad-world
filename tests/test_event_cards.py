@@ -12,6 +12,7 @@ from mad_world.event_cards import (
     BasePlayerEffectCard,
     ClockChangeEvent,
     GDPEvent,
+    GlobalSanctionsEvent,
     InfluenceBothEvent,
     InfluenceChangeEvent,
     UNPeacekeepingEvent,
@@ -94,9 +95,17 @@ def test_un_peacekeeping_event(basic_game: GameState) -> None:
     assert game_events[0].new_effects[0].card_kind == "un_peacekeeping"
 
 
+def test_global_sanctions_event(basic_game: GameState) -> None:
+    event = GlobalSanctionsEvent()
+    game_events = event.run(basic_game)
+    assert len(game_events) == 1
+    assert len(game_events[0].new_effects) == 1
+    assert game_events[0].new_effects[0].card_kind == "global_sanctions"
+
+
 def test_create_event_deck(basic_game: GameState) -> None:
     deck = create_event_deck(basic_game.rng)
-    assert len(deck) == 44
+    assert len(deck) == 47
 
 
 @pytest.mark.asyncio
