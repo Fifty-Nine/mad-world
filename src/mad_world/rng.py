@@ -21,7 +21,7 @@ class ComparableRandom(random.Random):
             return self.getstate() == other.getstate()  # type: ignore[no-any-return]
         return NotImplemented  # pragma: no cover
 
-    __hash__ = None
+    __hash__ = None  # type: ignore[assignment]
 
 
 def _to_tuple(obj: Any) -> Any:
