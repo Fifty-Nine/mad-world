@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 
 if TYPE_CHECKING:
     import random
@@ -22,20 +22,23 @@ class DeckEmptyError(RuntimeError):
         )
 
 
+type Pile[T] = list[SerializeAsAny[T]]
+
+
 class Deck[T](BaseModel):
-    draw_pile: list[T] = Field(
+    draw_pile: Pile[T] = Field(
         description="The deck from which cards are drawn."
     )
-    discard_pile: list[T] = Field(
+    discard_pile: Pile[T] = Field(
         default_factory=list,
         description="The deck to which discarded cards are added.",
     )
-    in_play: list[T] = Field(
+    in_play: Pile[T] = Field(
         default_factory=list,
         description="The list of cards currently missing from the deck because "
         "they are in play.",
     )
-    trash_pile: list[T] = Field(
+    trash_pile: Pile[T] = Field(
         default_factory=list,
         description="The deck to which trashed cards are added.",
     )
