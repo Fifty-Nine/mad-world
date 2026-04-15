@@ -936,3 +936,11 @@ async def test_used_channels(test_player: Any, basic_game: GameState) -> None:
     assert "You have used your quota" in test_player.format_channel_prompt(
         basic_game
     )
+
+def test_strip_thought_empty() -> None:
+    assert OllamaPlayer._strip_thought("") == ""
+    assert OllamaPlayer._strip_thought(None) == ""
+def test_strip_thought_markdown() -> None:
+    original = "```json\n{\"00_chain_of_thought\": [\"foo\"], \"action\": \"bar\"}\n```"
+    expected = "```json\n{\"action\": \"bar\"}\n```"
+    assert OllamaPlayer._strip_thought(original) == expected
