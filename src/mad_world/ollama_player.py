@@ -901,18 +901,19 @@ class OllamaPlayer(GamePlayer):
         try:
             clean_content = extract_json_from_response(content)
             data = json.loads(clean_content)
-            if isinstance(data, dict):
-                keys_to_remove = [k for k in data.keys() if k.endswith("chain_of_thought")]
-                for k in keys_to_remove:
-                    del data[k]
-
-            result = json.dumps(data, ensure_ascii=False)
-
-            if "```json" in content:
-                return f"```json\n{result}\n```"
-            return result
         except json.JSONDecodeError:
             return content
+
+        if isinstance(data, dict):
+            keys_to_remove = [k for k in data if k.endswith("chain_of_thought")]
+            for k in keys_to_remove:
+                del data[k]
+
+        result = json.dumps(data, ensure_ascii=False)
+
+        if "```json" in content:
+            return f"```json\n{result}\n```"
+        return result
 
     async def try_one_prompt[T: LLMResponse](
         self,
@@ -1629,7 +1630,10 @@ class OllamaPlayer(GamePlayer):
             think=False,
         )
         self.messages.append(
-            {"role": "assistant", "content": self._strip_thought(result.message.content)},
+            {
+                "role": "assistant",
+                "content": self._strip_thought(result.message.content),
+            },
         )
 
         self.logger.debug(
