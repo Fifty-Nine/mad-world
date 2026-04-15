@@ -9,7 +9,9 @@ import pytest
 
 from mad_world.actions import (
     BaseAction,
+    InsufficientGDPError,
     InsufficientInfluenceError,
+    InvalidGDPAmountError,
     InvalidInfluenceAmountError,
 )
 from mad_world.core import GameState, resolve_crisis
@@ -25,6 +27,9 @@ from mad_world.crises import (
     STANDOFF_WINNER_CLOCK_EFFECT,
     BaseCrisis,
     GenericCrisis,
+    GlobalFamineAction,
+    GlobalFamineCrisis,
+    GlobalFamineDefs,
     InternationalSanctionsCrisis,
     ProxyWarAction,
     ProxyWarCrisis,
@@ -682,3 +687,113 @@ class TestRogueProliferationCrisis(
         basic_game.players["Alpha"].influence = 3
         capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
         assert capped.investment == 3
+
+
+class TestGlobalFamineAction:
+    def test_validation_valid(self, basic_game: GameState) -> None:
+        action = GlobalFamineAction(investment=20)
+        action.validate_semantics(basic_game, "Alpha")
+
+    def test_validation_insufficient_gdp(self, basic_game: GameState) -> None:
+        action = GlobalFamineAction(investment=60)
+        with pytest.raises(InsufficientGDPError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_validation_negative(self, basic_game: GameState) -> None:
+        action = GlobalFamineAction(investment=-5)
+        with pytest.raises(InvalidGDPAmountError):
+            action.validate_semantics(basic_game, "Alpha")
+
+
+class TestGlobalFamineCrisis(
+    CrisisTestBase[GlobalFamineAction, GlobalFamineCrisis]
+):
+    @pytest.fixture
+    @override
+    def crisis(self) -> GlobalFamineCrisis:
+        return GlobalFamineCrisis()
+
+    def test_properties(self, crisis: GlobalFamineCrisis) -> None:
+        assert crisis.card_kind == "global-famine"
+        assert crisis.action_type is GlobalFamineAction
+
+    def test_get_default_action(
+        self, basic_game: GameState, crisis: GlobalFamineCrisis
+    ) -> None:
+        # Initial GDP is 50, half_bid for GlobalFamine is 15 // 2 = 7
+        aggressive = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=True
+        )
+        assert aggressive.investment == 3  # 7 // 2
+
+        cautious = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=False
+        )
+        assert cautious.investment == 9  # 7 + 2
+
+        # Test capping by available gdp
+        basic_game.players["Alpha"].gdp = 2
+        capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
+        assert capped.investment == 2
+
+    def test_resolve_success_uneven_bids(
+        self, basic_game: GameState, crisis: GlobalFamineCrisis
+    ) -> None:
+        # Threshold is 15, Alpha bids 10, Omega bids 6 -> total 16 > 15
+        actions = {
+            "Alpha": GlobalFamineAction(investment=10),
+            "Omega": GlobalFamineAction(investment=6),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+        assert len(events) == 3
+
+        # First two events are CrisisResolutionEvent for deducting investments
+        assert events[0].gdp_delta == {"Alpha": -10}
+        assert events[1].gdp_delta == {"Omega": -6}
+
+        # Last event is a SystemEvent for resolving the crisis
+        assert isinstance(events[2], SystemEvent)
+        assert events[2].gdp_delta == {"Alpha": GlobalFamineDefs.WINNER_GDP}
+        assert events[2].influence_delta == {
+            "Alpha": GlobalFamineDefs.WINNER_INF
+        }
+        assert events[2].clock_delta == 0
+        assert "securing exclusive trade agreements" in events[2].description
+
+    def test_resolve_success_tie(
+        self, basic_game: GameState, crisis: GlobalFamineCrisis
+    ) -> None:
+        # Threshold is 15, Alpha bids 8, Omega bids 8 -> total 16 > 15
+        actions = {
+            "Alpha": GlobalFamineAction(investment=8),
+            "Omega": GlobalFamineAction(investment=8),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+        assert len(events) == 3
+
+        assert isinstance(events[2], SystemEvent)
+        assert not events[2].gdp_delta
+        assert not events[2].influence_delta
+        assert "contributed equally" in events[2].description
+
+    def test_resolve_failure(
+        self, basic_game: GameState, crisis: GlobalFamineCrisis
+    ) -> None:
+        # Threshold is 15, Alpha bids 5, Omega bids 5 -> total 10 < 15
+        actions = {
+            "Alpha": GlobalFamineAction(investment=5),
+            "Omega": GlobalFamineAction(investment=5),
+        }
+
+        events = crisis.resolve(basic_game, actions)
+        assert len(events) == 3
+
+        assert isinstance(events[2], SystemEvent)
+        assert events[2].clock_delta == GlobalFamineDefs.FAIL_CLOCK_IMPACT
+        assert events[2].influence_delta == {
+            "Alpha": GlobalFamineDefs.FAIL_INF_PENALTY,
+            "Omega": GlobalFamineDefs.FAIL_INF_PENALTY,
+        }
+        assert "failed to provide adequate relief" in events[2].description

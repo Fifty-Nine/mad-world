@@ -1167,6 +1167,158 @@ class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
         return result
 
 
+class GlobalFamineAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of GDP you are willing to invest in humanitarian "
+            "aid. This must be less than or equal to your current GDP."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        gdp = game.players[player_name].gdp
+        if gdp < self.investment:
+            raise InsufficientGDPError(available=gdp, cost=self.investment)
+
+        if self.investment < 0:
+            raise InvalidGDPAmountError
+
+
+class GlobalFamineDefs:
+    GDP_THRESHOLD: ClassVar[int] = 15
+    FAIL_CLOCK_IMPACT: ClassVar[int] = 10
+    FAIL_INF_PENALTY: ClassVar[int] = -10
+    WINNER_INF: ClassVar[int] = 10
+    WINNER_GDP: ClassVar[int] = 5
+
+
+class GlobalFamineCrisis(GenericCrisis[GlobalFamineAction]):
+    card_kind: ClassVar[Literal["global-famine"]] = "global-famine"
+
+    @property
+    def action_type(self) -> type[GlobalFamineAction]:
+        return GlobalFamineAction
+
+    title: ClassVar[str] = "Global Famine"
+    description: ClassVar[str] = (
+        "A catastrophic famine threatens to destabilize several non-aligned "
+        "regions. Millions are at risk of starvation, and the ensuing chaos "
+        "could easily spill over into neighboring territories, triggering "
+        "widespread conflict. Both superpowers must provide humanitarian aid "
+        "to stabilize the region. However, the superpower that provides the "
+        "most aid will be hailed as a savior, securing lucrative new trade "
+        "agreements and permanent alliances."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of GDP to expend towards "
+        "humanitarian relief. Your bid will be subtracted from your current "
+        "GDP. The relief effort requires a combined investment of at least "
+        f"{GlobalFamineDefs.GDP_THRESHOLD} GDP. If the total GDP invested "
+        "by both players is less than this threshold, the regions collapse "
+        "into anarchy, increasing the Doomsday Clock by "
+        f"{GlobalFamineDefs.FAIL_CLOCK_IMPACT} points and causing both players "
+        f"to lose {abs(GlobalFamineDefs.FAIL_INF_PENALTY)} Influence due to "
+        "their failure to lead on the world stage. If the threshold is met, "
+        "the crisis is averted. The player who bids the *most* GDP secures "
+        "the regions' loyalty, gaining "
+        f"{GlobalFamineDefs.WINNER_INF} Influence and "
+        f"{GlobalFamineDefs.WINNER_GDP} GDP. If both players bid the same "
+        "amount, neither gains the bonus."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> GlobalFamineAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].gdp
+        half_bid = GlobalFamineDefs.GDP_THRESHOLD // 2
+        bid = (
+            min(max_bid, half_bid // 2)
+            if aggressive
+            else min(max_bid, half_bid + 2)
+        )
+        return GlobalFamineAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, GlobalFamineAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} GDP on humanitarian "
+                "aid.",
+                gdp_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} GDP on humanitarian "
+                "aid.",
+                gdp_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment < GlobalFamineDefs.GDP_THRESHOLD:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The superpowers failed to provide adequate relief. "
+                        "The affected regions have collapsed into total "
+                        "anarchy, sparking resource wars that threaten "
+                        "global stability. Both superpowers suffer a "
+                        "massive loss of prestige."
+                    ),
+                    clock_delta=GlobalFamineDefs.FAIL_CLOCK_IMPACT,
+                    influence_delta={
+                        player1: GlobalFamineDefs.FAIL_INF_PENALTY,
+                        player2: GlobalFamineDefs.FAIL_INF_PENALTY,
+                    },
+                )
+            )
+            return result
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers contributed equally to the relief "
+                        "effort. The famine is averted and the regions "
+                        "stabilize, but neither superpower gains a distinct "
+                        "diplomatic advantage."
+                    ),
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount > p2_amount else player2
+        loser = player2 if winner == player1 else player1
+
+        result.append(
+            SystemEvent(
+                description=(
+                    "The famine is successfully averted. "
+                    f"{winner} provided the lion's share of the aid, "
+                    "securing exclusive trade agreements and solidifying "
+                    "their role as the preeminent global leader, much to "
+                    f"the dismay of {loser}."
+                ),
+                gdp_delta={winner: GlobalFamineDefs.WINNER_GDP},
+                influence_delta={winner: GlobalFamineDefs.WINNER_INF},
+            )
+        )
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(BilateralDisarmamentCrisis() for _ in range(2)),
     *(StandoffCrisis() for _ in range(3)),
@@ -1176,6 +1328,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(NuclearMeltdownCrisis() for _ in range(2)),
     *(RogueProliferationCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
+    *(GlobalFamineCrisis() for _ in range(2)),
 ]
 
 
