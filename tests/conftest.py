@@ -19,6 +19,7 @@ from mad_world.crises import StandoffCrisis
 from mad_world.enums import GamePhase
 from mad_world.event_cards import BaseEventCard
 from mad_world.mandates import InstantMandate
+from mad_world.rng import ComparableRandom
 from mad_world.rules import GameRules
 
 if TYPE_CHECKING:
@@ -143,14 +144,14 @@ def basic_game(stable_rules: GameRules) -> GameState:
 
 
 @pytest.fixture
-def seeded_rng() -> random.Random:
-    return random.Random(0)
+def seeded_rng() -> ComparableRandom:
+    return ComparableRandom(0)
 
 
 @pytest.fixture
 def stable_rng(
-    seeded_rng: random.Random,
-) -> Generator[random.Random, None, None]:
+    seeded_rng: ComparableRandom,
+) -> Generator[ComparableRandom, None, None]:
     def fixed_shuffle(values: list[Any]) -> None:
         values.sort(reverse=True)
 

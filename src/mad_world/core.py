@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
-import random
 from dataclasses import dataclass
 from functools import reduce
 from itertools import zip_longest
@@ -47,7 +46,7 @@ from mad_world.events import (
     SystemEvent,
 )
 from mad_world.mandates import BaseMandate, create_mandate_deck
-from mad_world.rng import SerializableRandom
+from mad_world.rng import ComparableRandom, SerializableRandom
 from mad_world.rules import (
     GameRules,
     OperationDefinition,
@@ -203,7 +202,7 @@ class GameState(BaseModel):
 
         Initializes the deck, states, and initial mandates.
         """
-        rng = random.Random(rules.seed)
+        rng = ComparableRandom(rules.seed)
         result = cls(
             rng=rng,
             rules=rules,

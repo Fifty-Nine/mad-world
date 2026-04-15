@@ -32,7 +32,7 @@ def model_field(val: Any, type_hint: Any = None) -> Any:
 @pytest.mark.parametrize(
     "lookup_test_value",
     [
-        pytest.param("basic_game", marks=pytest.mark.xfail),
+        "basic_game",
         "basic_player",
         model_field(
             mad_world.enums.GamePhase.BIDDING,
