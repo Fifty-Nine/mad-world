@@ -7,6 +7,7 @@ from typing import Any, ClassVar, cast
 
 from pydantic import (
     BaseModel,
+    SerializerFunctionWrapHandler,
     ValidatorFunctionWrapHandler,
     model_serializer,
     model_validator,
@@ -40,9 +41,9 @@ class BaseCard(BaseModel, ABC):
 
     @model_serializer(mode="wrap")
     def serialize(
-        self, handler: ValidatorFunctionWrapHandler
+        self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        result = cast("dict[str, Any]", handler(self))
+        result = dict(self)
         result["card_kind"] = self.card_kind
         return result
 

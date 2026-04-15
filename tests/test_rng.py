@@ -3,21 +3,19 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING
+import random
 
 from pydantic import BaseModel, Field
 
 import mad_world.rng
-
-if TYPE_CHECKING:
-    import random
+from mad_world.rng import ComparableRandom, deserialize_random_state
 
 
 class DummyModel(BaseModel):
     rng: mad_world.rng.SerializableRandom = Field(description="The RNG.")
 
 
-def test_rng_roundtrip(seeded_rng: random.Random) -> None:
+def test_rng_roundtrip(seeded_rng: mad_world.rng.ComparableRandom) -> None:
     dup_rng = copy.deepcopy(seeded_rng)
 
     model = DummyModel(rng=seeded_rng)
@@ -27,3 +25,14 @@ def test_rng_roundtrip(seeded_rng: random.Random) -> None:
 
     assert model.rng.randint(0, 1000) == model_copy.rng.randint(0, 1000)
     assert id(model.rng) != id(model_copy.rng)
+
+
+def test_deserialize_from_random() -> None:
+
+    std_rng = random.Random(42)
+
+    # If we pass a random object directly (not its state)
+    restored = deserialize_random_state(std_rng)
+
+    assert isinstance(restored, ComparableRandom)
+    assert restored == std_rng
