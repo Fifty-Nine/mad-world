@@ -111,6 +111,27 @@ class NoDomesticInvestmentEffect(BaseEffect):
         return {k: v for k, v in ops.items() if k != "domestic-investment"}
 
 
+class GlobalSanctionsEffect(BaseEffect):
+    card_kind: ClassVar[str] = "global_sanctions"
+
+    title: ClassVar[str] = "Global Sanctions"
+    description: ClassVar[str] = (
+        "Aggressive extraction operations are temporarily disabled."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, 'aggressive-extraction' operations are "
+        "forbidden while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        # Return a copy without 'aggressive-extraction'
+        return {k: v for k, v in ops.items() if k != "aggressive-extraction"}
+
+
 class ArmsControlEffect(BaseEffect):
     card_kind: ClassVar[str] = "arms_control"
 

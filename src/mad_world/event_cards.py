@@ -13,6 +13,7 @@ from mad_world.decks import Deck
 from mad_world.effects import (
     ArmsControlEffect,
     BaseEffect,
+    GlobalSanctionsEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
@@ -263,6 +264,29 @@ class BanDomesticInvestmentEvent(BaseOngoingEffectEvent):
         return NoDomesticInvestmentEffect
 
 
+class GlobalSanctionsEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "global_sanctions_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Global Sanctions"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "International condemnation temporarily halts aggressive "
+            "resource grabs."
+        )
+
+    @override
+    def effect_type(self) -> type[GlobalSanctionsEffect]:
+        return GlobalSanctionsEffect
+
+
 class ArmsControlTreatyEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "arms_control_treaty"
 
@@ -363,6 +387,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (InfluenceBothEvent(), 3),
     (BanZeroBidsEvent(), 2),
     (BanDomesticInvestmentEvent(), 3),
+    (GlobalSanctionsEvent(), 3),
     (ArmsControlTreatyEvent(), 3),
     (SupplyChainShockEvent(), 3),
     (ProxyWarEscalationEvent(), 3),
