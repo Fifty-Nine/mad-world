@@ -43,7 +43,7 @@ class BaseCard(BaseModel, ABC):
     def serialize(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        result = dict(self)
+        result = cast("dict[str, Any]", handler(self))
         result["card_kind"] = self.card_kind
         return result
 

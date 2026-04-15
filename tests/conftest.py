@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mad_world.core import GameState
+from mad_world.core import GameState, PlayerState
 from mad_world.crises import StandoffCrisis
 from mad_world.enums import GamePhase
 from mad_world.event_cards import BaseEventCard
@@ -124,6 +124,11 @@ def stable_rules() -> GameRules:
         initial_event_deck=[TrivialEvent() for _ in range(10)],
         initial_mandate_deck=[TrivialMandate() for _ in range(5)],
     )
+
+
+@pytest.fixture
+def basic_player() -> PlayerState:
+    return PlayerState(name="basic_player", gdp=25, influence=10)
 
 
 @pytest.fixture

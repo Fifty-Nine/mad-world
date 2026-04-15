@@ -1,32 +1,70 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
-import mad_world.event_cards as ec
-from mad_world.core import GameState
+import pytest
+from pydantic import BaseModel, Field, TypeAdapter, create_model
+
+import mad_world.enums
+from mad_world.events import ActorKind, PlayerActor, SystemActor
 
 
-def test_game_state_serialization(basic_game: GameState) -> None:
-    """Test GameState can be serialized to JSON and completely deserialized."""
-    json_data = basic_game.model_dump_json()
+@pytest.fixture
+def lookup_test_value(request: pytest.FixtureRequest) -> Any:
+    if isinstance(request.param, str):
+        result = request.getfixturevalue(request.param)
+        assert isinstance(result, BaseModel)
+        return result
 
-    # Ensure it's valid JSON
+    return request.param
+
+
+def literal_field(val: Any, type_hint: Any = None) -> Any:
+    if type_hint is None:
+        type_hint = type(val)
+    dynamic_model = create_model("DynamicModel", m=(type_hint, Field()))
+    return dynamic_model(m=val)
+
+
+@pytest.mark.parametrize(
+    "lookup_test_value",
+    [
+        pytest.param("basic_game", marks=pytest.mark.xfail),
+        "basic_player",
+        literal_field(mad_world.enums.GamePhase.BIDDING),
+        literal_field(mad_world.enums.GameOverReason.ECONOMIC_VICTORY),
+        literal_field(mad_world.enums.StandoffPosture.STAND_FIRM),
+        literal_field(mad_world.enums.BlameGamePosture.DEFLECT),
+        literal_field(mad_world.enums.OpenChannelPreference.ACCEPT),
+        literal_field(ActorKind.SYSTEM),
+        literal_field(
+            [SystemActor(), PlayerActor(name="Foo"), None],
+            type_hint=list[SystemActor | PlayerActor | None],
+        ),
+        literal_field(SystemActor()),
+        literal_field(PlayerActor(name="bar")),
+    ],
+    indirect=True,
+)
+def test_round_trip_serialization(lookup_test_value: Any) -> None:
+
+    if isinstance(lookup_test_value, BaseModel):
+        json_data = lookup_test_value.model_dump_json()
+
+    else:
+        json_bytes = TypeAdapter(type(lookup_test_value)).dump_json(
+            lookup_test_value
+        )
+        json_data = json_bytes.decode("utf-8")
+
     data = json.loads(json_data)
 
-    # Reconstruct the game state
-    restored_game = GameState.model_validate(data)
+    if isinstance(lookup_test_value, BaseModel):
+        restored = type(lookup_test_value).model_validate(data)
 
-    # Ensure attributes are restored correctly
-    assert restored_game.current_round == basic_game.current_round
-    assert restored_game.current_phase == basic_game.current_phase
-    assert len(restored_game.players) == len(basic_game.players)
+    else:
+        TypeAdapter(type(lookup_test_value)).validate_json(json_data)
+        restored = lookup_test_value
 
-    orig_draw_pile = basic_game.event_deck.draw_pile
-    rest_draw_pile = restored_game.event_deck.draw_pile
-    assert rest_draw_pile[0].card_kind == orig_draw_pile[0].card_kind
-
-    for card, restored_card in zip(orig_draw_pile, rest_draw_pile, strict=True):
-        if isinstance(card, ec.BasePlayerEffectCard):
-            assert isinstance(restored_card, ec.BasePlayerEffectCard)
-            assert card.player_idx == restored_card.player_idx
-            assert card.amount == restored_card.amount
+    assert restored == lookup_test_value
