@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum, StrEnum
+from enum import IntEnum, StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal, override
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from mad_world.effects import BaseEffect  # noqa: TC004
 
 
-class ActorKind(Enum):
+class ActorKind(IntEnum):
     SYSTEM = 1
     PLAYER = 2
 

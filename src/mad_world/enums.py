@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum, StrEnum
+from enum import IntEnum, StrEnum
 
 
-class GamePhase(Enum):
+class GamePhase(IntEnum):
     OPENING = 1
     BIDDING_MESSAGING = 2
     BIDDING = 3
@@ -27,7 +27,7 @@ class GamePhase(Enum):
         return self in (self.CRISIS_MESSAGING, self.CRISIS)
 
 
-class GameOverReason(Enum):
+class GameOverReason(IntEnum):
     WORLD_DESTROYED = 1
     ECONOMIC_VICTORY = 2
     STALEMATE = 3
