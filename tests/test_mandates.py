@@ -20,6 +20,7 @@ from mad_world.events import (
 from mad_world.mandates import (
     AccelerationistMandate,
     BaseMandate,
+    BrinksmanshipMandate,
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     DetenteMandate,
@@ -31,7 +32,6 @@ from mad_world.mandates import (
     SleepingGiantMandate,
     SpaceRaceMandate,
     WarProfiteerMandate,
-    BrinksmanshipMandate,
     create_mandate_deck,
 )
 from mad_world.rules import GameRules
@@ -712,7 +712,6 @@ def test_brinksmanship_mandate(basic_game: GameState) -> None:
     game.last_phase = GamePhase.BIDDING
     game.last_round = 1
 
-
     # Not Bidding phase
     game.last_phase = GamePhase.OPERATIONS
     assert mandate.is_met(game, "Alpha") is False
@@ -725,14 +724,19 @@ def test_brinksmanship_mandate(basic_game: GameState) -> None:
     event1 = LoggedEvent(
         round=1,
         phase=GamePhase.BIDDING,
-        event=BiddingEvent(actor=PlayerActor(name="Alpha"), bid=10, description="test"),
+        event=BiddingEvent(
+            actor=PlayerActor(name="Alpha"), bid=10, description="test"
+        ),
     )
     event2 = LoggedEvent(
         round=1,
         phase=GamePhase.BIDDING,
-        event=BiddingEvent(actor=PlayerActor(name="Omega"), bid=1, description="test"),
+        event=BiddingEvent(
+            actor=PlayerActor(name="Omega"), bid=1, description="test"
+        ),
     )
-    game.event_log.extend([event1, event2])
+    game.event_log.append(event1)  # type: ignore[arg-type] # ty: ignore
+    game.event_log.append(event2)  # type: ignore[arg-type] # ty: ignore
     assert mandate.is_met(game, "Alpha") is False
 
     # Alpha bids high, Omega bids zero
@@ -740,14 +744,19 @@ def test_brinksmanship_mandate(basic_game: GameState) -> None:
     event3 = LoggedEvent(
         round=1,
         phase=GamePhase.BIDDING,
-        event=BiddingEvent(actor=PlayerActor(name="Alpha"), bid=10, description="test"),
+        event=BiddingEvent(
+            actor=PlayerActor(name="Alpha"), bid=10, description="test"
+        ),
     )
     event4 = LoggedEvent(
         round=1,
         phase=GamePhase.BIDDING,
-        event=BiddingEvent(actor=PlayerActor(name="Omega"), bid=0, description="test"),
+        event=BiddingEvent(
+            actor=PlayerActor(name="Omega"), bid=0, description="test"
+        ),
     )
-    game.event_log.extend([event3, event4])
+    game.event_log.append(event3)  # type: ignore[arg-type] # ty: ignore
+    game.event_log.append(event4)  # type: ignore[arg-type] # ty: ignore
     assert mandate.is_met(game, "Alpha") is True
     assert mandate.is_met(game, "Omega") is False
 
