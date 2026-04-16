@@ -111,6 +111,29 @@ class NoDomesticInvestmentEffect(BaseEffect):
         return {k: v for k, v in ops.items() if k != "domestic-investment"}
 
 
+class HawkishResurgenceEffect(BaseEffect):
+    card_kind: ClassVar[str] = "hawkish_resurgence"
+
+    title: ClassVar[str] = "Hawkish Resurgence"
+    description: ClassVar[str] = (
+        "Hardliners have taken control, viewing de-escalation as weakness."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, 'unilateral-drawdown' and 'stand-down' "
+        "operations are forbidden while the effect is ongoing."
+    )
+
+    def is_forbidden(self, op_name: str) -> bool:
+        return op_name in ("unilateral-drawdown", "stand-down")
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
+
+
 class GlobalSanctionsEffect(BaseEffect):
     card_kind: ClassVar[str] = "global_sanctions"
 

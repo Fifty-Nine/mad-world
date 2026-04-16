@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from mad_world.effects import (
     ArmsControlEffect,
     GlobalSanctionsEffect,
+    HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
@@ -18,6 +19,7 @@ from mad_world.event_cards import (
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
+    HawkishResurgenceEvent,
     ProxyWarEscalationEvent,
     SupplyChainShockEvent,
 )
@@ -93,6 +95,18 @@ def test_no_domestic_investment_effect(basic_game: GameState) -> None:
 
     modified_ops = effect.modify_operations(ops)
     assert "domestic-investment" not in modified_ops
+    assert "aggressive-extraction" in modified_ops
+
+
+def test_hawkish_resurgence_effect(basic_game: GameState) -> None:
+    effect = HawkishResurgenceEffect(duration=None)
+    ops = basic_game.allowed_operations
+    assert "unilateral-drawdown" in ops
+    assert "stand-down" in ops
+
+    modified_ops = effect.modify_operations(ops)
+    assert "unilateral-drawdown" not in modified_ops
+    assert "stand-down" not in modified_ops
     assert "aggressive-extraction" in modified_ops
 
 
@@ -173,6 +187,22 @@ def test_ban_domestic_investment_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, NoDomesticInvestmentEffect)
+    assert effect.duration == 2
+
+
+def test_hawkish_resurgence_event(basic_game: GameState) -> None:
+    event = HawkishResurgenceEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, HawkishResurgenceEffect)
     assert effect.duration == 2
 
 
