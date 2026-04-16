@@ -525,6 +525,41 @@ class DetenteMandate(InstantMandate):
         ]
 
 
+class PeacemakerDefs:
+    MAX_CLOCK_PERCENTAGE: ClassVar[float] = 0.3
+    REWARD_GDP: ClassVar[int] = 25
+
+
+class PeacemakerMandate(EndgameMandate):
+    card_kind: ClassVar[str] = "peacemaker"
+    title: ClassVar[str] = "Peacemaker"
+    description: ClassVar[str] = (
+        f"Endgame - If the doomsday clock is at or below "
+        f"{int(PeacemakerDefs.MAX_CLOCK_PERCENTAGE * 100)}% of maximum, "
+        f"gain {PeacemakerDefs.REWARD_GDP} GDP."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        """Check if the condition for this mandate has been met."""
+        return game.doomsday_clock <= (
+            game.rules.max_clock_state * PeacemakerDefs.MAX_CLOCK_PERCENTAGE
+        )
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        """Return the rewards (as GameEvents) for completing the mandate."""
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Gaining {PeacemakerDefs.REWARD_GDP} GDP."
+                ),
+                gdp_delta={player_name: PeacemakerDefs.REWARD_GDP},
+            )
+        ]
+
+
 def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
     cards: list[BaseMandate] = [
         SleepingGiantMandate(),
@@ -538,6 +573,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         MilitaryIndustrialComplexMandate(),
         MoralHighGroundMandate(),
         DetenteMandate(),
+        PeacemakerMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
