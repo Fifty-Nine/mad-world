@@ -6,7 +6,14 @@ import asyncio
 
 import pytest
 
-from mad_world.core import GameState, check_game_over, game_loop, iterate_game, WorldDestroyed, destroy_world
+from mad_world.core import (
+    GameState,
+    WorldDestroyed,
+    check_game_over,
+    destroy_world,
+    game_loop,
+    iterate_game,
+)
 from mad_world.rules import GameRules
 from mad_world.trivial_players import (
     Capitalist,
@@ -31,9 +38,10 @@ from mad_world.trivial_players import (
 async def test_game_reproducibility(
     alpha_class: type, omega_class: type, seed: int
 ) -> None:
-    """Verifies that games run with identical seeds produce identical GameStates."""
+    """Verifies that games run with identical seeds are reproducible."""
 
-    # We will use a smaller max_clock_state and round_count to prevent the tests from timing out
+    # We will use a smaller max_clock_state and round_count to prevent the tests
+    # from timing out.
     # 3 rounds is enough to test iterative reproducibility vs continuous
     rules_a = GameRules(seed=seed, round_count=3, max_clock_state=15)
     p1_a = alpha_class("Alpha")
@@ -56,12 +64,16 @@ async def test_game_reproducibility(
     state_d = GameState.new_game(players=["Alpha", "Omega"], rules=rules_d)
 
     # Replicate game_loop start logic for C and D
-    desc_c = await asyncio.gather(p1_c.get_description(), p2_c.get_description())
+    desc_c = await asyncio.gather(
+        p1_c.get_description(), p2_c.get_description()
+    )
     state_c.players["Alpha"].description = desc_c[0]
     state_c.players["Omega"].description = desc_c[1]
     await asyncio.gather(p1_c.start_game(state_c), p2_c.start_game(state_c))
 
-    desc_d = await asyncio.gather(p1_d.get_description(), p2_d.get_description())
+    desc_d = await asyncio.gather(
+        p1_d.get_description(), p2_d.get_description()
+    )
     state_d.players["Alpha"].description = desc_d[0]
     state_d.players["Omega"].description = desc_d[1]
     await asyncio.gather(p1_d.start_game(state_d), p2_d.start_game(state_d))
@@ -93,7 +105,7 @@ async def test_game_reproducibility(
     assert res_c == res_d
     assert reason_c == reason_d
 
-    # Final assertion comparing the continuous game states and the iterative game state
+    # Final assertion comparing the continuous and iterative game states.
     assert res_a == res_b == res_c
     assert reason_a == reason_b == reason_c
     assert state_a == state_b == state_c
