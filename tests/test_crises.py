@@ -14,6 +14,9 @@ from mad_world.actions import (
 )
 from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
+    CovertOpsAction,
+    CovertOpsCrisis,
+    CovertOpsDefs,
     SANCTIONS_MIN_EFFECT,
     SANCTIONS_TIE_CLOCK_EFFECT,
     SANCTIONS_TIE_GDP_EFFECT,
@@ -682,3 +685,105 @@ class TestRogueProliferationCrisis(
         basic_game.players["Alpha"].influence = 3
         capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
         assert capped.investment == 3
+
+
+class TestCovertOpsCrisis:
+    @pytest.fixture
+    def crisis(self) -> CovertOpsCrisis:
+        return CovertOpsCrisis()
+
+    def test_action_type(self, crisis: CovertOpsCrisis) -> None:
+        assert crisis.action_type == CovertOpsAction
+
+    def test_validate_semantics_success(self, basic_game: GameState) -> None:
+        action = CovertOpsAction(investment=5)
+        action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_insufficient_influence(
+        self, basic_game: GameState
+    ) -> None:
+        action = CovertOpsAction(investment=999)
+        with pytest.raises(InsufficientInfluenceError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_validate_semantics_negative_investment(
+        self, basic_game: GameState
+    ) -> None:
+        action = CovertOpsAction(investment=-5)
+        with pytest.raises(InvalidInfluenceAmountError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_get_default_action(
+        self, crisis: CovertOpsCrisis, basic_game: GameState
+    ) -> None:
+        aggro_action = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=True
+        )
+        assert aggro_action.investment == min(basic_game.players['Alpha'].influence, (CovertOpsDefs.INF_THRESHOLD // 2) + 1)
+
+        diplo_action = crisis.get_default_action(
+            "Alpha", basic_game, aggressive=False
+        )
+        assert diplo_action.investment == min(basic_game.players['Alpha'].influence, (CovertOpsDefs.INF_THRESHOLD // 2) - 1)
+
+    def test_resolve_exposure(
+        self, crisis: CovertOpsCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": CovertOpsAction(investment=6),
+            "Omega": CovertOpsAction(investment=5),
+        }
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        # Check exposure event
+        exposure_event = events[2]
+        assert isinstance(exposure_event, SystemEvent)
+        assert exposure_event.influence_delta["Alpha"] == CovertOpsDefs.EXPOSURE_INF_PENALTY
+        assert exposure_event.influence_delta["Omega"] == CovertOpsDefs.EXPOSURE_INF_PENALTY
+        assert exposure_event.clock_delta == CovertOpsDefs.EXPOSURE_CLOCK_IMPACT
+
+    def test_resolve_winner_p1(
+        self, crisis: CovertOpsCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": CovertOpsAction(investment=5),
+            "Omega": CovertOpsAction(investment=4),
+        }
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert win_event.gdp_delta["Alpha"] == CovertOpsDefs.STEAL_GDP
+        assert win_event.gdp_delta["Omega"] == -CovertOpsDefs.STEAL_GDP
+
+    def test_resolve_winner_p2(
+        self, crisis: CovertOpsCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": CovertOpsAction(investment=2),
+            "Omega": CovertOpsAction(investment=5),
+        }
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        win_event = events[2]
+        assert isinstance(win_event, SystemEvent)
+        assert win_event.gdp_delta["Omega"] == CovertOpsDefs.STEAL_GDP
+        assert win_event.gdp_delta["Alpha"] == -CovertOpsDefs.STEAL_GDP
+
+    def test_resolve_tie(
+        self, crisis: CovertOpsCrisis, basic_game: GameState
+    ) -> None:
+        actions = {
+            "Alpha": CovertOpsAction(investment=4),
+            "Omega": CovertOpsAction(investment=4),
+        }
+        events = crisis.resolve(basic_game, actions)
+
+        assert len(events) == 3
+        tie_event = events[2]
+        assert isinstance(tie_event, SystemEvent)
+        assert tie_event.gdp_delta == {}
+        assert tie_event.influence_delta == {}

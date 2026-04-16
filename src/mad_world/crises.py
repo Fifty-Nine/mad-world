@@ -1030,6 +1030,34 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
         return result
 
 
+
+class CovertOpsAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to spend to fund "
+            "covert operations against your opponent. This must be less "
+            "than or equal to your current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class CovertOpsDefs:
+    INF_THRESHOLD: ClassVar[int] = 10
+    STEAL_GDP: ClassVar[int] = 10
+    EXPOSURE_INF_PENALTY: ClassVar[int] = -5
+    EXPOSURE_CLOCK_IMPACT: ClassVar[int] = 3
+
+
 class AIArmsRaceAction(BaseAction):
     investment: int = Field(
         description=(
@@ -1050,6 +1078,130 @@ class AIArmsRaceAction(BaseAction):
 class AIArmsRaceDefs:
     GDP_THRESHOLD: ClassVar[int] = 30
     WINNER_INF: ClassVar[int] = 15
+
+
+
+class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
+    card_kind: ClassVar[Literal["covert-ops"]] = "covert-ops"
+
+    @property
+    def action_type(self) -> type[CovertOpsAction]:
+        return CovertOpsAction
+
+    title: ClassVar[str] = "Shadow War"
+    description: ClassVar[str] = (
+        "The world is a chessboard, and the pawns are moving in the shadows. "
+        "Intelligence agencies from both superpowers are gearing up for a "
+        "massive wave of covert operations aimed at destabilizing the enemy "
+        "and plundering their resources. However, if the scale of the shadow "
+        "war becomes too massive, the operations will be exposed to the world, "
+        "causing an international scandal and escalating global tensions."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to fund covert "
+        "operations. Your bid will be subtracted from your current Influence "
+        "pool. The player who bids the *most* Influence successfully executes "
+        "their operations, stealing "
+        f"{CovertOpsDefs.STEAL_GDP} GDP from their opponent. If both players "
+        "bid the same amount, the operations thwart each other and no GDP is "
+        "stolen. However, if the combined total of *both* players' bids strictly "
+        f"exceeds {CovertOpsDefs.INF_THRESHOLD} Influence, the massive scale "
+        "of the operations causes them to be exposed. Both players suffer a "
+        "scandal, losing an additional "
+        f"{abs(CovertOpsDefs.EXPOSURE_INF_PENALTY)} Influence, and the Doomsday "
+        f"Clock advances by {CovertOpsDefs.EXPOSURE_CLOCK_IMPACT}."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> CovertOpsAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].influence
+        safe_bid = CovertOpsDefs.INF_THRESHOLD // 2
+        bid = (
+            min(max_bid, safe_bid + 1)
+            if aggressive
+            else min(max_bid, safe_bid - 1)
+        )
+        return CovertOpsAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, CovertOpsAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} Influence on covert operations.",
+                influence_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} Influence on covert operations.",
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment > CovertOpsDefs.INF_THRESHOLD:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The scale of the covert operations was too massive to "
+                        "hide. Intelligence agencies on both sides have been "
+                        "exposed to the international community, causing a massive "
+                        "diplomatic scandal and severely escalating global tensions."
+                    ),
+                    influence_delta={
+                        player1: CovertOpsDefs.EXPOSURE_INF_PENALTY,
+                        player2: CovertOpsDefs.EXPOSURE_INF_PENALTY,
+                    },
+                    clock_delta=CovertOpsDefs.EXPOSURE_CLOCK_IMPACT,
+                )
+            )
+            return result
+
+        if p1_amount > p2_amount:
+            result.append(
+                SystemEvent(
+                    description=f"{player1}'s covert operations were successful, siphoning resources from {player2}.",
+                    gdp_delta={
+                        player1: CovertOpsDefs.STEAL_GDP,
+                        player2: -CovertOpsDefs.STEAL_GDP,
+                    },
+                )
+            )
+        elif p2_amount > p1_amount:
+            result.append(
+                SystemEvent(
+                    description=f"{player2}'s covert operations were successful, siphoning resources from {player1}.",
+                    gdp_delta={
+                        player2: CovertOpsDefs.STEAL_GDP,
+                        player1: -CovertOpsDefs.STEAL_GDP,
+                    },
+                )
+            )
+        else:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The covert operations of both superpowers thwarted "
+                        "each other, resulting in a stalemate with no distinct "
+                        "advantage gained by either side."
+                    )
+                )
+            )
+
+        return result
 
 
 class AIArmsRaceCrisis(GenericCrisis[AIArmsRaceAction]):
@@ -1311,6 +1463,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(NuclearMeltdownCrisis() for _ in range(2)),
     *(RogueProliferationCrisis() for _ in range(2)),
     *(AIArmsRaceCrisis() for _ in range(2)),
+    *(CovertOpsCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
