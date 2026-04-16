@@ -574,6 +574,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         MoralHighGroundMandate(),
         DetenteMandate(),
         PeacemakerMandate(),
+        BrinksmanshipMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
@@ -642,5 +643,67 @@ class MilitaryIndustrialComplexMandate(InstantMandate):
                 influence_delta={
                     player_name: MilitaryIndustrialComplexDefs.REWARD_INF
                 },
+            )
+        ]
+
+
+class BrinksmanshipDefs:
+    PLAYER_MIN_BID: ClassVar[int] = 10
+    OPPONENT_MAX_BID: ClassVar[int] = 0
+    REWARD_GDP: ClassVar[int] = 15
+    REWARD_INF: ClassVar[int] = 3
+
+
+class BrinksmanshipMandate(InstantMandate):
+    card_kind: ClassVar[str] = "brinksmanship"
+    title: ClassVar[str] = "Brinksmanship"
+    description: ClassVar[str] = (
+        f"If you bid {BrinksmanshipDefs.PLAYER_MIN_BID} or more while your "
+        f"opponent bids {BrinksmanshipDefs.OPPONENT_MAX_BID} or less in the "
+        f"same round, gain {BrinksmanshipDefs.REWARD_GDP} GDP and "
+        f"{BrinksmanshipDefs.REWARD_INF} influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        if game.last_phase != GamePhase.BIDDING:
+            return False
+
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
+            .unwrap()
+        )
+
+        player_bid_high = any(
+            e.done_by_player(player_name)
+            and e.bid >= BrinksmanshipDefs.PLAYER_MIN_BID
+            for e in events
+        )
+
+        opponent_bid_zero = any(
+            e.done_by_player(opponent_name)
+            and e.bid <= BrinksmanshipDefs.OPPONENT_MAX_BID
+            for e in events
+        )
+
+        return player_bid_high and opponent_bid_zero
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Successfully pushed the opponent to the brink: "
+                    f"+{BrinksmanshipDefs.REWARD_GDP} GDP, "
+                    f"+{BrinksmanshipDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: BrinksmanshipDefs.REWARD_GDP},
+                influence_delta={player_name: BrinksmanshipDefs.REWARD_INF},
             )
         ]

@@ -31,6 +31,7 @@ from mad_world.mandates import (
     SleepingGiantMandate,
     SpaceRaceMandate,
     WarProfiteerMandate,
+    BrinksmanshipMandate,
     create_mandate_deck,
 )
 from mad_world.rules import GameRules
@@ -71,7 +72,7 @@ def test_check_endgame_mandates() -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 12
+    assert len(deck) == 13
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -703,3 +704,54 @@ def test_peacemaker_mandate() -> None:
     assert len(rewards) == 1
     assert isinstance(rewards[0], MandateFulfilledEvent)
     assert rewards[0].gdp_delta == {"Alpha": 25}
+
+
+def test_brinksmanship_mandate(basic_game: GameState) -> None:
+    mandate = BrinksmanshipMandate()
+    game = basic_game
+    game.last_phase = GamePhase.BIDDING
+    game.last_round = 1
+
+
+    # Not Bidding phase
+    game.last_phase = GamePhase.OPERATIONS
+    assert mandate.is_met(game, "Alpha") is False
+    game.last_phase = GamePhase.BIDDING
+
+    # Neither met
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Alpha bids high, Omega doesn't bid low enough
+    event1 = LoggedEvent(
+        round=1,
+        phase=GamePhase.BIDDING,
+        event=BiddingEvent(actor=PlayerActor(name="Alpha"), bid=10, description="test"),
+    )
+    event2 = LoggedEvent(
+        round=1,
+        phase=GamePhase.BIDDING,
+        event=BiddingEvent(actor=PlayerActor(name="Omega"), bid=1, description="test"),
+    )
+    game.event_log.extend([event1, event2])
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Alpha bids high, Omega bids zero
+    game.event_log.clear()
+    event3 = LoggedEvent(
+        round=1,
+        phase=GamePhase.BIDDING,
+        event=BiddingEvent(actor=PlayerActor(name="Alpha"), bid=10, description="test"),
+    )
+    event4 = LoggedEvent(
+        round=1,
+        phase=GamePhase.BIDDING,
+        event=BiddingEvent(actor=PlayerActor(name="Omega"), bid=0, description="test"),
+    )
+    game.event_log.extend([event3, event4])
+    assert mandate.is_met(game, "Alpha") is True
+    assert mandate.is_met(game, "Omega") is False
+
+    events = mandate.reward(game, "Alpha")
+    assert len(events) == 1
+    assert events[0].gdp_delta == {"Alpha": 15}
+    assert events[0].influence_delta == {"Alpha": 3}
