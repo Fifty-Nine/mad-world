@@ -4,12 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from mad_world.effects import (
     ArmsControlEffect,
+    BaseEffect,
     GlobalSanctionsEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
+    RFInterferenceEffect,
     SupplyChainShockEffect,
     UNPeacekeepingEffect,
 )
@@ -22,9 +26,13 @@ from mad_world.event_cards import (
     SupplyChainShockEvent,
 )
 from mad_world.events import ActorKind
+from mad_world.rules import OperationDefinition
 
 if TYPE_CHECKING:
     from mad_world.core import GameState
+    from mad_world.events import (
+        SystemEvent,
+    )
 
 
 def test_base_effect(basic_game: GameState) -> None:
@@ -268,3 +276,131 @@ def test_advance_phase_expiration_integration(basic_game: GameState) -> None:
     log = basic_game.event_log
     # Check if the "has expired" event is there
     assert any("has expired" in e.event.description for e in log)
+
+
+def test_rf_interference_effect(basic_game: GameState) -> None:
+    effect = RFInterferenceEffect(duration=2)
+    original_message = "This is a secret message."
+    garbled_1 = effect.modify_message(original_message, basic_game)
+    assert garbled_1 != original_message
+    assert len(garbled_1) == len(original_message)
+    assert garbled_1.count(" ") == original_message.count(" ")
+
+
+def test_modify_message_is_passthrough(basic_game: GameState) -> None:
+    class TestEffectMessage(BaseEffect):
+        card_kind = "test_effect_message"
+        title = "Test"
+        description = "Test"
+        mechanics = "Test"
+
+        def run(self, game: GameState) -> list[SystemEvent]:
+            return []
+
+    effect = TestEffectMessage(duration=2)
+    original_message = "This is a secret message."
+    assert (
+        effect.modify_message(original_message, basic_game) == original_message
+    )
+
+
+def test_base_effect_modify_operations() -> None:
+    class TestEffectOp(BaseEffect):
+        card_kind = "test_effect_op"
+        title = "Test"
+        description = "Test"
+        mechanics = "Test"
+
+        def run(self, game: GameState) -> list[SystemEvent]:
+            return []
+
+    e = TestEffectOp(duration=2)
+    ops = {
+        "op": OperationDefinition(
+            name="Test", description="Test", influence_cost=1
+        )
+    }
+    assert e.modify_operations(ops) == ops
+
+
+def test_base_effect_modify_bids() -> None:
+    class TestEffectBid(BaseEffect):
+        card_kind = "test_effect_bid"
+        title = "Test"
+        description = "Test"
+        mechanics = "Test"
+
+        def run(self, game: GameState) -> list[SystemEvent]:
+            return []
+
+    e = TestEffectBid(duration=2)
+    bids = [1, 2, 3]
+    assert e.modify_bids(bids) == bids
+
+
+def test_base_effect_on_expire(basic_game: GameState) -> None:
+    class TestEffectExp(BaseEffect):
+        card_kind = "test_effect_exp"
+        title = "Test Title"
+        description = "Test"
+        mechanics = "Test"
+
+        def run(self, game: GameState) -> list[SystemEvent]:
+            return []
+
+    e = TestEffectExp(duration=2)
+    events = e.on_expire(basic_game)
+    assert len(events) == 1
+    assert "Test Title" in events[0].description
+
+
+def test_base_effect_is_expired(basic_game: GameState) -> None:
+    class TestEffectIsExp(BaseEffect):
+        card_kind = "test_effect_is_exp"
+        title = "Test"
+        description = "Test"
+        mechanics = "Test"
+
+        def run(self, game: GameState) -> list[SystemEvent]:
+            return []
+
+    e = TestEffectIsExp(duration=2)
+    e.start_round = 1
+    basic_game.current_round = 1
+    assert e.is_expired(basic_game) is False
+    basic_game.current_round = 3
+    assert e.is_expired(basic_game) is True
+
+
+def test_effects_modify_empty_bids() -> None:
+    e1 = NoZeroBidsEffect(duration=2)
+    with pytest.raises(AssertionError):
+        e1.modify_bids([0])
+    e2 = ArmsControlEffect(duration=2)
+    with pytest.raises(AssertionError):
+        e2.modify_bids([4, 5])
+
+
+def test_effects_modify_empty_ops(basic_game: GameState) -> None:
+    e1 = NoDomesticInvestmentEffect(duration=2)
+    assert (
+        e1.modify_operations(
+            {
+                "domestic-investment": OperationDefinition(
+                    name="Test", description="Test", influence_cost=1
+                )
+            }
+        )
+        == {}
+    )
+    e2 = UNPeacekeepingEffect(duration=2)
+    assert (
+        e2.modify_operations(
+            {
+                "proxy-subversion": OperationDefinition(
+                    name="Test", description="Test", influence_cost=1
+                )
+            }
+        )
+        == {}
+    )

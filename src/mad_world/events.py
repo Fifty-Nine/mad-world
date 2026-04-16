@@ -52,6 +52,7 @@ class EventKind(StrEnum):
     STATE = "state"
     ACTION = "action"
     MESSAGE = "message"
+    GARBLED_MESSAGE = "garbled_message"
     BIDDING = "bidding"
     OPERATION_CONDUCTED = "operation_conducted"
     CRISIS_RESOLUTION = "crisis_resolution"
@@ -169,6 +170,24 @@ class MessageEvent(BaseGameEvent):
         return self.actor.name == name
 
 
+class GarbledMessageEvent(BaseGameEvent):
+    event_kind: Literal[EventKind.GARBLED_MESSAGE] = Field(
+        default=EventKind.GARBLED_MESSAGE
+    )
+    actor: PlayerActor
+    message: str | None = Field(description="The garbled body of the message.")
+    original_message: str | None = Field(
+        description="The ungarbled body of the message."
+    )
+    channel_message: bool = Field(
+        description="True if this was sent as part of an open channel."
+    )
+
+    @override
+    def done_by_player(self, name: str) -> bool:
+        return self.actor.name == name
+
+
 class ChannelOpenedEvent(BaseGameEvent):
     event_kind: Literal[EventKind.CHANNEL_OPENED] = Field(
         default=EventKind.CHANNEL_OPENED
@@ -196,6 +215,7 @@ GameEvent = Annotated[
     | StateEvent
     | ActionEvent
     | MessageEvent
+    | GarbledMessageEvent
     | BiddingEvent
     | OperationConductedEvent
     | CrisisResolutionEvent

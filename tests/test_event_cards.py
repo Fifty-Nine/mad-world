@@ -15,6 +15,7 @@ from mad_world.event_cards import (
     GlobalSanctionsEvent,
     InfluenceBothEvent,
     InfluenceChangeEvent,
+    RFInterferenceEvent,
     UNPeacekeepingEvent,
     create_event_deck,
 )
@@ -105,7 +106,7 @@ def test_global_sanctions_event(basic_game: GameState) -> None:
 
 def test_create_event_deck(basic_game: GameState) -> None:
     deck = create_event_deck(basic_game.rng)
-    assert len(deck) == 47
+    assert len(deck) == 49
 
 
 @pytest.mark.asyncio
@@ -122,3 +123,10 @@ async def test_resolve_round_events(basic_game: GameState) -> None:
     assert new_game.doomsday_clock == initial_clock + 1
     assert len(new_game.event_deck.discard_pile) == 1
     assert new_game.current_phase == GamePhase.BIDDING_MESSAGING
+
+
+def test_rf_interference_event() -> None:
+    e = RFInterferenceEvent()
+    assert e.title == "RF Interference"
+    assert "garbles" in e.description
+    assert e.effect_type().__name__ == "RFInterferenceEffect"
