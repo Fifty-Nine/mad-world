@@ -1030,7 +1030,6 @@ class RogueProliferationCrisis(GenericCrisis[RogueProliferationAction]):
         return result
 
 
-
 class CovertOpsAction(BaseAction):
     investment: int = Field(
         description=(
@@ -1080,7 +1079,6 @@ class AIArmsRaceDefs:
     WINNER_INF: ClassVar[int] = 15
 
 
-
 class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
     card_kind: ClassVar[Literal["covert-ops"]] = "covert-ops"
 
@@ -1104,11 +1102,13 @@ class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
         "their operations, stealing "
         f"{CovertOpsDefs.STEAL_GDP} GDP from their opponent. If both players "
         "bid the same amount, the operations thwart each other and no GDP is "
-        "stolen. However, if the combined total of *both* players' bids strictly "
+        "stolen. However, if the combined total of *both* players' bids "
+        "strictly "
         f"exceeds {CovertOpsDefs.INF_THRESHOLD} Influence, the massive scale "
         "of the operations causes them to be exposed. Both players suffer a "
         "scandal, losing an additional "
-        f"{abs(CovertOpsDefs.EXPOSURE_INF_PENALTY)} Influence, and the Doomsday "
+        f"{abs(CovertOpsDefs.EXPOSURE_INF_PENALTY)} Influence, and the "
+        "Doomsday "
         f"Clock advances by {CovertOpsDefs.EXPOSURE_CLOCK_IMPACT}."
     )
     consumable: ClassVar[bool] = True
@@ -1142,12 +1142,18 @@ class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
         result: list[GameEvent] = [
             CrisisResolutionEvent(
                 actor=PlayerActor(name=player1),
-                description=f"{player1} spent {p1_amount} Influence on covert operations.",
+                description=(
+                    f"{player1} spent {p1_amount} Influence "
+                    "on covert operations."
+                ),
                 influence_delta={player1: -p1_amount},
             ),
             CrisisResolutionEvent(
                 actor=PlayerActor(name=player2),
-                description=f"{player2} spent {p2_amount} Influence on covert operations.",
+                description=(
+                    f"{player2} spent {p2_amount} Influence "
+                    "on covert operations."
+                ),
                 influence_delta={player2: -p2_amount},
             ),
         ]
@@ -1158,8 +1164,9 @@ class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
                     description=(
                         "The scale of the covert operations was too massive to "
                         "hide. Intelligence agencies on both sides have been "
-                        "exposed to the international community, causing a massive "
-                        "diplomatic scandal and severely escalating global tensions."
+                        "exposed to the international community, causing a "
+                        "massive diplomatic scandal and severely escalating "
+                        "global tensions."
                     ),
                     influence_delta={
                         player1: CovertOpsDefs.EXPOSURE_INF_PENALTY,
@@ -1173,7 +1180,10 @@ class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
         if p1_amount > p2_amount:
             result.append(
                 SystemEvent(
-                    description=f"{player1}'s covert operations were successful, siphoning resources from {player2}.",
+                    description=(
+                        f"{player1}'s covert operations were successful, "
+                        f"siphoning resources from {player2}."
+                    ),
                     gdp_delta={
                         player1: CovertOpsDefs.STEAL_GDP,
                         player2: -CovertOpsDefs.STEAL_GDP,
@@ -1183,7 +1193,10 @@ class CovertOpsCrisis(GenericCrisis[CovertOpsAction]):
         elif p2_amount > p1_amount:
             result.append(
                 SystemEvent(
-                    description=f"{player2}'s covert operations were successful, siphoning resources from {player1}.",
+                    description=(
+                        f"{player2}'s covert operations were successful, "
+                        f"siphoning resources from {player1}."
+                    ),
                     gdp_delta={
                         player2: CovertOpsDefs.STEAL_GDP,
                         player1: -CovertOpsDefs.STEAL_GDP,

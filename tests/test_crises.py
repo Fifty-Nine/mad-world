@@ -14,9 +14,6 @@ from mad_world.actions import (
 )
 from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
-    CovertOpsAction,
-    CovertOpsCrisis,
-    CovertOpsDefs,
     SANCTIONS_MIN_EFFECT,
     SANCTIONS_TIE_CLOCK_EFFECT,
     SANCTIONS_TIE_GDP_EFFECT,
@@ -27,6 +24,9 @@ from mad_world.crises import (
     STANDOFF_TIE_INF_EFFECT,
     STANDOFF_WINNER_CLOCK_EFFECT,
     BaseCrisis,
+    CovertOpsAction,
+    CovertOpsCrisis,
+    CovertOpsDefs,
     GenericCrisis,
     InternationalSanctionsCrisis,
     ProxyWarAction,
@@ -719,12 +719,18 @@ class TestCovertOpsCrisis:
         aggro_action = crisis.get_default_action(
             "Alpha", basic_game, aggressive=True
         )
-        assert aggro_action.investment == min(basic_game.players['Alpha'].influence, (CovertOpsDefs.INF_THRESHOLD // 2) + 1)
+        assert aggro_action.investment == min(
+            basic_game.players["Alpha"].influence,
+            (CovertOpsDefs.INF_THRESHOLD // 2) + 1,
+        )
 
         diplo_action = crisis.get_default_action(
             "Alpha", basic_game, aggressive=False
         )
-        assert diplo_action.investment == min(basic_game.players['Alpha'].influence, (CovertOpsDefs.INF_THRESHOLD // 2) - 1)
+        assert diplo_action.investment == min(
+            basic_game.players["Alpha"].influence,
+            (CovertOpsDefs.INF_THRESHOLD // 2) - 1,
+        )
 
     def test_resolve_exposure(
         self, crisis: CovertOpsCrisis, basic_game: GameState
@@ -739,8 +745,14 @@ class TestCovertOpsCrisis:
         # Check exposure event
         exposure_event = events[2]
         assert isinstance(exposure_event, SystemEvent)
-        assert exposure_event.influence_delta["Alpha"] == CovertOpsDefs.EXPOSURE_INF_PENALTY
-        assert exposure_event.influence_delta["Omega"] == CovertOpsDefs.EXPOSURE_INF_PENALTY
+        assert (
+            exposure_event.influence_delta["Alpha"]
+            == CovertOpsDefs.EXPOSURE_INF_PENALTY
+        )
+        assert (
+            exposure_event.influence_delta["Omega"]
+            == CovertOpsDefs.EXPOSURE_INF_PENALTY
+        )
         assert exposure_event.clock_delta == CovertOpsDefs.EXPOSURE_CLOCK_IMPACT
 
     def test_resolve_winner_p1(
