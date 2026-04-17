@@ -18,8 +18,8 @@ from mad_world.effects import (
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
     SupplyChainShockEffect,
-    UNPeacekeepingEffect,
     TechnologicalBreakthroughEffect,
+    UNPeacekeepingEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
 from mad_world.util import gain_or_lose, increase_or_decrease, risen_or_fallen
@@ -372,7 +372,6 @@ class UNPeacekeepingEvent(BaseOngoingEffectEvent):
     @override
     def effect_type(self) -> type[UNPeacekeepingEffect]:
         return UNPeacekeepingEffect
-
 
 
 class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
