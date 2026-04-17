@@ -319,7 +319,7 @@ def escalation_bar(tracker: list[OptActor], *, defrag: bool) -> str:
     if defrag:
         tracker = defrag_escalation_track(tracker)
 
-    track_text = "".join([marker(t) for t in tracker])
+    track_text = "".join(marker(t) for t in tracker)
 
     wrapper = "+" + ("-" * len(tracker)) + "+"
     return f"{wrapper}\n|{track_text}|\n{wrapper}\n"
