@@ -225,3 +225,31 @@ class UNPeacekeepingEffect(BaseEffect):
     ) -> dict[str, OperationDefinition]:
         """Filters or modifies the available operations."""
         return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
+
+
+class TechnologicalBreakthroughEffect(BaseEffect):
+    card_kind: ClassVar[str] = "technological_breakthrough"
+
+    title: ClassVar[str] = "Technological Breakthrough"
+    description: ClassVar[str] = (
+        "Recent advancements in science and engineering provide a massive "
+        "boost to domestic projects."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the GDP gain from 'domestic-investment' "
+        "is increased by 3 while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(
+                update={"friendly_gdp_effect": v.friendly_gdp_effect + 3}
+            )
+            if op == "domestic-investment"
+            else v
+            for op, v in ops.items()
+        }

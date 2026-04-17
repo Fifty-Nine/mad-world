@@ -19,6 +19,7 @@ from mad_world.effects import (
     ProxyWarEscalationEffect,
     SupplyChainShockEffect,
     UNPeacekeepingEffect,
+    TechnologicalBreakthroughEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
 from mad_world.util import gain_or_lose, increase_or_decrease, risen_or_fallen
@@ -373,6 +374,30 @@ class UNPeacekeepingEvent(BaseOngoingEffectEvent):
         return UNPeacekeepingEffect
 
 
+
+class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "technological_breakthrough_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Technological Breakthrough"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "A sudden surge in technological innovation spurs economic growth "
+            "and national pride."
+        )
+
+    @override
+    def effect_type(self) -> type[TechnologicalBreakthroughEffect]:
+        return TechnologicalBreakthroughEffect
+
+
 default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ClockChangeEvent(amount=1), 3),
     (ClockChangeEvent(amount=-1), 3),
@@ -392,6 +417,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (SupplyChainShockEvent(), 3),
     (ProxyWarEscalationEvent(), 3),
     (UNPeacekeepingEvent(), 3),
+    (TechnologicalBreakthroughEvent(), 3),
 )
 
 
