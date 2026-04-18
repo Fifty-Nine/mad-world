@@ -3,6 +3,8 @@ from __future__ import annotations
 import itertools
 from typing import TYPE_CHECKING, Any, cast, overload
 
+import more_itertools
+
 from mad_world.events import BaseGameEvent, LoggedEvent
 
 if TYPE_CHECKING:
@@ -26,7 +28,7 @@ class EventStream[T: BaseGameEvent]:
     or ensure you only traverse the items once."""
 
     def __init__(self, stream: Iterable[LoggedEvent[T]]) -> None:
-        self._stream = iter(stream)
+        self._stream = more_itertools.peekable(stream)
 
     def __iter__(self) -> Iterator[LoggedEvent[T]]:
         return self
@@ -156,16 +158,5 @@ class EventStream[T: BaseGameEvent]:
             return cast("U", default)
 
     def __bool__(self) -> bool:
-        """Evaluate truthiness by checking if the stream yields any elements.
-        Because checking this consumes the first element of any underlying
-        generators, we must wrap the stream with itertools.chain to restore it
-        so it can be safely iterated again later.
-        """
-        iterator = iter(self._stream)
-        try:
-            first = next(iterator)
-        except StopIteration:
-            return False
-        else:
-            self._stream = itertools.chain([first], iterator)
-            return True
+        """Evaluate truthiness by checking if the stream yields any elements."""
+        return bool(self._stream)
