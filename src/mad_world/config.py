@@ -8,7 +8,7 @@ from functools import cache
 from importlib.resources import files
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter
 
 
 @cache
@@ -31,7 +31,6 @@ class PlayerKind(StrEnum):
 
 
 class LLMParams(BaseModel):
-
     temperature: float = Field(
         default=0.8, description="Temperature for the LLM."
     )
@@ -93,7 +92,6 @@ class LLMPlayerConfig(BaseModel):
 
 
 class HumanPlayerConfig(BaseModel):
-
     kind: Literal[PlayerKind.HUMAN] = PlayerKind.HUMAN
     name: str
 
@@ -105,7 +103,6 @@ class HumanPlayerConfig(BaseModel):
 
 
 class TrivialPlayerConfig(BaseModel):
-
     kind: Literal[PlayerKind.TRIVIAL] = PlayerKind.TRIVIAL
     name: str
     bot_name: str
