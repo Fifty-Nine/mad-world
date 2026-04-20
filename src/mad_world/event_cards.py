@@ -14,6 +14,7 @@ from mad_world.effects import (
     ArmsControlEffect,
     BaseEffect,
     GlobalSanctionsEffect,
+    HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
@@ -245,6 +246,26 @@ class BanZeroBidsEvent(BaseOngoingEffectEvent):
         return NoZeroBidsEffect
 
 
+class HawkishResurgenceEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "hawkish_resurgence_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Hawkish Resurgence"
+
+    @property
+    @override
+    def description(self) -> str:
+        return "Hardliners take control, making de-escalation impossible."
+
+    @override
+    def effect_type(self) -> type[HawkishResurgenceEffect]:
+        return HawkishResurgenceEffect
+
+
 class BanDomesticInvestmentEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "ban_domestic_investment"
 
@@ -410,6 +431,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (GDPEvent(player_idx=1, amount=-4), 2),
     (InfluenceBothEvent(), 3),
     (BanZeroBidsEvent(), 2),
+    (HawkishResurgenceEvent(), 3),
     (BanDomesticInvestmentEvent(), 3),
     (GlobalSanctionsEvent(), 3),
     (ArmsControlTreatyEvent(), 3),
