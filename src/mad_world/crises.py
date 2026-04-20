@@ -1302,6 +1302,153 @@ class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
         return result
 
 
+
+
+class CyberSabotageAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to invest into cyber "
+            "warfare. This must be less than or equal to your current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class CyberSabotageDefs:
+    STEAL_GDP: ClassVar[int] = 10
+    INF_THRESHOLD: ClassVar[int] = 15
+    BACKLASH_GDP: ClassVar[int] = -15
+    BACKLASH_CLOCK: ClassVar[int] = 10
+
+
+class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
+    card_kind: ClassVar[Literal["cyber-sabotage"]] = "cyber-sabotage"
+
+    @property
+    def action_type(self) -> type[CyberSabotageAction]:
+        return CyberSabotageAction
+
+    title: ClassVar[str] = "Cyber Sabotage"
+    description: ClassVar[str] = (
+        "In the shadows of the digital realm, a new front has opened. State-sponsored "
+        "hackers are probing critical infrastructure, seeking vulnerabilities to exploit. "
+        "A successful breach could paralyze the opponent's economy and siphon billions "
+        "into your own coffers. However, launching aggressive malware into the wild is "
+        "inherently dangerous; if the attacks escalate too far, the malware could mutate "
+        "and escape containment, wreaking havoc on global networks and plunging the world "
+        "into chaos."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to launch cyberattacks against "
+        "each other. Your bid will be subtracted from your current Influence pool. "
+        "The player who bids the *most* Influence successfully breaches the opponent's "
+        f"systems, stealing {CyberSabotageDefs.STEAL_GDP} GDP directly from them. "
+        "If both players bid the same amount, their cyber defenses hold, and no GDP is stolen. "
+        "However, if the combined total of *both* players' bids strictly exceeds "
+        f"{CyberSabotageDefs.INF_THRESHOLD} Influence, the aggressive malware escapes "
+        "containment and ravages the global internet. Both players suffer a catastrophic "
+        f"{abs(CyberSabotageDefs.BACKLASH_GDP)} GDP penalty, and the Doomsday Clock "
+        f"advances by {CyberSabotageDefs.BACKLASH_CLOCK}."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> CyberSabotageAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].influence
+        safe_bid = CyberSabotageDefs.INF_THRESHOLD // 2
+        bid = (
+            min(max_bid, safe_bid)
+            if aggressive
+            else min(max_bid, safe_bid // 2)
+        )
+        return CyberSabotageAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, CyberSabotageAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        total_investment = p1_amount + p2_amount
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=f"{player1} spent {p1_amount} Influence on cyber operations.",
+                influence_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=f"{player2} spent {p2_amount} Influence on cyber operations.",
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if total_investment > CyberSabotageDefs.INF_THRESHOLD:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "The aggressive cyber warfare escalated beyond control. State-sponsored "
+                        "malware has escaped containment, devastating global infrastructure "
+                        "and paralyzing both economies."
+                    ),
+                    gdp_delta={
+                        player1: CyberSabotageDefs.BACKLASH_GDP,
+                        player2: CyberSabotageDefs.BACKLASH_GDP,
+                    },
+                    clock_delta=CyberSabotageDefs.BACKLASH_CLOCK,
+                )
+            )
+            return result
+
+        if p1_amount > p2_amount:
+            result.append(
+                SystemEvent(
+                    description=f"{player1} successfully breached {player2}'s financial networks, siphoning funds.",
+                    gdp_delta={
+                        player1: CyberSabotageDefs.STEAL_GDP,
+                        player2: -CyberSabotageDefs.STEAL_GDP,
+                    },
+                )
+            )
+        elif p2_amount > p1_amount:
+            result.append(
+                SystemEvent(
+                    description=f"{player2} successfully breached {player1}'s financial networks, siphoning funds.",
+                    gdp_delta={
+                        player2: CyberSabotageDefs.STEAL_GDP,
+                        player1: -CyberSabotageDefs.STEAL_GDP,
+                    },
+                )
+            )
+        else:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers launched cyberattacks, but their mutual defenses "
+                        "prevented any significant breaches."
+                    )
+                )
+            )
+
+        return result
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(BilateralDisarmamentCrisis() for _ in range(2)),
     *(StandoffCrisis() for _ in range(3)),
@@ -1312,6 +1459,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(RogueProliferationCrisis() for _ in range(2)),
     *(AIArmsRaceCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
+    *(CyberSabotageCrisis() for _ in range(2)),
 ]
 
 

@@ -14,6 +14,9 @@ from mad_world.actions import (
 )
 from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
+    CyberSabotageAction,
+    CyberSabotageCrisis,
+    CyberSabotageDefs,
     SANCTIONS_MIN_EFFECT,
     SANCTIONS_TIE_CLOCK_EFFECT,
     SANCTIONS_TIE_GDP_EFFECT,
@@ -682,3 +685,180 @@ class TestRogueProliferationCrisis(
         basic_game.players["Alpha"].influence = 3
         capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
         assert capped.investment == 3
+
+
+from mad_world.crises import (
+    CyberSabotageAction,
+    CyberSabotageCrisis,
+    CyberSabotageDefs,
+)
+
+class TestCyberSabotageCrisis(CrisisTestBase[CyberSabotageAction, CyberSabotageCrisis]):
+    @pytest.fixture
+    def crisis(self) -> CyberSabotageCrisis:
+        return CyberSabotageCrisis()
+
+    def test_p1_wins_steal(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, p2 = basic_game.player_names
+        # Give players enough influence
+        basic_game.players[p1].influence = 10
+        basic_game.players[p2].influence = 10
+        # Give some GDP to steal from
+        basic_game.players[p2].gdp = 20
+
+        # P1 bids 6, P2 bids 4 (Total 10 <= 15 threshold)
+        events = crisis.resolve(
+            basic_game,
+            {
+                p1: CyberSabotageAction(investment=6),
+                p2: CyberSabotageAction(investment=4),
+            },
+        )
+
+        assert len(events) == 3
+        # Cost events
+        assert events[0].influence_delta == {p1: -6}
+        assert events[1].influence_delta == {p2: -4}
+
+        # Resolution event
+        res_event = events[2]
+        assert isinstance(res_event, SystemEvent)
+        assert res_event.gdp_delta == {
+            p1: CyberSabotageDefs.STEAL_GDP,
+            p2: -CyberSabotageDefs.STEAL_GDP,
+        }
+        assert res_event.clock_delta == 0
+        assert not res_event.world_ending
+
+    def test_p2_wins_steal(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, p2 = basic_game.player_names
+        basic_game.players[p1].influence = 10
+        basic_game.players[p2].influence = 10
+        basic_game.players[p1].gdp = 20
+
+        # P1 bids 2, P2 bids 5 (Total 7 <= 15 threshold)
+        events = crisis.resolve(
+            basic_game,
+            {
+                p1: CyberSabotageAction(investment=2),
+                p2: CyberSabotageAction(investment=5),
+            },
+        )
+
+        assert len(events) == 3
+        res_event = events[2]
+        assert isinstance(res_event, SystemEvent)
+        assert res_event.gdp_delta == {
+            p2: CyberSabotageDefs.STEAL_GDP,
+            p1: -CyberSabotageDefs.STEAL_GDP,
+        }
+
+    def test_tie(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, p2 = basic_game.player_names
+        basic_game.players[p1].influence = 10
+        basic_game.players[p2].influence = 10
+
+        # P1 bids 5, P2 bids 5 (Total 10 <= 15 threshold)
+        events = crisis.resolve(
+            basic_game,
+            {
+                p1: CyberSabotageAction(investment=5),
+                p2: CyberSabotageAction(investment=5),
+            },
+        )
+
+        assert len(events) == 3
+        res_event = events[2]
+        assert isinstance(res_event, SystemEvent)
+        assert res_event.gdp_delta == {}
+        assert res_event.clock_delta == 0
+
+    def test_threshold_exceeded(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, p2 = basic_game.player_names
+        basic_game.players[p1].influence = 15
+        basic_game.players[p2].influence = 15
+        basic_game.players[p1].gdp = 30
+        basic_game.players[p2].gdp = 30
+
+        # P1 bids 8, P2 bids 8 (Total 16 > 15 threshold)
+        events = crisis.resolve(
+            basic_game,
+            {
+                p1: CyberSabotageAction(investment=8),
+                p2: CyberSabotageAction(investment=8),
+            },
+        )
+
+        assert len(events) == 3
+        res_event = events[2]
+        assert isinstance(res_event, SystemEvent)
+        assert res_event.gdp_delta == {
+            p1: CyberSabotageDefs.BACKLASH_GDP,
+            p2: CyberSabotageDefs.BACKLASH_GDP,
+        }
+        assert res_event.clock_delta == CyberSabotageDefs.BACKLASH_CLOCK
+        assert not res_event.world_ending
+
+    def test_get_default_action(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, _ = basic_game.player_names
+        basic_game.players[p1].influence = 20
+
+        agg_action = crisis.get_default_action(
+            p1, basic_game, aggressive=True
+        )
+        assert agg_action.investment == CyberSabotageDefs.INF_THRESHOLD // 2
+
+        dip_action = crisis.get_default_action(
+            p1, basic_game, aggressive=False
+        )
+        assert dip_action.investment == (CyberSabotageDefs.INF_THRESHOLD // 2) // 2
+
+    def test_get_default_action_low_influence(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, _ = basic_game.player_names
+        # Player has very low influence
+        basic_game.players[p1].influence = 2
+
+        agg_action = crisis.get_default_action(
+            p1, basic_game, aggressive=True
+        )
+        assert agg_action.investment == 2
+
+        dip_action = crisis.get_default_action(
+            p1, basic_game, aggressive=False
+        )
+        assert dip_action.investment == 2
+
+    def test_validation_insufficient_influence(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, _ = basic_game.player_names
+        basic_game.players[p1].influence = 5
+        action = CyberSabotageAction(investment=10)
+        with pytest.raises(InsufficientInfluenceError):
+            action.validate_semantics(basic_game, p1)
+
+    def test_validation_negative_influence(
+        self, basic_game: GameState, crisis: CyberSabotageCrisis
+    ) -> None:
+        p1, _ = basic_game.player_names
+        basic_game.players[p1].influence = 5
+        action = CyberSabotageAction(investment=-1)
+        with pytest.raises(InvalidInfluenceAmountError):
+            action.validate_semantics(basic_game, p1)
+
+    def test_action_type(
+        self, crisis: CyberSabotageCrisis
+    ) -> None:
+        assert crisis.action_type == CyberSabotageAction
