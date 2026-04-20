@@ -139,7 +139,7 @@ class EventStream[T: BaseGameEvent]:
 
     def count(self) -> int:
         """Consume the stream and return the number of elements it contained."""
-        return sum(1 for _ in self)
+        return more_itertools.ilen(self)
 
     @overload
     def head(self) -> LoggedEvent[T]: ...
