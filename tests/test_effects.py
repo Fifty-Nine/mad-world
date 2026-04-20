@@ -11,6 +11,7 @@ from mad_world.effects import (
     NoZeroBidsEffect,
     ProxyWarEscalationEffect,
     SupplyChainShockEffect,
+    TechnologicalBreakthroughEffect,
     UNPeacekeepingEffect,
 )
 from mad_world.enums import GamePhase
@@ -20,6 +21,7 @@ from mad_world.event_cards import (
     BanZeroBidsEvent,
     ProxyWarEscalationEvent,
     SupplyChainShockEvent,
+    TechnologicalBreakthroughEvent,
 )
 from mad_world.events import ActorKind
 
@@ -268,3 +270,36 @@ def test_advance_phase_expiration_integration(basic_game: GameState) -> None:
     log = basic_game.event_log
     # Check if the "has expired" event is there
     assert any("has expired" in e.event.description for e in log)
+
+
+def test_technological_breakthrough_effect(basic_game: GameState) -> None:
+    effect = TechnologicalBreakthroughEffect(duration=None)
+    ops = basic_game.allowed_operations
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["domestic-investment"].friendly_gdp_effect
+        == ops["domestic-investment"].friendly_gdp_effect + 3
+    )
+
+    assert (
+        modified_ops["proxy-subversion"].friendly_gdp_effect
+        == ops["proxy-subversion"].friendly_gdp_effect
+    )
+
+
+def test_technological_breakthrough_event(basic_game: GameState) -> None:
+    event = TechnologicalBreakthroughEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, TechnologicalBreakthroughEffect)
+    assert effect.duration == 2
