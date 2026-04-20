@@ -14,9 +14,6 @@ from mad_world.actions import (
 )
 from mad_world.core import GameState, resolve_crisis
 from mad_world.crises import (
-    CyberSabotageAction,
-    CyberSabotageCrisis,
-    CyberSabotageDefs,
     SANCTIONS_MIN_EFFECT,
     SANCTIONS_TIE_CLOCK_EFFECT,
     SANCTIONS_TIE_GDP_EFFECT,
@@ -27,6 +24,9 @@ from mad_world.crises import (
     STANDOFF_TIE_INF_EFFECT,
     STANDOFF_WINNER_CLOCK_EFFECT,
     BaseCrisis,
+    CyberSabotageAction,
+    CyberSabotageCrisis,
+    CyberSabotageDefs,
     GenericCrisis,
     InternationalSanctionsCrisis,
     ProxyWarAction,
@@ -687,13 +687,9 @@ class TestRogueProliferationCrisis(
         assert capped.investment == 3
 
 
-from mad_world.crises import (
-    CyberSabotageAction,
-    CyberSabotageCrisis,
-    CyberSabotageDefs,
-)
-
-class TestCyberSabotageCrisis(CrisisTestBase[CyberSabotageAction, CyberSabotageCrisis]):
+class TestCyberSabotageCrisis(
+    CrisisTestBase[CyberSabotageAction, CyberSabotageCrisis]
+):
     @pytest.fixture
     def crisis(self) -> CyberSabotageCrisis:
         return CyberSabotageCrisis()
@@ -813,15 +809,13 @@ class TestCyberSabotageCrisis(CrisisTestBase[CyberSabotageAction, CyberSabotageC
         p1, _ = basic_game.player_names
         basic_game.players[p1].influence = 20
 
-        agg_action = crisis.get_default_action(
-            p1, basic_game, aggressive=True
-        )
+        agg_action = crisis.get_default_action(p1, basic_game, aggressive=True)
         assert agg_action.investment == CyberSabotageDefs.INF_THRESHOLD // 2
 
-        dip_action = crisis.get_default_action(
-            p1, basic_game, aggressive=False
+        dip_action = crisis.get_default_action(p1, basic_game, aggressive=False)
+        assert (
+            dip_action.investment == (CyberSabotageDefs.INF_THRESHOLD // 2) // 2
         )
-        assert dip_action.investment == (CyberSabotageDefs.INF_THRESHOLD // 2) // 2
 
     def test_get_default_action_low_influence(
         self, basic_game: GameState, crisis: CyberSabotageCrisis
@@ -830,14 +824,10 @@ class TestCyberSabotageCrisis(CrisisTestBase[CyberSabotageAction, CyberSabotageC
         # Player has very low influence
         basic_game.players[p1].influence = 2
 
-        agg_action = crisis.get_default_action(
-            p1, basic_game, aggressive=True
-        )
+        agg_action = crisis.get_default_action(p1, basic_game, aggressive=True)
         assert agg_action.investment == 2
 
-        dip_action = crisis.get_default_action(
-            p1, basic_game, aggressive=False
-        )
+        dip_action = crisis.get_default_action(p1, basic_game, aggressive=False)
         assert dip_action.investment == 2
 
     def test_validation_insufficient_influence(
@@ -858,7 +848,5 @@ class TestCyberSabotageCrisis(CrisisTestBase[CyberSabotageAction, CyberSabotageC
         with pytest.raises(InvalidInfluenceAmountError):
             action.validate_semantics(basic_game, p1)
 
-    def test_action_type(
-        self, crisis: CyberSabotageCrisis
-    ) -> None:
+    def test_action_type(self, crisis: CyberSabotageCrisis) -> None:
         assert crisis.action_type == CyberSabotageAction

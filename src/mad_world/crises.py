@@ -1302,13 +1302,12 @@ class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
         return result
 
 
-
-
 class CyberSabotageAction(BaseAction):
     investment: int = Field(
         description=(
-            "The amount of Influence you are willing to invest into cyber "
-            "warfare. This must be less than or equal to your current Influence."
+            "The amount of Influence you are willing to invest into "
+            "cyber warfare. This must be less than or equal to your "
+            "current Influence."
         )
     )
 
@@ -1339,24 +1338,39 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
 
     title: ClassVar[str] = "Cyber Sabotage"
     description: ClassVar[str] = (
-        "In the shadows of the digital realm, a new front has opened. State-sponsored "
-        "hackers are probing critical infrastructure, seeking vulnerabilities to exploit. "
-        "A successful breach could paralyze the opponent's economy and siphon billions "
-        "into your own coffers. However, launching aggressive malware into the wild is "
-        "inherently dangerous; if the attacks escalate too far, the malware could mutate "
-        "and escape containment, wreaking havoc on global networks and plunging the world "
+        "In the shadows of the digital realm, a new front has opened. "
+        "State-sponsored "
+        "hackers are probing critical infrastructure, seeking "
+        "vulnerabilities to exploit. "
+        "A successful breach could paralyze the opponent's economy "
+        "and siphon billions "
+        "into your own coffers. However, launching aggressive malware "
+        "into the wild is "
+        "inherently dangerous; if the attacks escalate too far, the "
+        "malware could mutate "
+        "and escape containment, wreaking havoc on global networks "
+        "and plunging the world "
         "into chaos."
     )
     mechanics: ClassVar[str] = (
-        "Both players will bid an amount of Influence to launch cyberattacks against "
-        "each other. Your bid will be subtracted from your current Influence pool. "
-        "The player who bids the *most* Influence successfully breaches the opponent's "
-        f"systems, stealing {CyberSabotageDefs.STEAL_GDP} GDP directly from them. "
-        "If both players bid the same amount, their cyber defenses hold, and no GDP is stolen. "
-        "However, if the combined total of *both* players' bids strictly exceeds "
-        f"{CyberSabotageDefs.INF_THRESHOLD} Influence, the aggressive malware escapes "
-        "containment and ravages the global internet. Both players suffer a catastrophic "
-        f"{abs(CyberSabotageDefs.BACKLASH_GDP)} GDP penalty, and the Doomsday Clock "
+        "Both players will bid an amount of Influence to launch "
+        "cyberattacks against "
+        "each other. Your bid will be subtracted from your current "
+        "Influence pool. "
+        "The player who bids the *most* Influence successfully "
+        "breaches the opponent's "
+        f"systems, stealing {CyberSabotageDefs.STEAL_GDP} GDP "
+        "directly from them. "
+        "If both players bid the same amount, their cyber defenses "
+        "hold, and no GDP is stolen. "
+        "However, if the combined total of *both* players' bids "
+        "strictly exceeds "
+        f"{CyberSabotageDefs.INF_THRESHOLD} Influence, the aggressive "
+        "malware escapes "
+        "containment and ravages the global internet. Both players "
+        "suffer a catastrophic "
+        f"{abs(CyberSabotageDefs.BACKLASH_GDP)} GDP penalty, and the "
+        "Doomsday Clock "
         f"advances by {CyberSabotageDefs.BACKLASH_CLOCK}."
     )
     consumable: ClassVar[bool] = True
@@ -1390,12 +1404,18 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
         result: list[GameEvent] = [
             CrisisResolutionEvent(
                 actor=PlayerActor(name=player1),
-                description=f"{player1} spent {p1_amount} Influence on cyber operations.",
+                description=(
+                    f"{player1} spent {p1_amount} Influence on "
+                    "cyber operations."
+                ),
                 influence_delta={player1: -p1_amount},
             ),
             CrisisResolutionEvent(
                 actor=PlayerActor(name=player2),
-                description=f"{player2} spent {p2_amount} Influence on cyber operations.",
+                description=(
+                    f"{player2} spent {p2_amount} Influence on "
+                    "cyber operations."
+                ),
                 influence_delta={player2: -p2_amount},
             ),
         ]
@@ -1404,8 +1424,11 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
             result.append(
                 SystemEvent(
                     description=(
-                        "The aggressive cyber warfare escalated beyond control. State-sponsored "
-                        "malware has escaped containment, devastating global infrastructure "
+                        "The aggressive cyber warfare escalated beyond "
+                        "control. "
+                        "State-sponsored "
+                        "malware has escaped containment, devastating global "
+                        "infrastructure "
                         "and paralyzing both economies."
                     ),
                     gdp_delta={
@@ -1420,7 +1443,10 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
         if p1_amount > p2_amount:
             result.append(
                 SystemEvent(
-                    description=f"{player1} successfully breached {player2}'s financial networks, siphoning funds.",
+                    description=(
+                        f"{player1} successfully breached {player2}'s "
+                        "financial networks, siphoning funds."
+                    ),
                     gdp_delta={
                         player1: CyberSabotageDefs.STEAL_GDP,
                         player2: -CyberSabotageDefs.STEAL_GDP,
@@ -1430,7 +1456,10 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
         elif p2_amount > p1_amount:
             result.append(
                 SystemEvent(
-                    description=f"{player2} successfully breached {player1}'s financial networks, siphoning funds.",
+                    description=(
+                        f"{player2} successfully breached {player1}'s "
+                        "financial networks, siphoning funds."
+                    ),
                     gdp_delta={
                         player2: CyberSabotageDefs.STEAL_GDP,
                         player1: -CyberSabotageDefs.STEAL_GDP,
@@ -1441,13 +1470,16 @@ class CyberSabotageCrisis(GenericCrisis[CyberSabotageAction]):
             result.append(
                 SystemEvent(
                     description=(
-                        "Both superpowers launched cyberattacks, but their mutual defenses "
+                        "Both superpowers launched cyberattacks, but their "
+                        "mutual "
+                        "defenses "
                         "prevented any significant breaches."
                     )
                 )
             )
 
         return result
+
 
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(BilateralDisarmamentCrisis() for _ in range(2)),
