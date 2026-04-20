@@ -894,6 +894,27 @@ class OllamaPlayer(GamePlayer):
             response.model_dump(mode="json"), indent=2, ensure_ascii=False
         )
 
+    @staticmethod
+    def _strip_thought(content: str | None) -> str:
+        if not content:
+            return ""
+        try:
+            clean_content = extract_json_from_response(content)
+            data = json.loads(clean_content)
+        except json.JSONDecodeError:
+            return content
+
+        if isinstance(data, dict):
+            keys_to_remove = [k for k in data if k.endswith("chain_of_thought")]
+            for k in keys_to_remove:
+                del data[k]
+
+        result = json.dumps(data, ensure_ascii=False)
+
+        if "```json" in content:
+            return f"```json\n{result}\n```"
+        return result
+
     async def try_one_prompt[T: LLMResponse](
         self,
         response_model: type[T],
@@ -954,7 +975,7 @@ class OllamaPlayer(GamePlayer):
             self.messages.append(
                 {
                     "role": "assistant",
-                    "content": result_obj.message.content or "",
+                    "content": self._strip_thought(result_obj.message.content),
                 },
             )
 
@@ -1609,7 +1630,10 @@ class OllamaPlayer(GamePlayer):
             think=False,
         )
         self.messages.append(
-            {"role": "assistant", "content": result.message.content or ""},
+            {
+                "role": "assistant",
+                "content": self._strip_thought(result.message.content),
+            },
         )
 
         self.logger.debug(
