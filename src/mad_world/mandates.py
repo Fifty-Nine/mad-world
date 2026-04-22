@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
+import more_itertools
+
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.enums import GamePhase
@@ -289,8 +291,8 @@ class SpaceRaceMandate(InstantMandate):
         if game.last_phase != GamePhase.OPERATIONS:
             return False
 
-        count = sum(
-            1
+        count = more_itertools.ilen(
+            e
             for e in game.query_event_log()
             .in_round(game.last_round)
             .in_phase(GamePhase.OPERATIONS)
