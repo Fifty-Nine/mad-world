@@ -192,7 +192,7 @@ PERSONA_NOUNS: tuple[str, ...] = (
     "Henchman",
     "Hypocrite",
     "Idealist",
-    "Imposter",
+    "Impostor",
     "Infiltrator",
     "Influencer",
     "Inquisitor",
