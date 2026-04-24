@@ -571,11 +571,72 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         CounterIntelligenceMandate(),
         CoolerHeadsMandate(),
         MilitaryIndustrialComplexMandate(),
+        ArmsRaceMandate(),
         MoralHighGroundMandate(),
         DetenteMandate(),
         PeacemakerMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
+
+
+class ArmsRaceDefs:
+    TARGET_OP: ClassVar[str] = "conventional-offensive"
+    REWARD_GDP: ClassVar[int] = 20
+    REWARD_INF: ClassVar[int] = 4
+
+
+class ArmsRaceMandate(InstantMandate):
+    card_kind: ClassVar[str] = "arms_race"
+    title: ClassVar[str] = "Arms Race"
+    description: ClassVar[str] = (
+        f"If both players conduct {ArmsRaceDefs.TARGET_OP} operations in the "
+        f"same round, gain {ArmsRaceDefs.REWARD_GDP} GDP and "
+        f"{ArmsRaceDefs.REWARD_INF} influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        if game.last_phase != GamePhase.OPERATIONS:
+            return False
+
+        opponent_name = next(p for p in game.players if p != player_name)
+
+        events = list(
+            game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
+            .of_type(OperationConductedEvent)
+            .unwrap()
+        )
+
+        player_conducted_op = any(
+            e.done_by_player(player_name)
+            and e.operation == ArmsRaceDefs.TARGET_OP
+            for e in events
+        )
+
+        opponent_conducted_op = any(
+            e.done_by_player(opponent_name)
+            and e.operation == ArmsRaceDefs.TARGET_OP
+            for e in events
+        )
+
+        return player_conducted_op and opponent_conducted_op
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Profiting from an arms race yields: "
+                    f"+{ArmsRaceDefs.REWARD_GDP} GDP, "
+                    f"+{ArmsRaceDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: ArmsRaceDefs.REWARD_GDP},
+                influence_delta={player_name: ArmsRaceDefs.REWARD_INF},
+            )
+        ]
 
 
 class MilitaryIndustrialComplexDefs:
