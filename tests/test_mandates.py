@@ -19,6 +19,7 @@ from mad_world.events import (
 )
 from mad_world.mandates import (
     AccelerationistMandate,
+    ArmsRaceMandate,
     BaseMandate,
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
@@ -68,10 +69,89 @@ def test_check_endgame_mandates() -> None:
     assert m2 in game.players["Alpha"].completed_mandates
 
 
+def test_arms_race_mandate_met(basic_game: GameState) -> None:
+    """Test ArmsRaceMandate triggers when both players use target operation."""
+    mandate = ArmsRaceMandate()
+    basic_game.last_phase = GamePhase.OPERATIONS
+    basic_game.last_round = 1
+
+    basic_game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                actor=PlayerActor(name="Alpha"),
+                operation="conventional-offensive",
+                description="Alpha attacked",
+            ),
+        )
+    )
+
+    basic_game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                actor=PlayerActor(name="Omega"),
+                operation="conventional-offensive",
+                description="Omega attacked",
+            ),
+        )
+    )
+
+    assert mandate.is_met(basic_game, "Alpha") is True
+    assert mandate.is_met(basic_game, "Omega") is True
+
+    rewards_alpha = mandate.reward(basic_game, "Alpha")
+    assert len(rewards_alpha) == 1
+    reward_event_alpha = rewards_alpha[0]
+    assert isinstance(reward_event_alpha, MandateFulfilledEvent)
+    assert reward_event_alpha.gdp_delta == {"Alpha": 20}
+    assert reward_event_alpha.influence_delta == {"Alpha": 4}
+
+
+def test_arms_race_mandate_not_met(basic_game: GameState) -> None:
+    """Test that ArmsRaceMandate is not met if the condition is false."""
+    mandate = ArmsRaceMandate()
+    basic_game.last_phase = GamePhase.OPERATIONS
+    basic_game.last_round = 1
+
+    basic_game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                actor=PlayerActor(name="Alpha"),
+                operation="conventional-offensive",
+                description="Alpha attacked",
+            ),
+        )
+    )
+
+    basic_game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                actor=PlayerActor(name="Omega"),
+                operation="stand-down",
+                description="Omega stood down",
+            ),
+        )
+    )
+
+    assert mandate.is_met(basic_game, "Alpha") is False
+    assert mandate.is_met(basic_game, "Omega") is False
+
+    # Also check other phases
+    basic_game.last_phase = GamePhase.BIDDING
+    assert mandate.is_met(basic_game, "Alpha") is False
+
+
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 12
+    assert len(deck) == 13
 
 
 def test_sleeping_giant_mandate() -> None:
