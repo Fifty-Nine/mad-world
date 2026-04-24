@@ -13,6 +13,7 @@ from mad_world.decks import Deck
 from mad_world.effects import (
     ArmsControlEffect,
     BaseEffect,
+    DisarmamentMomentumEffect,
     GlobalSanctionsEffect,
     HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
@@ -418,7 +419,31 @@ class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
         return TechnologicalBreakthroughEffect
 
 
+class DisarmamentMomentumEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "disarmament_momentum_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Disarmament Momentum"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "A sudden wave of global peace movements places immense political "
+            "pressure on world leaders to step back from the brink."
+        )
+
+    @override
+    def effect_type(self) -> type[DisarmamentMomentumEffect]:
+        return DisarmamentMomentumEffect
+
+
 default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
+    (DisarmamentMomentumEvent(), 3),
     (ClockChangeEvent(amount=1), 3),
     (ClockChangeEvent(amount=-1), 3),
     (ClockChangeEvent(amount=2), 1),

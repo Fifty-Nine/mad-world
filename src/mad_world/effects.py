@@ -276,3 +276,30 @@ class TechnologicalBreakthroughEffect(BaseEffect):
             else v
             for op, v in ops.items()
         }
+
+
+class DisarmamentMomentumEffect(BaseEffect):
+    card_kind: ClassVar[str] = "disarmament_momentum"
+
+    title: ClassVar[str] = "Disarmament Momentum"
+    description: ClassVar[str] = (
+        "Global public opinion heavily favors de-escalation, magnifying "
+        "the political impact of peaceful gestures."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the clock impact of "
+        "'unilateral-drawdown' and 'stand-down' operations is decreased by 2 "
+        "(becoming more negative) while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(update={"clock_effect": v.clock_effect - 2})
+            if op in ("unilateral-drawdown", "stand-down")
+            else v
+            for op, v in ops.items()
+        }
