@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from mad_world.effects import (
     ArmsControlEffect,
+    DisarmamentMomentumEffect,
     GlobalSanctionsEffect,
     HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
@@ -20,6 +21,7 @@ from mad_world.event_cards import (
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
+    DisarmamentMomentumEvent,
     HawkishResurgenceEvent,
     ProxyWarEscalationEvent,
     SupplyChainShockEvent,
@@ -332,4 +334,44 @@ def test_technological_breakthrough_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, TechnologicalBreakthroughEffect)
+    assert effect.duration == 2
+
+
+def test_disarmament_momentum_effect(basic_game: GameState) -> None:
+    effect = DisarmamentMomentumEffect(duration=None)
+    ops = basic_game.allowed_operations
+    assert "unilateral-drawdown" in ops
+    assert "stand-down" in ops
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["unilateral-drawdown"].clock_effect
+        == ops["unilateral-drawdown"].clock_effect - 2
+    )
+    assert (
+        modified_ops["stand-down"].clock_effect
+        == ops["stand-down"].clock_effect - 2
+    )
+
+    # other ops remain the same
+    assert (
+        modified_ops["domestic-investment"].clock_effect
+        == ops["domestic-investment"].clock_effect
+    )
+
+
+def test_disarmament_momentum_event(basic_game: GameState) -> None:
+    event = DisarmamentMomentumEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, DisarmamentMomentumEffect)
     assert effect.duration == 2
