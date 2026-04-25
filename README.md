@@ -79,7 +79,6 @@ uv run mad_world \
 
 The project uses a standard set of modern Python tools:
 - **ruff**: For fast linting and code formatting.
-- **mypy**: For strict static type checking.
 - **pytest**: For writing and executing tests.
 
 ### Running Checks
