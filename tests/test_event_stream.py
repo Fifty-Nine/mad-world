@@ -105,7 +105,7 @@ def test_of_type(sample_events: Sequence[LoggedEvent[GameEvent]]) -> None:
     assert len(result) == 3
     assert all(isinstance(e, BiddingEvent) for e in result)
 
-    # Type hinting check (mostly for mypy)
+    # Type hinting check (mostly for ty)
     first_bid = result[0]
     assert first_bid.bid in (5, 10, 15)
 
