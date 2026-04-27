@@ -24,6 +24,9 @@ from mad_world.crises import (
     STANDOFF_TIE_INF_EFFECT,
     STANDOFF_WINNER_CLOCK_EFFECT,
     BaseCrisis,
+    DefectorAction,
+    DefectorCrisis,
+    DefectorDefs,
     GenericCrisis,
     InternationalSanctionsCrisis,
     ProxyWarAction,
@@ -34,9 +37,6 @@ from mad_world.crises import (
     RogueProliferationDefs,
     StandoffAction,
     StandoffCrisis,
-    DefectorAction,
-    DefectorCrisis,
-    DefectorDefs,
 )
 from mad_world.enums import StandoffPosture
 from mad_world.events import (
@@ -751,7 +751,6 @@ class TestDefector(CrisisTestBase[DefectorAction, DefectorCrisis]):
         assert system_event.influence_delta["Omega"] == DefectorDefs.WINNER_INF
         assert system_event.gdp_delta["Omega"] == 3
         assert system_event.gdp_delta["Alpha"] == -3
-
 
     def test_action_type(self, crisis: DefectorCrisis) -> None:
         assert crisis.action_type == DefectorAction
