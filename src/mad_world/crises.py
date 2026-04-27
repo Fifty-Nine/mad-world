@@ -1302,7 +1302,133 @@ class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
         return result
 
 
+class DefectorAction(BaseAction):
+    investment: int = Field(
+        description=(
+            "The amount of Influence you are willing to bid to extract "
+            "the defector. This must be less than or equal to your "
+            "current Influence."
+        )
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        inf = game.players[player_name].influence
+        if inf < self.investment:
+            raise InsufficientInfluenceError(
+                available=inf, cost=self.investment
+            )
+
+        if self.investment < 0:
+            raise InvalidInfluenceAmountError
+
+
+class DefectorDefs:
+    WINNER_INF: ClassVar[int] = 3
+    WINNER_GDP_STEAL: ClassVar[int] = 5
+    TIE_CLOCK_IMPACT: ClassVar[int] = 2
+
+
+class DefectorCrisis(GenericCrisis[DefectorAction]):
+    card_kind: ClassVar[Literal["the-defector"]] = "the-defector"
+
+    @property
+    def action_type(self) -> type[DefectorAction]:
+        return DefectorAction
+
+    title: ClassVar[str] = "The Defector"
+    description: ClassVar[str] = (
+        "A highly placed intelligence official is attempting to defect. They "
+        "possess sensitive economic and military secrets that could shift the "
+        "balance of power. Both superpowers are dispatching elite extraction "
+        "teams to secure the defector. If you secure them, you will deal a "
+        "direct blow to your opponent's economy while boosting your own "
+        "standing. But if extraction teams clash and fail, the resulting "
+        "international incident will push the world closer to midnight."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will bid an amount of Influence to fund the extraction "
+        "operation. Your bid will be subtracted from your current Influence. "
+        "The player who bids the *most* Influence successfully extracts the "
+        "defector, stealing "
+        f"{DefectorDefs.WINNER_GDP_STEAL} GDP from their opponent and gaining "
+        f"{DefectorDefs.WINNER_INF} Influence. If both players bid the same "
+        "amount, the extraction teams clash in a bloody firefight. The "
+        "defector is killed, and the escalating diplomatic crisis advances "
+        f"the Doomsday Clock by {DefectorDefs.TIE_CLOCK_IMPACT}."
+    )
+    consumable: ClassVar[bool] = True
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> DefectorAction:
+        """Returns a fallback action for the player."""
+        max_bid = game.players[player].influence
+        bid = min(max_bid, 5) if aggressive else 0
+        return DefectorAction(investment=bid)
+
+    @override
+    def resolve(
+        self, game: GameState, actions: dict[str, DefectorAction]
+    ) -> list[GameEvent]:
+        player1, player2 = game.player_names
+        p1_amount, p2_amount = (
+            actions[player1].investment,
+            actions[player2].investment,
+        )
+
+        result: list[GameEvent] = [
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player1),
+                description=(
+                    f"{player1} spent {p1_amount} Influence on extraction."
+                ),
+                influence_delta={player1: -p1_amount},
+            ),
+            CrisisResolutionEvent(
+                actor=PlayerActor(name=player2),
+                description=(
+                    f"{player2} spent {p2_amount} Influence on extraction."
+                ),
+                influence_delta={player2: -p2_amount},
+            ),
+        ]
+
+        if p1_amount == p2_amount:
+            result.append(
+                SystemEvent(
+                    description=(
+                        "Both superpowers' extraction teams clashed. The "
+                        "defector was killed in the crossfire. The resulting "
+                        "international incident has escalated global tensions."
+                    ),
+                    clock_delta=DefectorDefs.TIE_CLOCK_IMPACT,
+                )
+            )
+            return result
+
+        winner = player1 if p1_amount > p2_amount else player2
+        loser = player2 if winner == player1 else player1
+
+        actual_steal = min(
+            game.players[loser].gdp, DefectorDefs.WINNER_GDP_STEAL
+        )
+
+        result.append(
+            SystemEvent(
+                description=(
+                    f"{winner} successfully extracted the defector, securing "
+                    "vital intelligence that cripples the opponent's economy."
+                ),
+                influence_delta={winner: DefectorDefs.WINNER_INF},
+                gdp_delta={winner: actual_steal, loser: -actual_steal},
+            )
+        )
+        return result
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
+    *(DefectorCrisis() for _ in range(2)),
     *(BilateralDisarmamentCrisis() for _ in range(2)),
     *(StandoffCrisis() for _ in range(3)),
     *(InternationalSanctionsCrisis() for _ in range(2)),

@@ -24,6 +24,9 @@ from mad_world.crises import (
     STANDOFF_TIE_INF_EFFECT,
     STANDOFF_WINNER_CLOCK_EFFECT,
     BaseCrisis,
+    DefectorAction,
+    DefectorCrisis,
+    DefectorDefs,
     GenericCrisis,
     InternationalSanctionsCrisis,
     ProxyWarAction,
@@ -682,3 +685,93 @@ class TestRogueProliferationCrisis(
         basic_game.players["Alpha"].influence = 3
         capped = crisis.get_default_action("Alpha", basic_game, aggressive=True)
         assert capped.investment == 3
+
+
+class TestDefector(CrisisTestBase[DefectorAction, DefectorCrisis]):
+    @pytest.fixture
+    @override
+    def crisis(self) -> DefectorCrisis:
+        return DefectorCrisis()
+
+    def test_semantics(
+        self, basic_game: GameState, crisis: DefectorCrisis
+    ) -> None:
+        action = DefectorAction(investment=5)
+        basic_game.players["Alpha"].influence = 4
+        with pytest.raises(InsufficientInfluenceError):
+            action.validate_semantics(basic_game, "Alpha")
+
+        action = DefectorAction(investment=-1)
+        with pytest.raises(InvalidInfluenceAmountError):
+            action.validate_semantics(basic_game, "Alpha")
+
+    def test_p1_wins(
+        self, basic_game: GameState, crisis: DefectorCrisis
+    ) -> None:
+        basic_game.players["Alpha"].gdp = 100
+        basic_game.players["Omega"].gdp = 100
+        basic_game.players["Alpha"].influence = 10
+        basic_game.players["Omega"].influence = 10
+
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": DefectorAction(investment=5),
+                "Omega": DefectorAction(investment=2),
+            },
+        )
+
+        assert len(events) == 3
+        system_event = events[2]
+        assert isinstance(system_event, SystemEvent)
+        assert system_event.influence_delta["Alpha"] == DefectorDefs.WINNER_INF
+        assert system_event.gdp_delta["Alpha"] == DefectorDefs.WINNER_GDP_STEAL
+        assert system_event.gdp_delta["Omega"] == -DefectorDefs.WINNER_GDP_STEAL
+        assert system_event.clock_delta == 0
+
+    def test_p2_wins_limited_gdp(
+        self, basic_game: GameState, crisis: DefectorCrisis
+    ) -> None:
+        basic_game.players["Alpha"].gdp = 3
+        basic_game.players["Omega"].gdp = 100
+        basic_game.players["Alpha"].influence = 10
+        basic_game.players["Omega"].influence = 10
+
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": DefectorAction(investment=2),
+                "Omega": DefectorAction(investment=5),
+            },
+        )
+
+        assert len(events) == 3
+        system_event = events[2]
+        assert isinstance(system_event, SystemEvent)
+        assert system_event.influence_delta["Omega"] == DefectorDefs.WINNER_INF
+        assert system_event.gdp_delta["Omega"] == 3
+        assert system_event.gdp_delta["Alpha"] == -3
+
+    def test_action_type(self, crisis: DefectorCrisis) -> None:
+        assert crisis.action_type == DefectorAction
+
+    def test_tie(self, basic_game: GameState, crisis: DefectorCrisis) -> None:
+        basic_game.players["Alpha"].gdp = 100
+        basic_game.players["Omega"].gdp = 100
+        basic_game.players["Alpha"].influence = 10
+        basic_game.players["Omega"].influence = 10
+
+        events = crisis.resolve(
+            basic_game,
+            {
+                "Alpha": DefectorAction(investment=5),
+                "Omega": DefectorAction(investment=5),
+            },
+        )
+
+        assert len(events) == 3
+        system_event = events[2]
+        assert isinstance(system_event, SystemEvent)
+        assert system_event.clock_delta == DefectorDefs.TIE_CLOCK_IMPACT
+        assert not system_event.gdp_delta
+        assert not system_event.influence_delta
