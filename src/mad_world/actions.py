@@ -70,7 +70,7 @@ class InvalidOperationError(InvalidActionError):
     def __init__(self, *, operation: str, allowed: list[str]) -> None:
         super().__init__(
             f"INVALID OPERATION: '{operation}' is not a valid "
-            "operation. Allowed operations are: {allowed}"
+            f"operation. Allowed operations are: {allowed}"
         )
 
 
