@@ -560,6 +560,59 @@ class PeacemakerMandate(EndgameMandate):
         ]
 
 
+class MadmanTheoryDefs:
+    CLOCK_PERCENTAGE: ClassVar[float] = 0.8
+    REWARD_GDP: ClassVar[int] = 15
+    REWARD_INF: ClassVar[int] = 2
+
+
+class MadmanTheoryMandate(InstantMandate):
+    card_kind: ClassVar[str] = "madman_theory"
+    title: ClassVar[str] = "Madman Theory"
+    description: ClassVar[str] = (
+        f"If you place the maximum allowed bid while the Doomsday Clock "
+        f"is at or above {int(MadmanTheoryDefs.CLOCK_PERCENTAGE * 100)}% "
+        f"of max, gain {MadmanTheoryDefs.REWARD_GDP} GDP and "
+        f"{MadmanTheoryDefs.REWARD_INF} influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        if game.last_phase != GamePhase.BIDDING:
+            return False
+
+        if game.doomsday_clock < (
+            game.rules.max_clock_state * MadmanTheoryDefs.CLOCK_PERCENTAGE
+        ):
+            return False
+
+        max_bid = max(game.rules.allowed_bids)
+
+        return any(
+            e.done_by_player(player_name) and e.bid == max_bid
+            for e in game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
+            .unwrap()
+        )
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Projecting instability yields: "
+                    f"+{MadmanTheoryDefs.REWARD_GDP} GDP, "
+                    f"+{MadmanTheoryDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: MadmanTheoryDefs.REWARD_GDP},
+                influence_delta={player_name: MadmanTheoryDefs.REWARD_INF},
+            )
+        ]
+
+
 def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
     cards: list[BaseMandate] = [
         SleepingGiantMandate(),
@@ -575,6 +628,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         MoralHighGroundMandate(),
         DetenteMandate(),
         PeacemakerMandate(),
+        MadmanTheoryMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
