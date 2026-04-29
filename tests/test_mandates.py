@@ -24,6 +24,8 @@ from mad_world.mandates import (
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     DetenteMandate,
+    MadmanTheoryDefs,
+    MadmanTheoryMandate,
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
@@ -786,7 +788,6 @@ def test_peacemaker_mandate() -> None:
 
 
 def test_madman_theory_mandate() -> None:
-    from mad_world.mandates import MadmanTheoryMandate, MadmanTheoryDefs
 
     mandate = MadmanTheoryMandate()
     game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
