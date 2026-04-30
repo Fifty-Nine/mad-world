@@ -17,11 +17,10 @@ class ComparableRandom(random.Random):
 
     def __eq__(self, other: Any) -> bool:
         if hasattr(other, "getstate"):
-            # mypy and ruff disagree on the type, so we can't satisfy both
-            return self.getstate() == other.getstate()  # type: ignore[no-any-return]
+            return self.getstate() == other.getstate()
         return NotImplemented  # pragma: no cover
 
-    __hash__ = None  # type: ignore[assignment]
+    __hash__ = None
 
 
 def _to_tuple(obj: Any) -> Any:
