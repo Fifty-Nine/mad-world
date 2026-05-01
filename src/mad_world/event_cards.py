@@ -11,6 +11,7 @@ from pydantic import ConfigDict, Field
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.effects import (
+    AntiWarProtestsEffect,
     ArmsControlEffect,
     BaseEffect,
     GlobalSanctionsEffect,
@@ -21,7 +22,6 @@ from mad_world.effects import (
     SupplyChainShockEffect,
     TechnologicalBreakthroughEffect,
     UNPeacekeepingEffect,
-    AntiWarProtestsEffect,
 )
 from mad_world.events import GameEvent, SystemEvent
 from mad_world.util import gain_or_lose, increase_or_decrease, risen_or_fallen
@@ -417,7 +417,6 @@ class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
     @override
     def effect_type(self) -> type[TechnologicalBreakthroughEffect]:
         return TechnologicalBreakthroughEffect
-
 
 
 class AntiWarProtestsEvent(BaseOngoingEffectEvent):

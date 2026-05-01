@@ -336,6 +336,7 @@ def test_technological_breakthrough_event(basic_game: GameState) -> None:
     assert isinstance(effect, TechnologicalBreakthroughEffect)
     assert effect.duration == 2
 
+
 def test_anti_war_protests_effect(basic_game: GameState) -> None:
     effect = AntiWarProtestsEffect(duration=None)
     ops = basic_game.allowed_operations

@@ -277,6 +277,7 @@ class TechnologicalBreakthroughEffect(BaseEffect):
             for op, v in ops.items()
         }
 
+
 class AntiWarProtestsEffect(BaseEffect):
     card_kind: ClassVar[str] = "anti_war_protests"
 
