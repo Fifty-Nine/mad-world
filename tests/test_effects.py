@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from mad_world.effects import (
+    AntiWarProtestsEffect,
     ArmsControlEffect,
     GlobalSanctionsEffect,
     HawkishResurgenceEffect,
@@ -17,6 +18,7 @@ from mad_world.effects import (
 )
 from mad_world.enums import GamePhase
 from mad_world.event_cards import (
+    AntiWarProtestsEvent,
     ArmsControlTreatyEvent,
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
@@ -332,4 +334,39 @@ def test_technological_breakthrough_event(basic_game: GameState) -> None:
     assert len(basic_game.active_effects) == 1
     effect = basic_game.active_effects[0]
     assert isinstance(effect, TechnologicalBreakthroughEffect)
+    assert effect.duration == 2
+
+def test_anti_war_protests_effect(basic_game: GameState) -> None:
+    effect = AntiWarProtestsEffect(duration=None)
+    ops = basic_game.allowed_operations
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["conventional-offensive"].influence_cost
+        == ops["conventional-offensive"].influence_cost + 2
+    )
+    assert (
+        modified_ops["proxy-subversion"].influence_cost
+        == ops["proxy-subversion"].influence_cost + 2
+    )
+    assert (
+        modified_ops["domestic-investment"].influence_cost
+        == ops["domestic-investment"].influence_cost
+    )
+
+
+def test_anti_war_protests_event(basic_game: GameState) -> None:
+    event = AntiWarProtestsEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, AntiWarProtestsEffect)
     assert effect.duration == 2

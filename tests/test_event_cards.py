@@ -8,6 +8,7 @@ from mad_world.core import resolve_round_events
 from mad_world.decks import Deck
 from mad_world.enums import GamePhase
 from mad_world.event_cards import (
+    AntiWarProtestsEvent,
     BaseEventCard,
     BasePlayerEffectCard,
     ClockChangeEvent,
@@ -105,7 +106,7 @@ def test_global_sanctions_event(basic_game: GameState) -> None:
 
 def test_create_event_deck(basic_game: GameState) -> None:
     deck = create_event_deck(basic_game.rng)
-    assert len(deck) == 53
+    assert len(deck) == 56
 
 
 @pytest.mark.asyncio
@@ -122,3 +123,11 @@ async def test_resolve_round_events(basic_game: GameState) -> None:
     assert new_game.doomsday_clock == initial_clock + 1
     assert len(new_game.event_deck.discard_pile) == 1
     assert new_game.current_phase == GamePhase.BIDDING_MESSAGING
+
+
+def test_anti_war_protests_event(basic_game: GameState) -> None:
+    event = AntiWarProtestsEvent()
+    game_events = event.run(basic_game)
+    assert len(game_events) == 1
+    assert len(game_events[0].new_effects) == 1
+    assert game_events[0].new_effects[0].card_kind == "anti_war_protests"
