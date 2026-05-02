@@ -149,7 +149,7 @@ class PacifistUtopiaMandate(EndgameMandate):
 
     def is_met(self, game: GameState, player_name: str) -> bool:
         """Check if the condition for this mandate has been met."""
-        debt = game.escalation_track.count(PlayerActor(name=player_name))
+        debt = game.escalation_debt(player_name)
         return debt < (
             PacifistUtopiaDefs.MAX_CLOCK_PERCENTAGE * game.rules.max_clock_state
         )
