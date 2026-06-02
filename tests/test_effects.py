@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from mad_world.effects import (
     ArmsControlEffect,
+    CyberWarfareEffect,
     GlobalSanctionsEffect,
     HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
@@ -21,6 +22,7 @@ from mad_world.event_cards import (
     BanDomesticInvestmentEvent,
     BanZeroBidsEvent,
     HawkishResurgenceEvent,
+    CyberWarfareEvent,
     ProxyWarEscalationEvent,
     SupplyChainShockEvent,
     TechnologicalBreakthroughEvent,
@@ -317,6 +319,39 @@ def test_technological_breakthrough_effect(basic_game: GameState) -> None:
         modified_ops["proxy-subversion"].friendly_gdp_effect
         == ops["proxy-subversion"].friendly_gdp_effect
     )
+
+
+def test_cyber_warfare_effect(basic_game: GameState) -> None:
+    effect = CyberWarfareEffect(duration=None)
+    ops = basic_game.allowed_operations
+
+    modified_ops = effect.modify_operations(ops)
+
+    assert (
+        modified_ops["proxy-subversion"].friendly_gdp_effect
+        == ops["proxy-subversion"].friendly_gdp_effect + 2
+    )
+
+    assert (
+        modified_ops["domestic-investment"].friendly_gdp_effect
+        == ops["domestic-investment"].friendly_gdp_effect
+    )
+
+
+def test_cyber_warfare_event(basic_game: GameState) -> None:
+    event = CyberWarfareEvent()
+    basic_game.current_round = 2
+
+    events = event.run(basic_game)
+    assert len(events) == 1
+    assert "has been applied" in events[0].description
+
+    basic_game.apply_event(events[0])
+
+    assert len(basic_game.active_effects) == 1
+    effect = basic_game.active_effects[0]
+    assert isinstance(effect, CyberWarfareEffect)
+    assert effect.duration == 2
 
 
 def test_technological_breakthrough_event(basic_game: GameState) -> None:
