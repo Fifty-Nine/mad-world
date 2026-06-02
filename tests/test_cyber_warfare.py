@@ -1,8 +1,9 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, override
+
 import pytest
 
-from typing import override
-
-from mad_world.core import GameState
 from mad_world.crises import (
     CyberWarfareAction,
     CyberWarfareCrisis,
@@ -12,6 +13,9 @@ from mad_world.enums import CyberWarfarePosture
 from mad_world.events import SystemEvent
 
 from .test_crises import CrisisTestBase
+
+if TYPE_CHECKING:
+    from mad_world.core import GameState
 
 
 class TestCyberWarfareAction:

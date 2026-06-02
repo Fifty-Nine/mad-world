@@ -17,7 +17,11 @@ from mad_world.actions import (
 )
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
-from mad_world.enums import BlameGamePosture, CyberWarfarePosture, StandoffPosture
+from mad_world.enums import (
+    BlameGamePosture,
+    CyberWarfarePosture,
+    StandoffPosture,
+)
 from mad_world.events import (
     CrisisResolutionEvent,
     GameEvent,
@@ -1348,9 +1352,9 @@ class CyberWarfareCrisis(GenericCrisis[CyberWarfareAction]):
         f"{abs(CyberWarfareDefs.ATTACK_DEFEND_GDP_PENALTY)} GDP. The defender "
         "suffers no losses. "
         "If both DEFEND, the crisis passes without major incident, but the "
-        "world recognizes both powers as overly cautious, resulting in a loss of "
-        f"{abs(CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY)} Influence for both. "
-        "The doomsday clock recedes by "
+        "world recognizes both powers as overly cautious, resulting in a "
+        f"loss of {abs(CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY)} "
+        "Influence for both. The doomsday clock recedes by "
         f"{abs(CyberWarfareDefs.DOUBLE_DEFEND_CLOCK_REWARD)} points."
     )
 
@@ -1385,10 +1389,9 @@ class CyberWarfareCrisis(GenericCrisis[CyberWarfareAction]):
                         "escalating global tensions."
                     ),
                     clock_delta=CyberWarfareDefs.DOUBLE_ATTACK_CLOCK_PENALTY,
-                    gdp_delta={
-                        p: CyberWarfareDefs.DOUBLE_ATTACK_GDP_PENALTY
-                        for p in players
-                    },
+                    gdp_delta=dict.fromkeys(
+                        players, CyberWarfareDefs.DOUBLE_ATTACK_GDP_PENALTY
+                    ),
                 )
             ]
 
@@ -1400,10 +1403,9 @@ class CyberWarfareCrisis(GenericCrisis[CyberWarfareAction]):
                         "a major crisis but looking weak on the global stage."
                     ),
                     clock_delta=CyberWarfareDefs.DOUBLE_DEFEND_CLOCK_REWARD,
-                    influence_delta={
-                        p: CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY
-                        for p in players
-                    },
+                    influence_delta=dict.fromkeys(
+                        players, CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY
+                    ),
                 )
             ]
 
@@ -1422,8 +1424,12 @@ class CyberWarfareCrisis(GenericCrisis[CyberWarfareAction]):
                     f"{attacker} gained some intelligence but paid a heavy "
                     "economic price for the operation."
                 ),
-                gdp_delta={attacker: CyberWarfareDefs.ATTACK_DEFEND_GDP_PENALTY},
-                influence_delta={attacker: CyberWarfareDefs.ATTACK_DEFEND_INF_REWARD},
+                gdp_delta={
+                    attacker: CyberWarfareDefs.ATTACK_DEFEND_GDP_PENALTY
+                },
+                influence_delta={
+                    attacker: CyberWarfareDefs.ATTACK_DEFEND_INF_REWARD
+                },
             )
         ]
 
