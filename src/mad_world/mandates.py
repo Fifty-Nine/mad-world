@@ -596,7 +596,7 @@ class MadmanTheoryMandate(InstantMandate):
             return False
 
         # Check for operation in the current round
-        op_met = any(
+        return any(
             e.done_by_player(player_name)
             and e.operation == MadmanTheoryDefs.TARGET_OP
             for e in game.query_event_log()
@@ -605,8 +605,6 @@ class MadmanTheoryMandate(InstantMandate):
             .of_type(OperationConductedEvent)
             .unwrap()
         )
-
-        return op_met
 
     def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
         return [

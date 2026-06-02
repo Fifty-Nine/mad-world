@@ -18,13 +18,13 @@ from mad_world.events import (
     SystemActor,
 )
 from mad_world.mandates import (
-    MadmanTheoryMandate,
     AccelerationistMandate,
     ArmsRaceMandate,
     BaseMandate,
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     DetenteMandate,
+    MadmanTheoryMandate,
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
