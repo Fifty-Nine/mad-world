@@ -43,6 +43,11 @@ class BlameGamePosture(StrEnum):
     DEFLECT = "deflect"
 
 
+class CyberWarfarePosture(StrEnum):
+    ATTACK = "attack"
+    DEFEND = "defend"
+
+
 class OpenChannelPreference(StrEnum):
     REQUEST = "request"
     ACCEPT = "accept"

@@ -17,7 +17,7 @@ from mad_world.actions import (
 )
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
-from mad_world.enums import BlameGamePosture, StandoffPosture
+from mad_world.enums import BlameGamePosture, CyberWarfarePosture, StandoffPosture
 from mad_world.events import (
     CrisisResolutionEvent,
     GameEvent,
@@ -1302,6 +1302,132 @@ class BilateralDisarmamentCrisis(GenericCrisis[BilateralDisarmamentAction]):
         return result
 
 
+class CyberWarfareAction(BaseAction):
+    posture: CyberWarfarePosture = Field(
+        description="Your posture in response to this crisis. You must either "
+        "ATTACK or DEFEND. What will you do?",
+    )
+
+    def validate_semantics(self, game: GameState, player_name: str) -> None:
+        pass
+
+
+class CyberWarfareDefs:
+    ATTACK_DEFEND_INF_REWARD: ClassVar[int] = 5
+    ATTACK_DEFEND_GDP_PENALTY: ClassVar[int] = -10
+    DOUBLE_ATTACK_CLOCK_PENALTY: ClassVar[int] = 5
+    DOUBLE_ATTACK_GDP_PENALTY: ClassVar[int] = -15
+    DOUBLE_DEFEND_INF_PENALTY: ClassVar[int] = -5
+    DOUBLE_DEFEND_CLOCK_REWARD: ClassVar[int] = -5
+
+
+class CyberWarfareCrisis(GenericCrisis[CyberWarfareAction]):
+    @property
+    def action_type(self) -> type[CyberWarfareAction]:
+        return CyberWarfareAction
+
+    card_kind: ClassVar[Literal["cyber-warfare"]] = "cyber-warfare"
+    title: ClassVar[str] = "Global Cyber Warfare"
+    description: ClassVar[str] = (
+        "A devastating new cyber weapon has been discovered, capable of "
+        "crippling critical infrastructure worldwide. You must decide whether "
+        "to deploy the weapon to cripple your opponent's economy (ATTACK) or "
+        "focus your efforts on fortifying your own networks (DEFEND)."
+    )
+    mechanics: ClassVar[str] = (
+        "Both players will simultaneously choose to either ATTACK or DEFEND. "
+        "If both ATTACK, the cyber warfare escalates uncontrollably, dealing "
+        f"{abs(CyberWarfareDefs.DOUBLE_ATTACK_GDP_PENALTY)} GDP damage to both "
+        "sides and advancing the doomsday clock by "
+        f"{CyberWarfareDefs.DOUBLE_ATTACK_CLOCK_PENALTY}. "
+        "If one ATTACKS and one DEFENDS, the attacker successfully steals "
+        "valuable data, gaining "
+        f"{CyberWarfareDefs.ATTACK_DEFEND_INF_REWARD} Influence, but the "
+        "defender successfully shields their core infrastructure, causing the "
+        "attacker to expend vast resources, costing the attacker "
+        f"{abs(CyberWarfareDefs.ATTACK_DEFEND_GDP_PENALTY)} GDP. The defender "
+        "suffers no losses. "
+        "If both DEFEND, the crisis passes without major incident, but the "
+        "world recognizes both powers as overly cautious, resulting in a loss of "
+        f"{abs(CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY)} Influence for both. "
+        "The doomsday clock recedes by "
+        f"{abs(CyberWarfareDefs.DOUBLE_DEFEND_CLOCK_REWARD)} points."
+    )
+
+    @override
+    def get_default_action(
+        self, player: str, game: GameState, *, aggressive: bool
+    ) -> CyberWarfareAction:
+        """Returns a fallback action for the player."""
+        return CyberWarfareAction(
+            posture=(
+                CyberWarfarePosture.ATTACK
+                if aggressive
+                else CyberWarfarePosture.DEFEND
+            )
+        )
+
+    @override
+    def resolve(
+        self,
+        game: GameState,
+        actions: dict[str, CyberWarfareAction],
+    ) -> list[GameEvent]:
+        postures = [act.posture for act in actions.values()]
+        players = list(actions.keys())
+
+        if all(p == CyberWarfarePosture.ATTACK for p in postures):
+            return [
+                SystemEvent(
+                    description=(
+                        "Both superpowers engaged in unrestricted cyber "
+                        "warfare, devastating each other's economies and "
+                        "escalating global tensions."
+                    ),
+                    clock_delta=CyberWarfareDefs.DOUBLE_ATTACK_CLOCK_PENALTY,
+                    gdp_delta={
+                        p: CyberWarfareDefs.DOUBLE_ATTACK_GDP_PENALTY
+                        for p in players
+                    },
+                )
+            ]
+
+        if all(p == CyberWarfarePosture.DEFEND for p in postures):
+            return [
+                SystemEvent(
+                    description=(
+                        "Both superpowers focused on cyber defense, averting "
+                        "a major crisis but looking weak on the global stage."
+                    ),
+                    clock_delta=CyberWarfareDefs.DOUBLE_DEFEND_CLOCK_REWARD,
+                    influence_delta={
+                        p: CyberWarfareDefs.DOUBLE_DEFEND_INF_PENALTY
+                        for p in players
+                    },
+                )
+            ]
+
+        attacker = (
+            players[0]
+            if actions[players[0]].posture == CyberWarfarePosture.ATTACK
+            else players[1]
+        )
+        defender = players[1] if attacker == players[0] else players[0]
+
+        return [
+            SystemEvent(
+                description=(
+                    f"{attacker} launched a massive cyber attack against "
+                    f"{defender}, but {defender}'s robust defenses held. "
+                    f"{attacker} gained some intelligence but paid a heavy "
+                    "economic price for the operation."
+                ),
+                gdp_delta={attacker: CyberWarfareDefs.ATTACK_DEFEND_GDP_PENALTY},
+                influence_delta={attacker: CyberWarfareDefs.ATTACK_DEFEND_INF_REWARD},
+            )
+        ]
+
+
 INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(BilateralDisarmamentCrisis() for _ in range(2)),
     *(StandoffCrisis() for _ in range(3)),
@@ -1311,6 +1437,7 @@ INITIAL_CRISIS_DECK: list[BaseCrisis] = [
     *(NuclearMeltdownCrisis() for _ in range(2)),
     *(RogueProliferationCrisis() for _ in range(2)),
     *(AIArmsRaceCrisis() for _ in range(2)),
+    *(CyberWarfareCrisis() for _ in range(2)),
     DoomsdayAsteroidCrisis(),
 ]
 
