@@ -698,15 +698,7 @@ async def resolve_bidding(
 def effects_to_dict(
     names: Sequence[str], effects: Sequence[int]
 ) -> dict[str, int]:
-
-    result: dict[str, int] = {}
-    for p, e in zip(names, effects, strict=True):
-        if e == 0:
-            continue
-
-        result |= {p: e}
-
-    return result
+    return {p: e for p, e in zip(names, effects, strict=True) if e != 0}
 
 
 def resolve_operation(
