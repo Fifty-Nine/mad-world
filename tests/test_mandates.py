@@ -18,6 +18,7 @@ from mad_world.events import (
     SystemActor,
 )
 from mad_world.mandates import (
+    MadmanTheoryMandate,
     AccelerationistMandate,
     ArmsRaceMandate,
     BaseMandate,
@@ -151,7 +152,7 @@ def test_arms_race_mandate_not_met(basic_game: GameState) -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 13
+    assert len(deck) == 14
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -783,3 +784,66 @@ def test_peacemaker_mandate() -> None:
     assert len(rewards) == 1
     assert isinstance(rewards[0], MandateFulfilledEvent)
     assert rewards[0].gdp_delta == {"Alpha": 25}
+
+
+def test_madman_theory_mandate() -> None:
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+    mandate = MadmanTheoryMandate()
+
+    # Not met by default
+    assert mandate.is_met(game, "Alpha") is False
+
+    game.last_phase = GamePhase.OPERATIONS
+    game.last_round = 1
+
+    # Not met if no events
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Not met if only operation is met
+    game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.OPERATIONS,
+            event=OperationConductedEvent(
+                description="Alpha conventional",
+                actor=PlayerActor(name="Alpha"),
+                operation="conventional-offensive",
+            ),
+        )
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Not met if bid is too low
+    game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                description="Alpha bid 5",
+                actor=PlayerActor(name="Alpha"),
+                bid=5,
+            ),
+        )
+    )
+    assert mandate.is_met(game, "Alpha") is False
+
+    # Met if both bid and operation are met
+    game.event_log.append(
+        LoggedEvent(
+            round=1,
+            phase=GamePhase.BIDDING,
+            event=BiddingEvent(
+                description="Alpha bid 10",
+                actor=PlayerActor(name="Alpha"),
+                bid=10,
+            ),
+        )
+    )
+    assert mandate.is_met(game, "Alpha") is True
+    assert mandate.is_met(game, "Omega") is False
+
+    # Test rewards
+    rewards = mandate.reward(game, "Alpha")
+    assert len(rewards) == 1
+    assert rewards[0].gdp_delta == {"Alpha": 10}
+    assert rewards[0].influence_delta == {"Alpha": 2}

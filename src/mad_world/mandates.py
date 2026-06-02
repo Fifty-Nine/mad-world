@@ -560,6 +560,71 @@ class PeacemakerMandate(EndgameMandate):
         ]
 
 
+class MadmanTheoryDefs:
+    TARGET_OP: ClassVar[str] = "conventional-offensive"
+    REQUIRED_BID: ClassVar[int] = 10
+    REWARD_GDP: ClassVar[int] = 10
+    REWARD_INF: ClassVar[int] = 2
+
+
+class MadmanTheoryMandate(InstantMandate):
+    card_kind: ClassVar[str] = "madman_theory"
+    title: ClassVar[str] = "Madman Theory"
+    description: ClassVar[str] = (
+        f"If you conduct {MadmanTheoryDefs.TARGET_OP} and bid "
+        f"{MadmanTheoryDefs.REQUIRED_BID} in the same round, gain "
+        f"{MadmanTheoryDefs.REWARD_GDP} GDP and {MadmanTheoryDefs.REWARD_INF} "
+        f"influence."
+    )
+
+    def is_met(self, game: GameState, player_name: str) -> bool:
+        if game.last_phase != GamePhase.OPERATIONS:
+            return False
+
+        # Check for bid in the current round
+        bid_met = any(
+            e.done_by_player(player_name)
+            and e.bid >= MadmanTheoryDefs.REQUIRED_BID
+            for e in game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.BIDDING)
+            .of_type(BiddingEvent)
+            .unwrap()
+        )
+
+        if not bid_met:
+            return False
+
+        # Check for operation in the current round
+        op_met = any(
+            e.done_by_player(player_name)
+            and e.operation == MadmanTheoryDefs.TARGET_OP
+            for e in game.query_event_log()
+            .in_round(game.last_round)
+            .in_phase(GamePhase.OPERATIONS)
+            .of_type(OperationConductedEvent)
+            .unwrap()
+        )
+
+        return op_met
+
+    def reward(self, game: GameState, player_name: str) -> list[GameEvent]:
+        return [
+            MandateFulfilledEvent(
+                actor=PlayerActor(name=player_name),
+                mandate_title=self.title,
+                description=(
+                    f"{player_name} fulfilled '{self.title}' mandate! "
+                    f"Profiting from high-risk brinkmanship yields: "
+                    f"+{MadmanTheoryDefs.REWARD_GDP} GDP, "
+                    f"+{MadmanTheoryDefs.REWARD_INF} Influence."
+                ),
+                gdp_delta={player_name: MadmanTheoryDefs.REWARD_GDP},
+                influence_delta={player_name: MadmanTheoryDefs.REWARD_INF},
+            )
+        ]
+
+
 def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
     cards: list[BaseMandate] = [
         SleepingGiantMandate(),
@@ -575,6 +640,7 @@ def create_mandate_deck(rng: random.Random) -> Deck[BaseMandate]:
         MoralHighGroundMandate(),
         DetenteMandate(),
         PeacemakerMandate(),
+        MadmanTheoryMandate(),
     ]
     return Deck[BaseMandate].create(cards, rng)
 
