@@ -11,6 +11,7 @@ from pydantic import ConfigDict, Field
 from mad_world.cards import BaseCard
 from mad_world.decks import Deck
 from mad_world.effects import (
+    AntiWarProtestsEffect,
     ArmsControlEffect,
     BaseEffect,
     GlobalSanctionsEffect,
@@ -418,6 +419,28 @@ class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
         return TechnologicalBreakthroughEffect
 
 
+class AntiWarProtestsEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "anti_war_protests_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Anti-War Protests"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "Massive global protests erupt against escalating military action."
+        )
+
+    @override
+    def effect_type(self) -> type[AntiWarProtestsEffect]:
+        return AntiWarProtestsEffect
+
+
 default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ClockChangeEvent(amount=1), 3),
     (ClockChangeEvent(amount=-1), 3),
@@ -439,6 +462,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ProxyWarEscalationEvent(), 3),
     (UNPeacekeepingEvent(), 3),
     (TechnologicalBreakthroughEvent(), 3),
+    (AntiWarProtestsEvent(), 3),
 )
 
 

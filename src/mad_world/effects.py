@@ -276,3 +276,30 @@ class TechnologicalBreakthroughEffect(BaseEffect):
             else v
             for op, v in ops.items()
         }
+
+
+class AntiWarProtestsEffect(BaseEffect):
+    card_kind: ClassVar[str] = "anti_war_protests"
+
+    title: ClassVar[str] = "Anti-War Protests"
+    description: ClassVar[str] = (
+        "Massive domestic and international protests make military action "
+        "politically costly."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the influence cost of "
+        "'conventional-offensive' and 'proxy-subversion' is increased by 2 "
+        "while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(update={"influence_cost": v.influence_cost + 2})
+            if op in ("conventional-offensive", "proxy-subversion")
+            else v
+            for op, v in ops.items()
+        }
