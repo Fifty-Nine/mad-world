@@ -24,6 +24,8 @@ from mad_world.mandates import (
     CoolerHeadsMandate,
     CounterIntelligenceMandate,
     DetenteMandate,
+    MadmanTheoryDefs,
+    MadmanTheoryMandate,
     MilitaryIndustrialComplexMandate,
     MoralHighGroundMandate,
     PacifistUtopiaMandate,
@@ -151,7 +153,7 @@ def test_arms_race_mandate_not_met(basic_game: GameState) -> None:
 def test_create_mandate_deck() -> None:
     rng = random.Random(42)
     deck = create_mandate_deck(rng)
-    assert len(deck) == 13
+    assert len(deck) == 14
 
 
 def test_sleeping_giant_mandate() -> None:
@@ -783,3 +785,57 @@ def test_peacemaker_mandate() -> None:
     assert len(rewards) == 1
     assert isinstance(rewards[0], MandateFulfilledEvent)
     assert rewards[0].gdp_delta == {"Alpha": 25}
+
+
+def test_madman_theory_mandate() -> None:
+
+    mandate = MadmanTheoryMandate()
+    game = GameState.new_game(rules=GameRules(), players=["Alpha", "Omega"])
+
+    game.current_round = 1
+    game.current_phase = GamePhase.BIDDING
+
+    # Needs to be in BIDDING phase for instant mandates checks
+    game.last_phase = GamePhase.OPERATIONS
+    assert not mandate.is_met(game, "Alpha")
+    game.last_phase = GamePhase.BIDDING
+    game.last_round = 1
+
+    # Condition 1: clock is below threshold, bid is max
+    game.escalate(
+        SystemActor(),
+        int(game.rules.max_clock_state * MadmanTheoryDefs.CLOCK_PERCENTAGE) - 1,
+    )
+    max_bid = max(game.rules.allowed_bids)
+
+    game.apply_event(
+        BiddingEvent(
+            actor=PlayerActor(name="Alpha"),
+            bid=max_bid,
+            description="Alpha bid max",
+        )
+    )
+
+    assert not mandate.is_met(game, "Alpha")
+
+    # Condition 2: clock is at or above threshold, but bid is NOT max
+    game.escalate(SystemActor(), 1)  # Hit exactly the threshold
+
+    game.apply_event(
+        BiddingEvent(
+            actor=PlayerActor(name="Omega"),
+            bid=game.rules.allowed_bids[-2],
+            description="Omega bid slightly less than max",
+        )
+    )
+
+    assert not mandate.is_met(game, "Omega")
+
+    # Condition 3: clock is at or above threshold, and bid is max
+    assert mandate.is_met(game, "Alpha")
+
+    rewards = mandate.reward(game, "Alpha")
+    assert len(rewards) == 1
+    assert isinstance(rewards[0], MandateFulfilledEvent)
+    assert rewards[0].gdp_delta == {"Alpha": MadmanTheoryDefs.REWARD_GDP}
+    assert rewards[0].influence_delta == {"Alpha": MadmanTheoryDefs.REWARD_INF}
