@@ -13,6 +13,7 @@ from mad_world.decks import Deck
 from mad_world.effects import (
     ArmsControlEffect,
     BaseEffect,
+    CyberWarfareEffect,
     GlobalSanctionsEffect,
     HawkishResurgenceEffect,
     NoDomesticInvestmentEffect,
@@ -395,6 +396,29 @@ class UNPeacekeepingEvent(BaseOngoingEffectEvent):
         return UNPeacekeepingEffect
 
 
+class CyberWarfareEvent(BaseOngoingEffectEvent):
+    card_kind: ClassVar[str] = "cyber_warfare_event"
+
+    duration: int = 2
+
+    @property
+    @override
+    def title(self) -> str:
+        return "Global Cyber Warfare"
+
+    @property
+    @override
+    def description(self) -> str:
+        return (
+            "A massive, coordinated series of state-sponsored cyberattacks "
+            "targets global infrastructure."
+        )
+
+    @override
+    def effect_type(self) -> type[CyberWarfareEffect]:
+        return CyberWarfareEffect
+
+
 class TechnologicalBreakthroughEvent(BaseOngoingEffectEvent):
     card_kind: ClassVar[str] = "technological_breakthrough_event"
 
@@ -439,6 +463,7 @@ default_frequencies: tuple[tuple[BaseEventCard, int], ...] = (
     (ProxyWarEscalationEvent(), 3),
     (UNPeacekeepingEvent(), 3),
     (TechnologicalBreakthroughEvent(), 3),
+    (CyberWarfareEvent(), 3),
 )
 
 

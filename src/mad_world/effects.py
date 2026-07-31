@@ -250,6 +250,35 @@ class UNPeacekeepingEffect(BaseEffect):
         return {op: v for op, v in ops.items() if not self.is_forbidden(op)}
 
 
+class CyberWarfareEffect(BaseEffect):
+    card_kind: ClassVar[str] = "cyber_warfare"
+
+    title: ClassVar[str] = "Cyber Warfare Campaign"
+    description: ClassVar[str] = (
+        "State-sponsored hackers relentlessly target critical infrastructure "
+        "and financial systems, highly magnifying the damage and profitability "
+        "of subversion."
+    )
+    mechanics: ClassVar[str] = (
+        "During the operations phase, the GDP gain from 'proxy-subversion' "
+        "is increased by 2 while the effect is ongoing."
+    )
+
+    @override
+    def modify_operations(
+        self, ops: dict[str, OperationDefinition]
+    ) -> dict[str, OperationDefinition]:
+        """Filters or modifies the available operations."""
+        return {
+            op: v.model_copy(
+                update={"friendly_gdp_effect": v.friendly_gdp_effect + 2}
+            )
+            if op == "proxy-subversion"
+            else v
+            for op, v in ops.items()
+        }
+
+
 class TechnologicalBreakthroughEffect(BaseEffect):
     card_kind: ClassVar[str] = "technological_breakthrough"
 
